@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { AutoFitFont } from '../components/AutoFitFont';
 
-import { useSyncSubscriber } from '../hooks/useSync';
+import { useSyncSubscriber, usePresence } from '../hooks/useSync';
 import type { VersePayload } from '../hooks/useSync';
 
 // Extension of VersePayload for local UI state
@@ -11,6 +11,12 @@ interface ActiveVerse extends VersePayload {
 }
 
 const OverlayPage: React.FC = () => {
+  const [roomId, setRoomId] = useState<string | null>(null);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    setRoomId(params.get('room'));
+  }, []);
   const [verse, setVerse] = useState<ActiveVerse>({
     ref: "",
     en: "",
@@ -21,9 +27,28 @@ const OverlayPage: React.FC = () => {
   });
 
   useSyncSubscriber(
+    roomId,
     (payload) => setVerse({ ...payload, isVisible: true }),
     () => setVerse((prev) => ({ ...prev, isVisible: false }))
   );
+
+  const { hostStatus } = usePresence(roomId || "", true);
+
+  if (roomId === null || hostStatus !== 'online') {
+    // Only show the error if we've checked the URL and it's definitely missing
+    if (window.location.search && !new URLSearchParams(window.location.search).get('room')) {
+       return (
+         <div style={{ width: '100vw', height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#111', color: '#fff', fontFamily: 'Inter, sans-serif' }}>
+           <div style={{ textAlign: 'center', padding: '2rem', background: 'rgba(255,0,0,0.1)', border: '1px solid rgba(255,0,0,0.3)', borderRadius: '12px' }}>
+             <h2 style={{ marginBottom: '1rem', color: '#ff4444' }}>Missing Room ID</h2>
+             <p>Please provide a room code in the URL.<br/>Example: <code>/overlay?room=XYZ12</code></p>
+           </div>
+         </div>
+       );
+    }
+    // Still loading or checking
+    return null;
+  }
 
   return (
     <div 

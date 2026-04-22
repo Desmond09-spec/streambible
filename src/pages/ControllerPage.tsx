@@ -2,12 +2,16 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import './ControllerLegacy.css';
 import { parseReference, getCanonicalBookName, fetchEnglishVerse, fetchYorubaVerse } from '../services/bibleService';
-import { useSyncPublisher } from '../hooks/useSync';
+import { useSyncPublisher, usePresence } from '../hooks/useSync';
 
 const ControllerPage: React.FC = () => {
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
   const [query, setQuery] = useState('');
-  const { pushVerse, clearScreen: broadcastClear } = useSyncPublisher();
+  const [roomId, setRoomId] = useState<string>('');
+  const { pushVerse, clearScreen: broadcastClear } = useSyncPublisher(roomId);
+  const [remoteAccess, setRemoteAccess] = useState(false);
+  const isHost = localStorage.getItem(`streambible-host-${roomId}`) === 'true';
+  const { devices, myId, hostStatus } = usePresence(roomId, false, remoteAccess);
   
   const [enText, setEnText] = useState('');
   const [enRef, setEnRef] = useState('');
@@ -23,7 +27,6 @@ const ControllerPage: React.FC = () => {
   const [statusMsg, setStatusMsg] = useState('Ready');
   
   const [isNetworkExpanded, setIsNetworkExpanded] = useState(false);
-  const [remoteAccess, setRemoteAccess] = useState(false);
   
   const [isCopied, setIsCopied] = useState(false);
   const [isTransitioning, setIsTransitioning] = useState(false);
@@ -31,6 +34,17 @@ const ControllerPage: React.FC = () => {
   useEffect(() => {
     const saved = localStorage.getItem('streambible-theme') || 'light';
     setTheme(saved as 'light' | 'dark');
+
+    // Room ID Setup
+    const params = new URLSearchParams(window.location.search);
+    let currentRoom = params.get('room');
+    if (!currentRoom) {
+      currentRoom = Math.random().toString(36).substring(2, 7).toUpperCase();
+      const newUrl = `${window.location.pathname}?room=${currentRoom}`;
+      window.history.replaceState({}, '', newUrl);
+      localStorage.setItem(`streambible-host-${currentRoom}`, 'true');
+    }
+    setRoomId(currentRoom);
   }, []);
 
   // Debounced Live Search
@@ -123,9 +137,21 @@ const ControllerPage: React.FC = () => {
     setStatusMsg('Ready');
   };
 
-  const handleCopyLink = () => {
+  const copyUrl = (url: string) => {
+    navigator.clipboard.writeText(url);
     setIsCopied(true);
     setTimeout(() => setIsCopied(false), 3000);
+  };
+
+  const regenerateRoom = () => {
+    if (confirm("This will disconnect all currently connected overlays and controllers. Continue?")) {
+      broadcastClear(); // Wipe old screens
+      const newRoom = Math.random().toString(36).substring(2, 7).toUpperCase();
+      const newUrl = `${window.location.pathname}?room=${newRoom}`;
+      window.history.replaceState({}, '', newUrl);
+      localStorage.setItem(`streambible-host-${newRoom}`, 'true');
+      setRoomId(newRoom);
+    }
   };
 
   const SkeletonLoader = () => (
@@ -182,16 +208,19 @@ const ControllerPage: React.FC = () => {
           </div>
         </div>
 
-        <div className="header-right">
-          <button className="obs-copy-btn" onClick={handleCopyLink}>
+        <div className="header-right" style={{ display: 'flex', gap: 'var(--space-2)', alignItems: 'center' }}>
+          <button className="obs-copy-btn" onClick={() => copyUrl(`${window.location.origin}/overlay?room=${roomId}`)} title="Copy Lower Third Overlay Link">
             <svg className="icon-copy" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
               <path d="M6 5H4a2 2 0 0 0-2 2v4a2 2 0 0 0 2 2h2m4-10h2a2 2 0 0 1 2 2v4a2 2 0 0 1-2 2h-2M5 8h6"/>
             </svg>
-            <svg className="icon-link" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
-              <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.72-1.71"/>
+            <span className="btn-label">Overlay</span>
+          </button>
+          
+          <button className="obs-copy-btn" onClick={() => copyUrl(`${window.location.origin}/full-screen?room=${roomId}`)} title="Copy Full Screen Overlay Link">
+            <svg className="icon-copy" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/>
             </svg>
-            <span className="btn-label">Copy Link</span>
+            <span className="btn-label">Fullscreen</span>
           </button>
 
           <button className="theme-toggle" onClick={toggleTheme}>
@@ -234,8 +263,13 @@ const ControllerPage: React.FC = () => {
               <div className="network-status">Allow mobile devices on this Wi-Fi to control StreamBible.</div>
             </div>
             <div className="network-header-controls">
-              <label className="toggle-switch">
-                <input type="checkbox" checked={remoteAccess} onChange={(e) => setRemoteAccess(e.target.checked)} />
+              <label className={`toggle-switch ${!isHost ? 'is-locked' : ''}`}>
+                <input 
+                  type="checkbox" 
+                  checked={remoteAccess} 
+                  onChange={(e) => setRemoteAccess(e.target.checked)} 
+                  disabled={!isHost}
+                />
                 <span className="toggle-slider"></span>
               </label>
               <button 
@@ -259,17 +293,27 @@ const ControllerPage: React.FC = () => {
                 className="network-expanded visible"
                 style={{ overflow: 'hidden' }}
               >
-                <div className="qr-container">
-                   {/* QR Code Placeholder */}
-                   <div style={{ width: 140, height: 140, background: '#f0f0f0', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 8, color: '#999', fontSize: 12 }}>QR Code</div>
+                <div className="qr-container" style={{ padding: '16px', background: 'white', borderRadius: '12px', display: 'inline-block' }}>
+                   {roomId && (
+                     <img 
+                       src={`https://api.qrserver.com/v1/create-qr-code/?size=140x140&data=${encodeURIComponent(`${window.location.origin}/controller?room=${roomId}`)}`} 
+                       alt="Scan to control session"
+                       width={140}
+                       height={140}
+                       style={{ display: 'block' }}
+                     />
+                   )}
                 </div>
-                <div className="network-url-box">
+                <div className="network-url-box" style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                   <svg className="network-url-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                     <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
                     <path d="M7 11V7a5 5 0 0110 0v4"></path>
                   </svg>
-                  <span>http://192.168.x.x:5173/controller</span>
-                  <button onClick={handleCopyLink}>Copy</button>
+                  <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis' }}>{window.location.origin}/controller?room={roomId}</span>
+                  <button onClick={() => copyUrl(`${window.location.origin}/controller?room=${roomId}`)} style={{ padding: '4px 12px' }}>Copy</button>
+                  {isHost && (
+                    <button onClick={regenerateRoom} style={{ padding: '4px 12px', background: 'rgba(255,0,0,0.1)', color: '#ff4444' }} title="Reset Session ID">Reset</button>
+                  )}
                 </div>
 
                 {/* DEVICE MONITOR SECTION */}
@@ -278,25 +322,37 @@ const ControllerPage: React.FC = () => {
                      <span className="device-monitor-title">Live Sessions</span>
                    </div>
                    <div className="device-list">
-                     {/* Mock Session */}
-                     <div className="device-item is-me">
-                       <div className="device-item-left">
-                         <div className="device-icon-wrap">
-                           <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                              <rect x="5" y="2" width="14" height="20" rx="2" ry="2"></rect>
-                              <line x1="12" y1="18" x2="12.01" y2="18"></line>
-                           </svg>
-                         </div>
-                         <div className="device-info">
-                           <div className="device-name">Current Device</div>
-                           <div className="device-meta">
-                             localhost
-                             <span className="device-badge badge-host">Host</span>
-                             <span className="device-badge badge-me">You</span>
+                     {[...devices]
+                       .sort((a, b) => {
+                         if (a.id === myId) return -1;
+                         if (b.id === myId) return 1;
+                         if (a.isHost) return -1;
+                         if (b.isHost) return 1;
+                         return 0;
+                       })
+                       .map((dev) => {
+                         const isMe = dev.id === myId;
+                         return (
+                           <div key={dev.id} className={`device-item ${isMe ? 'is-me' : ''}`}>
+                             <div className="device-item-left">
+                               <div className="device-icon-wrap">
+                                 <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                   <rect x="5" y="2" width="14" height="20" rx="2" ry="2"></rect>
+                                   <line x1="12" y1="18" x2="12.01" y2="18"></line>
+                                 </svg>
+                               </div>
+                               <div className="device-info">
+                                 <div className="device-name">{isMe ? 'You' : dev.name}</div>
+                                 <div className="device-meta">
+                                   {isMe ? dev.name : (dev.isOverlay ? 'Overlay' : 'Remote Controller')}
+                                   {dev.isHost && <span className="device-badge badge-host">Host</span>}
+                                   {isMe && <span className="device-badge badge-me">You</span>}
+                                 </div>
+                               </div>
+                             </div>
                            </div>
-                         </div>
-                       </div>
-                     </div>
+                         );
+                       })}
                    </div>
                 </div>
               </motion.div>
@@ -395,6 +451,55 @@ const ControllerPage: React.FC = () => {
           <span>{statusMsg}</span>
         </div>
       </footer>
+      {/* DISCONNECTED OVERLAY for Guests */}
+      {!isHost && hostStatus !== 'online' && (
+        <div style={{
+          position: 'fixed',
+          top: 0, left: 0, right: 0, bottom: 0,
+          backgroundColor: 'rgba(0,0,0,0.85)',
+          backdropFilter: 'blur(10px)',
+          zIndex: 10000,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          color: 'white',
+          textAlign: 'center',
+          padding: '20px'
+        }}>
+          <motion.div 
+            initial={{ scale: 0.9, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            style={{ maxWidth: '400px' }}
+          >
+            <div style={{ fontSize: '48px', marginBottom: '20px' }}>
+              {hostStatus === 'denied' ? '🔒' : '📡'}
+            </div>
+            <h2 style={{ fontSize: '24px', fontWeight: 'bold', marginBottom: '12px' }}>
+              {hostStatus === 'denied' ? 'Access Revoked' : 'Host Disconnected'}
+            </h2>
+            <p style={{ opacity: 0.7, lineHeight: 1.5 }}>
+              {hostStatus === 'denied' 
+                ? "The host has disabled remote access for this session. Please contact your media team."
+                : "The primary controller has gone offline or the session has been reset."}
+            </p>
+            <button 
+              onClick={() => window.location.href = window.location.pathname}
+              style={{
+                marginTop: '30px',
+                padding: '12px 24px',
+                borderRadius: 'full',
+                background: 'var(--color-accent-primary)',
+                color: 'white',
+                border: 'none',
+                fontWeight: '600',
+                cursor: 'pointer'
+              }}
+            >
+              Back to Home
+            </button>
+          </motion.div>
+        </div>
+      )}
     </div>
   );
 };
