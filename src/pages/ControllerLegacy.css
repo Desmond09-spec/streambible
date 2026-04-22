@@ -1,0 +1,1609 @@
+/**
+ * StreamBible Design System
+ * common.css — Single source of truth for all design tokens
+ *
+ * Philosophy: Apple-adjacent premium minimalism.
+ * Every token is intentional. Nothing is decorative.
+ */
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+/* ============================================================
+   RESET
+============================================================ */
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+/* ============================================================
+   DESIGN TOKENS
+============================================================ */
+:root {
+
+  /* ----------------------------------------------------------
+     BACKGROUNDS — three-level depth system
+  ---------------------------------------------------------- */
+  --bg-body:      #07070d;                       /* L0: deepest — body */
+  --bg-raised:    rgba(255, 255, 255, 0.035);    /* L1: glass base surface */
+  --bg-elevated:  rgba(255, 255, 255, 0.065);    /* L2: hover / active state */
+  --bg-card:      rgba(8, 8, 18, 0.90);          /* Overlay card — near-opaque dark */
+
+  /* ----------------------------------------------------------
+     BORDERS
+  ---------------------------------------------------------- */
+  --border-dim:    rgba(255, 255, 255, 0.07);    /* Subtlest — dividers */
+  --border-base:   rgba(255, 255, 255, 0.10);    /* Default glass edge */
+  --border-bright: rgba(255, 255, 255, 0.17);    /* Hover / focused state */
+  --border-input:  rgba(255, 255, 255, 0.10);    /* Input fields */
+
+  /* Top-edge glass refraction highlight (inset shadow trick) */
+  --glass-top: rgba(255, 255, 255, 0.09);
+
+  /* ----------------------------------------------------------
+     TEXT — four opacity layers
+  ---------------------------------------------------------- */
+  --text-1: rgba(255, 255, 255, 0.92);   /* Primary — headings, verse text */
+  --text-2: rgba(255, 255, 255, 0.52);   /* Secondary — body, descriptions */
+  --text-3: rgba(255, 255, 255, 0.30);   /* Tertiary — labels, placeholders */
+  --text-4: rgba(255, 255, 255, 0.16);   /* Quaternary — disabled, hints */
+
+  /* ----------------------------------------------------------
+     ACCENT — refined metallic silver
+     Used sparingly: verse reference labels + left card border.
+     Appears in exactly two contexts per surface. No more.
+  ---------------------------------------------------------- */
+  --accent:      #D1D1D6;
+  --accent-dim:  rgba(209, 209, 214, 0.14);
+  --accent-glow: rgba(209, 209, 214, 0.08);
+
+  /* ----------------------------------------------------------
+     LIGHTING ENGINE TOKENS
+     Updated dynamically by common.js LightingEngine
+  ---------------------------------------------------------- */
+  --light-x: 0;
+  --light-y: 0;
+  --reflect-angle: 135deg;
+  --reflect-dist: 0px;
+
+  /* Brushed Silver Surface Gradient */
+  --metallic-gradient: linear-gradient(
+    var(--reflect-angle),
+    rgba(255, 255, 255, 0.15) 0%,
+    rgba(255, 255, 255, 0.40) 45%,
+    rgba(255, 255, 255, 0.45) 50%,
+    rgba(255, 255, 255, 0.40) 55%,
+    rgba(255, 255, 255, 0.15) 100%
+  );
+
+  /* ----------------------------------------------------------
+     SEMANTIC COLORS
+  ---------------------------------------------------------- */
+  --success:     rgba(48, 209, 88, 0.90);
+  --success-bg:  rgba(48, 209, 88, 0.10);
+  --danger:      rgba(255, 69, 58, 0.90);
+  --danger-bg:   rgba(255, 69, 58, 0.08);
+  --warning:     rgba(255, 159, 10, 0.90);
+
+  /* ----------------------------------------------------------
+     TYPOGRAPHY
+  ---------------------------------------------------------- */
+  --font: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+
+  /* Size scale (targeting optical balance at screen sizes) */
+  --fs-2xs:  0.625rem;    /* 10px — labels, badges */
+  --fs-xs:   0.6875rem;   /* 11px — captions, hints */
+  --fs-sm:   0.8125rem;   /* 13px — secondary text */
+  --fs-base: 0.9375rem;   /* 15px — body */
+  --fs-md:   1.0625rem;   /* 17px — emphasized body */
+  --fs-lg:   1.25rem;     /* 20px — subheadings */
+  --fs-xl:   1.5625rem;   /* 25px — headings */
+  --fs-2xl:  1.875rem;    /* 30px — title */
+  --fs-3xl:  2.375rem;    /* 38px — display */
+  --fs-4xl:  3rem;        /* 48px — large display */
+
+  /* Weight */
+  --fw-light:    300;
+  --fw-regular:  400;
+  --fw-medium:   500;
+  --fw-semibold: 600;
+  --fw-bold:     700;
+
+  /* Line height */
+  --lh-none:    1;
+  --lh-tight:   1.2;
+  --lh-snug:    1.35;
+  --lh-base:    1.5;
+  --lh-relaxed: 1.65;
+
+  /* Letter spacing */
+  --tracking-tight:   -0.02em;
+  --tracking-normal:   0em;
+  --tracking-wide:     0.04em;
+  --tracking-wider:    0.08em;
+  --tracking-widest:   0.12em;
+
+  /* ----------------------------------------------------------
+     SPACING — strict 8pt grid
+  ---------------------------------------------------------- */
+  --s-0-5: 2px;
+  --s-1:   4px;
+  --s-2:   8px;
+  --s-3:   12px;
+  --s-4:   16px;
+  --s-5:   20px;
+  --s-6:   24px;
+  --s-8:   32px;
+  --s-10:  40px;
+  --s-12:  48px;
+  --s-16:  64px;
+  --s-20:  80px;
+  --s-24:  96px;
+
+  /* ----------------------------------------------------------
+     BORDER RADIUS — superellipse-inspired, continuous curvature
+  ---------------------------------------------------------- */
+  --r-xs:   6px;
+  --r-sm:   8px;
+  --r-md:   12px;
+  --r-lg:   16px;
+  --r-xl:   20px;
+  --r-2xl:  28px;
+  --r-full: 9999px;
+
+  /* ----------------------------------------------------------
+     SHADOWS — mathematically layered, three-stop system
+     Each stop: ambient / mid / deep
+  ---------------------------------------------------------- */
+  --shadow-sm:
+    0 1px 2px  rgba(0, 0, 0, 0.20),
+    0 2px 8px  rgba(0, 0, 0, 0.12);
+
+  --shadow-md:
+    0 2px  4px  rgba(0, 0, 0, 0.25),
+    0 6px  20px rgba(0, 0, 0, 0.20),
+    0 12px 40px rgba(0, 0, 0, 0.12);
+
+  --shadow-lg:
+    0 4px  8px  rgba(0, 0, 0, 0.30),
+    0 12px 40px rgba(0, 0, 0, 0.25),
+    0 32px 80px rgba(0, 0, 0, 0.16);
+
+  --shadow-xl:
+    0 8px  16px  rgba(0, 0, 0, 0.35),
+    0 24px 60px  rgba(0, 0, 0, 0.30),
+    0 56px 120px rgba(0, 0, 0, 0.20);
+
+  /* ----------------------------------------------------------
+     BLUR VALUES (used inside blur() filter function)
+  ---------------------------------------------------------- */
+  --blur-sm: 8px;
+  --blur-md: 20px;
+  --blur-lg: 40px;
+  --blur-xl: 64px;
+
+  /* ----------------------------------------------------------
+     MOTION
+
+     --spring    Primary curve — damped spring, for entrances & interactions.
+                 Objects accelerate fast, decelerate with natural elasticity.
+     --standard  Material standard — balanced ease-in-out for state changes.
+     --decel     Ease-out — for incoming elements from off-screen.
+     --accel     Ease-in — for outgoing elements leaving screen.
+  ---------------------------------------------------------- */
+  --spring:   cubic-bezier(0.16, 1, 0.3, 1);
+  --standard: cubic-bezier(0.4, 0, 0.2, 1);
+  --decel:    cubic-bezier(0, 0, 0.2, 1);
+  --accel:    cubic-bezier(0.4, 0, 1, 1);
+
+  --t-instant: 80ms;
+  --t-fast:    150ms;
+  --t-base:    240ms;
+  --t-slow:    380ms;
+  --t-enter:   560ms;
+  --t-emerge:  760ms;
+}
+
+/* ============================================================
+   GLASS SURFACE UTILITY CLASS
+   Apply to any element that should read as a frosted panel.
+============================================================ */
+.glass {
+  background: var(--bg-raised);
+  backdrop-filter: blur(var(--blur-md)) saturate(200%);
+  -webkit-backdrop-filter: blur(var(--blur-md)) saturate(200%);
+  border: 1px solid var(--border-base);
+  box-shadow:
+    inset 0 1px 0 var(--glass-top),
+    var(--shadow-md);
+}
+
+.glass--elevated {
+  background: var(--bg-elevated);
+  border-color: var(--border-bright);
+  box-shadow:
+    inset 0 1px 0 var(--glass-top),
+    var(--shadow-lg);
+}
+
+/* ============================================================
+   LIGHTING UTILITIES
+============================================================ */
+.reflect {
+  position: relative;
+  overflow: hidden;
+}
+
+.reflect::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: var(--metallic-gradient);
+  pointer-events: none;
+  opacity: 0.4;
+  mix-blend-mode: overlay;
+  transition: background var(--t-base) var(--spring);
+}
+
+/* For elements with specific metallic borders that "catch" light */
+.reflect--border {
+  border-image: linear-gradient(
+    var(--reflect-angle),
+    var(--border-base) 0%,
+    var(--accent) 50%,
+    var(--border-base) 100%
+  ) 1;
+}
+
+/* ============================================================
+   APPLE LIGHT MODE THEME
+   Apply class="theme-light" to <body> to activate.
+   Follows Apple's exact design language:
+   bg #F5F5F7 · surface #FFFFFF · text #1D1D1F · accent #0071E3
+============================================================ */
+.theme-light {
+  /* Backgrounds */
+  --bg-body:     #F5F5F7;
+  --bg-raised:   #FFFFFF;
+  --bg-elevated: #F5F5F7;
+  --bg-card:     #FFFFFF;
+
+  /* Borders — dark on light */
+  --border-dim:    rgba(0, 0, 0, 0.06);
+  --border-base:   rgba(0, 0, 0, 0.10);
+  --border-bright: rgba(0, 0, 0, 0.18);
+  --border-input:  rgba(0, 0, 0, 0.12);
+  --glass-top:     rgba(255, 255, 255, 0.80);
+
+  /* Text — Apple's exact gray ramp */
+  --text-1: #1D1D1F;   /* Primary — near-black */
+  --text-2: #6E6E73;   /* Secondary */
+  --text-3: #86868B;   /* Tertiary */
+  --text-4: #AEAEB2;   /* Quaternary — placeholders, disabled */
+
+  /* Accent — Apple Blue */
+  --accent:      #0071E3;
+  --accent-dim:  rgba(0, 113, 227, 0.10);
+  --accent-glow: rgba(0, 113, 227, 0.15);
+
+  /* Semantic — Apple's system palette */
+  --success:    #34C759;
+  --success-bg: rgba(52, 199, 89, 0.10);
+  --danger:     #FF3B30;
+  --danger-bg:  rgba(255, 59, 48, 0.08);
+  --warning:    #FF9500;
+
+  /* Shadows — for light mode, shadows carry all depth */
+  --shadow-sm:
+    0 1px 3px  rgba(0, 0, 0, 0.06),
+    0 2px 8px  rgba(0, 0, 0, 0.04);
+
+  --shadow-md:
+    0 2px 8px  rgba(0, 0, 0, 0.04),
+    0 8px 24px rgba(0, 0, 0, 0.06);
+
+  --shadow-lg:
+    0 4px 16px rgba(0, 0, 0, 0.08),
+    0 16px 40px rgba(0, 0, 0, 0.09);
+
+  --shadow-xl:
+    0 8px  24px rgba(0, 0, 0, 0.10),
+    0 24px 60px rgba(0, 0, 0, 0.12);
+}
+
+/* ============================================================
+   APPLE DARK MODE THEME
+   Apply class="theme-dark" to <body> to activate.
+   Mirror of Apple's iOS/macOS dark mode system palette:
+   bg #000000 · surface #1C1C1E · text rgba(255,255,255,0.92) · accent #0A84FF
+============================================================ */
+.theme-dark {
+  /* Backgrounds — Apple's exact layered dark system */
+  --bg-body:     #000000;   /* systemBackground */
+  --bg-raised:   #1C1C1E;   /* secondarySystemBackground */
+  --bg-elevated: #2C2C2E;   /* tertiarySystemBackground */
+  --bg-card:     #1C1C1E;
+
+  /* Borders — white on dark */
+  --border-dim:    rgba(255, 255, 255, 0.08);
+  --border-base:   rgba(255, 255, 255, 0.12);
+  --border-bright: rgba(255, 255, 255, 0.22);
+  --border-input:  rgba(255, 255, 255, 0.12);
+  --glass-top:     rgba(255, 255, 255, 0.05);
+
+  /* Text — Apple's dark mode label ramp */
+  --text-1: rgba(255, 255, 255, 0.92);  /* label */
+  --text-2: rgba(255, 255, 255, 0.55);  /* secondaryLabel */
+  --text-3: rgba(255, 255, 255, 0.32);  /* tertiaryLabel */
+  --text-4: rgba(255, 255, 255, 0.18);  /* quaternaryLabel */
+
+  /* Accent — Apple's dark-mode blue (brighter to read on black) */
+  --accent:      #0A84FF;
+  --accent-dim:  rgba(10, 132, 255, 0.15);
+  --accent-glow: rgba(10, 132, 255, 0.20);
+
+  /* Semantic — Apple dark-mode system colors */
+  --success:    #30D158;
+  --success-bg: rgba(48, 209, 88, 0.12);
+  --danger:     #FF453A;
+  --danger-bg:  rgba(255, 69, 58, 0.12);
+  --warning:    #FF9F0A;
+
+  /* Shadows — deeper on dark (surfaces must float above black) */
+  --shadow-sm:
+    0 1px 3px  rgba(0, 0, 0, 0.50),
+    0 2px 8px  rgba(0, 0, 0, 0.40);
+
+  --shadow-md:
+    0 2px 8px  rgba(0, 0, 0, 0.50),
+    0 8px 24px rgba(0, 0, 0, 0.40);
+
+  --shadow-lg:
+    0 4px 16px  rgba(0, 0, 0, 0.60),
+    0 16px 40px rgba(0, 0, 0, 0.50);
+
+  --shadow-xl:
+    0 8px  24px rgba(0, 0, 0, 0.65),
+    0 24px 60px rgba(0, 0, 0, 0.55);
+}
+
+
+
+      /* ============================================================
+         BODY — Apple #F5F5F7 off-white foundation
+      ============================================================ */
+      .legacy-body {
+        font-family: var(--font);
+        background-color: var(--bg-body);
+        color: var(--text-1);
+        min-height: 100vh;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        padding: var(--s-6) var(--s-6) var(--s-10);
+        gap: var(--s-6);
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+      }
+
+      /* ============================================================
+         HEADER
+      ============================================================ */
+      .header {
+        width: 100%;
+        max-width: 1100px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: var(--s-4) 0 var(--s-5);
+        border-bottom: 1px solid var(--border-dim);
+      }
+
+      .wordmark {
+        display: flex;
+        align-items: center;
+        gap: var(--s-3);
+      }
+
+      .wordmark-icon {
+        width: 34px;
+        height: 34px;
+        border-radius: var(--r-sm);
+        background: var(--accent);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+      }
+
+      .wordmark-icon svg {
+        width: 15px;
+        height: 15px;
+        stroke: #FFFFFF;
+      }
+
+      .wordmark-text {
+        display: flex;
+        flex-direction: column;
+        gap: 1px;
+      }
+
+      .wordmark-name {
+        font-size: var(--fs-base);
+        font-weight: var(--fw-semibold);
+        color: var(--text-1);
+        letter-spacing: var(--tracking-tight);
+        line-height: var(--lh-none);
+      }
+
+      .wordmark-sub {
+        font-size: var(--fs-xs);
+        font-weight: var(--fw-regular);
+        color: var(--text-3);
+        letter-spacing: var(--tracking-wider);
+        text-transform: uppercase;
+        line-height: 1.4;
+      }
+
+      /* WebSocket connection pill */
+      .ws-pill {
+        display: flex;
+        align-items: center;
+        gap: var(--s-2);
+        padding: 5px var(--s-3);
+        border-radius: var(--r-full);
+        background: var(--bg-raised);
+        border: 1px solid var(--border-base);
+        font-family: var(--font);
+        font-size: var(--fs-xs);
+        font-weight: var(--fw-medium);
+        color: var(--text-3);
+        letter-spacing: 0.02em;
+        transition:
+          color        var(--t-base) var(--standard),
+          background   var(--t-base) var(--standard),
+          border-color var(--t-base) var(--standard);
+        user-select: none;
+      }
+
+      .ws-pill.connected {
+        color: var(--success);
+        background: var(--success-bg);
+        border-color: rgba(52, 199, 89, 0.24);
+      }
+
+      .ws-pill.error {
+        color: var(--danger);
+        background: var(--danger-bg);
+        border-color: rgba(255, 59, 48, 0.22);
+      }
+
+      .ws-dot {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: currentColor;
+        flex-shrink: 0;
+      }
+
+      .ws-pill.connected .ws-dot {
+        animation: breathe 2.4s ease-in-out infinite;
+      }
+
+      @keyframes breathe {
+        0%, 100% { opacity: 1;   transform: scale(1); }
+        50%       { opacity: 0.5; transform: scale(0.75); }
+      }
+
+      /* ============================================================
+         MAIN CONTENT WRAPPER
+      ============================================================ */
+      .main {
+        width: 100%;
+        max-width: 1100px;
+        display: flex;
+        flex-direction: column;
+        gap: var(--s-5);
+        flex: 1;
+      }
+
+      /* ============================================================
+         SEARCH BAR
+      ============================================================ */
+      .search-bar {
+        display: flex;
+        align-items: center;
+        gap: var(--s-2);
+        padding: 0 var(--s-4);
+        border-radius: var(--r-xl);
+        background: var(--bg-raised);
+        border: 1px solid var(--border-input);
+        box-shadow: var(--shadow-sm);
+        transition:
+          border-color var(--t-base) var(--standard),
+          box-shadow   var(--t-base) var(--standard);
+      }
+
+      .search-bar:focus-within {
+        border-color: var(--accent);
+        box-shadow:
+          var(--shadow-sm),
+          0 0 0 4px var(--accent-glow);
+      }
+
+      .search-icon {
+        display: flex;
+        align-items: center;
+        flex-shrink: 0;
+        color: var(--text-3);
+        transition: color var(--t-fast) var(--standard);
+      }
+
+      .search-bar:focus-within .search-icon {
+        color: var(--accent);
+      }
+
+      .search-icon svg {
+        width: 15px;
+        height: 15px;
+      }
+
+      #searchInput {
+        flex: 1; /* Keep flex: 1 for general layout */
+        background: transparent;
+        border: none;
+        outline: none;
+        font-family: var(--font);
+        font-size: var(--fs-md);
+        font-weight: var(--fw-regular);
+        color: var(--text-1);
+        padding: var(--s-4) var(--s-2);
+        caret-color: var(--accent);
+      }
+
+      @media (max-width: 640px) {
+        #searchInput {
+          min-width: 0; /* Only allow extreme shrinking on mobile */
+        }
+      }
+
+      #searchInput::placeholder {
+        color: var(--text-4);
+      }
+
+      .search-hint {
+        font-size: var(--fs-xs);
+        color: var(--text-3);
+        letter-spacing: 0.01em;
+        white-space: nowrap;
+        flex-shrink: 0;
+        user-select: none;
+        padding: 5px var(--s-2);
+        border-radius: var(--r-xs);
+        border: 1px solid var(--border-dim);
+        background: var(--bg-body);
+        line-height: 1;
+        font-weight: var(--fw-medium);
+      }
+
+      /* ============================================================
+         PREVIEW PANELS
+      ============================================================ */
+      .previews {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: var(--s-4);
+      }
+
+      @media (max-width: 680px) {
+        .previews { grid-template-columns: 1fr; }
+      }
+
+      .preview-card {
+        background: var(--bg-raised);
+        border-radius: var(--r-xl);
+        /* Depth is carried entirely by shadow — no borders needed */
+        box-shadow: var(--shadow-md);
+        padding: var(--s-6);
+        display: flex;
+        flex-direction: column;
+        gap: var(--s-3);
+        min-height: 210px;
+        transition:
+          box-shadow var(--t-slow) var(--spring),
+          transform  var(--t-slow) var(--spring);
+      }
+
+      .preview-card:hover {
+        box-shadow: var(--shadow-lg);
+        transform: translateY(-2px);
+      }
+
+      .card-label {
+        display: flex;
+        align-items: center;
+        gap: var(--s-2);
+        font-size: var(--fs-2xs);
+        font-weight: var(--fw-semibold);
+        letter-spacing: var(--tracking-widest);
+        text-transform: uppercase;
+        color: var(--text-3);
+      }
+
+      .card-label-dot {
+        width: 4px;
+        height: 4px;
+        border-radius: 50%;
+        background: var(--accent);
+        opacity: 0.5;
+        flex-shrink: 0;
+      }
+
+      .card-label-rule {
+        flex: 1;
+        height: 1px;
+        background: var(--border-dim);
+        border-radius: var(--r-full);
+      }
+
+      .preview-text {
+        flex: 1;
+        font-size: var(--fs-base);
+        font-weight: var(--fw-regular);
+        color: var(--text-3);
+        line-height: var(--lh-relaxed);
+        overflow: hidden;
+        display: -webkit-box;
+        -webkit-line-clamp: 5;
+        -webkit-box-orient: vertical;
+        transition: color var(--t-base) var(--standard);
+      }
+
+      .preview-text.has-content {
+        color: var(--text-1);
+      }
+
+      .preview-text.expanded {
+        -webkit-line-clamp: unset;
+        display: block;
+        overflow-y: auto;
+        max-height: 200px;
+      }
+
+      .preview-text.expanded::-webkit-scrollbar { width: 3px; }
+      .preview-text.expanded::-webkit-scrollbar-track { background: transparent; }
+      .preview-text.expanded::-webkit-scrollbar-thumb {
+        background: var(--border-bright);
+        border-radius: var(--r-full);
+      }
+
+      .card-footer {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        min-height: 20px;
+      }
+
+      .card-ref {
+        font-size: var(--fs-xs);
+        font-weight: var(--fw-semibold);
+        color: var(--accent);
+        letter-spacing: 0.03em;
+        opacity: 0;
+        transform: translateY(4px);
+        transition:
+          opacity   var(--t-base) var(--standard),
+          transform var(--t-base) var(--standard);
+      }
+
+      .card-ref.visible {
+        opacity: 1;
+        transform: translateY(0);
+      }
+
+      .expand-btn {
+        background: transparent;
+        border: none;
+        cursor: pointer;
+        font-family: var(--font);
+        font-size: var(--fs-xs);
+        font-weight: var(--fw-medium);
+        color: var(--accent);
+        padding: var(--s-1) var(--s-2);
+        border-radius: var(--r-xs);
+        display: none;
+        opacity: 0.8;
+        transition:
+          opacity    var(--t-fast) var(--standard),
+          background var(--t-fast) var(--standard);
+      }
+
+      .expand-btn.visible { display: block; }
+
+      .expand-btn:hover {
+        opacity: 1;
+        background: var(--accent-dim);
+      }
+
+      /* ============================================================
+         ACTION BAR
+      ============================================================ */
+      .action-bar {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: var(--s-4);
+        padding-top: var(--s-2);
+      }
+
+      .action-row {
+        display: flex;
+        align-items: center;
+        gap: var(--s-3);
+      }
+
+      /* ---- PUSH LIVE — primary CTA, Apple blue pill ---- */
+      .btn-live {
+        font-family: var(--font);
+        font-size: var(--fs-sm);
+        font-weight: var(--fw-semibold);
+        letter-spacing: 0.01em;
+        color: #FFFFFF;
+        background: var(--accent);
+        border: none;
+        border-radius: var(--r-full);
+        padding: 12px var(--s-10);
+        cursor: pointer;
+        box-shadow:
+          0 1px 3px  rgba(0, 113, 227, 0.25),
+          0 4px 12px rgba(0, 113, 227, 0.18);
+        transition:
+          background var(--t-base) var(--standard),
+          box-shadow var(--t-base) var(--standard),
+          transform  var(--t-slow) var(--spring),
+          opacity    var(--t-fast) var(--standard);
+        -webkit-font-smoothing: antialiased;
+      }
+
+      .btn-live:hover:not(:disabled) {
+        background: #0077ED;
+        box-shadow:
+          0 2px 6px  rgba(0, 113, 227, 0.30),
+          0 8px 24px rgba(0, 113, 227, 0.22);
+        transform: translateY(-1px);
+      }
+
+      .btn-live:active {
+        background: #0068D0;
+        transform: scale(0.97) !important;
+        transition-duration: var(--t-instant);
+        box-shadow: 0 1px 2px rgba(0, 113, 227, 0.20);
+      }
+
+      .btn-live:disabled {
+        opacity: 0.32;
+        cursor: not-allowed;
+        transform: none;
+        box-shadow: none;
+      }
+
+      .btn-live.is-live {
+        animation: live-pulse 2s ease-in-out infinite;
+      }
+
+      @keyframes live-pulse {
+        0%, 100% {
+          box-shadow: 0 1px 3px rgba(0,113,227,0.25), 0 4px 12px rgba(0,113,227,0.18);
+        }
+        50% {
+          box-shadow: 0 1px 3px rgba(0,113,227,0.35), 0 8px 28px rgba(0,113,227,0.30);
+        }
+      }
+
+      /* ---- CLEAR — secondary ghost button ---- */
+      .btn-clear {
+        font-family: var(--font);
+        font-size: var(--fs-sm);
+        font-weight: var(--fw-medium);
+        letter-spacing: 0.01em;
+        color: var(--text-2);
+        background: var(--bg-raised);
+        border: 1px solid var(--border-base);
+        border-radius: var(--r-full);
+        padding: 12px var(--s-6);
+        cursor: pointer;
+        box-shadow: var(--shadow-sm);
+        transition:
+          color        var(--t-base) var(--standard),
+          background   var(--t-base) var(--standard),
+          border-color var(--t-base) var(--standard),
+          transform    var(--t-slow) var(--spring);
+        -webkit-font-smoothing: antialiased;
+      }
+
+      .btn-clear:hover {
+        color: var(--danger);
+        background: var(--danger-bg);
+        border-color: rgba(255, 59, 48, 0.24);
+        transform: translateY(-1px);
+      }
+
+      .btn-clear:active {
+        transform: scale(0.97) !important;
+        transition-duration: var(--t-instant);
+      }
+
+      /* ---- Status indicator ---- */
+      .status-pill {
+        display: flex;
+        align-items: center;
+        gap: var(--s-2);
+        font-size: var(--fs-xs);
+        font-weight: var(--fw-medium);
+        color: var(--text-3);
+        letter-spacing: 0.02em;
+        height: 20px;
+        transition: color var(--t-base) var(--standard);
+        user-select: none;
+      }
+
+      .status-dot {
+        width: 5px;
+        height: 5px;
+        border-radius: 50%;
+        background: var(--text-4);
+        flex-shrink: 0;
+        transition: background var(--t-base) var(--standard);
+      }
+
+      /* Semantic states — Apple system colors */
+      .status-pill[data-state="fetching"] { color: #FF9500; }
+      .status-pill[data-state="success"]  { color: #34C759; }
+      .status-pill[data-state="live"]     { color: var(--accent); }
+      .status-pill[data-state="error"]    { color: #FF3B30; }
+
+      .status-pill[data-state="fetching"] .status-dot { background: #FF9500; }
+      .status-pill[data-state="success"]  .status-dot { background: #34C759; }
+      .status-pill[data-state="live"]     .status-dot {
+        background: var(--accent);
+        animation: breathe 1.6s ease-in-out infinite;
+      }
+      .status-pill[data-state="error"]    .status-dot { background: #FF3B30; }
+
+      /* ============================================================
+         THEME TOGGLE BUTTON
+      ============================================================ */
+      .header-right {
+        display: flex;
+        align-items: center;
+        gap: var(--s-3);
+      }
+
+      .theme-toggle {
+        width: 36px;
+        height: 36px;
+        border-radius: var(--r-full);
+        background: var(--bg-raised);
+        border: 1px solid var(--border-base);
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: var(--text-2);
+        box-shadow: var(--shadow-sm);
+        padding: 0;
+        transition:
+          background   var(--t-base) var(--standard),
+          border-color var(--t-base) var(--standard),
+          color        var(--t-base) var(--standard),
+          box-shadow   var(--t-base) var(--standard),
+          transform    var(--t-slow) var(--spring);
+      }
+
+      .theme-toggle:hover {
+        background: var(--bg-elevated);
+        border-color: var(--border-bright);
+        color: var(--text-1);
+        transform: scale(1.08);
+      }
+
+      .theme-toggle:active {
+        transform: scale(0.92) !important;
+        transition-duration: var(--t-instant);
+      }
+
+      .theme-toggle svg {
+        width: 16px;
+        height: 16px;
+        display: block;
+      }
+
+      /* ============================================================
+         THEME TRANSITION HELPER
+         Only active during the ~240ms toggle animation.
+         Prevents any unwanted flicker on initial page load.
+      ============================================================ */
+      .theme-transitioning,
+      .theme-transitioning * {
+        transition:
+          background-color var(--t-base) var(--standard),
+          border-color     var(--t-base) var(--standard),
+          color            var(--t-base) var(--standard),
+          box-shadow       var(--t-base) var(--standard) !important;
+      }
+
+      /* ============================================================
+         BROADCAST WORKFLOW (LIVE BANNER & OBS LINK)
+      ============================================================ */
+      .obs-copy-btn {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        background: var(--bg-elevated);
+        border: 1px solid var(--border-base);
+        color: var(--text-2);
+        font-family: var(--font);
+        font-size: var(--fs-xs);
+        font-weight: var(--fw-medium);
+        padding: 6px 12px;
+        border-radius: var(--r-full);
+        cursor: pointer;
+        transition:
+          background-color var(--t-fast) var(--standard),
+          border-color var(--t-fast) var(--standard),
+          color var(--t-fast) var(--standard);
+      }
+      
+      .obs-copy-btn:hover {
+        background: var(--bg-raised);
+        color: var(--text-1);
+        border-color: var(--border-bright);
+      }
+
+      .obs-copy-btn svg {
+        width: 14px;
+        height: 14px;
+      }
+
+      .obs-copy-btn.copied {
+        color: var(--success);
+        border-color: rgba(48, 209, 88, 0.4);
+        background: var(--success-bg);
+      }
+
+      /* ============================================================
+         NETWORK SECURITY PANEL
+      ============================================================ */
+      .network-panel {
+        background: var(--bg-raised);
+        border: 1px solid var(--border-base);
+        border-radius: var(--r-xl);
+        padding: 16px 20px;
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+        box-shadow: var(--shadow-sm);
+        transition: all var(--t-base) var(--spring);
+      }
+
+      .network-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+
+      .network-title {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font-weight: var(--fw-semibold);
+        color: var(--text-1);
+      }
+
+      .network-title svg {
+        width: 18px;
+        height: 18px;
+        color: var(--accent);
+      }
+
+      .network-status {
+        font-size: var(--fs-xs);
+        color: var(--text-3);
+        margin-top: 2px;
+      }
+
+      /* Groups toggle + chevron so they never shift */
+      .network-header-controls {
+        display: flex;
+        align-items: center;
+        gap: var(--s-2);
+        flex-shrink: 0;
+      }
+
+      /* Toggle Switch */
+      .toggle-switch {
+        position: relative;
+        width: 44px;
+        height: 24px;
+      }
+
+      .toggle-switch input {
+        opacity: 0;
+        width: 0;
+        height: 0;
+      }
+
+      .toggle-slider {
+        position: absolute;
+        cursor: pointer;
+        top: 0; left: 0; right: 0; bottom: 0;
+        background-color: var(--text-4);
+        transition: .3s;
+        border-radius: 24px;
+      }
+
+      .toggle-slider:before {
+        position: absolute;
+        content: "";
+        height: 18px;
+        width: 18px;
+        left: 3px;
+        bottom: 3px;
+        background-color: white;
+        transition: .3s;
+        border-radius: 50%;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+      }
+
+      input:checked + .toggle-slider {
+        background-color: var(--success);
+      }
+
+      input:checked + .toggle-slider:before {
+        transform: translateX(20px);
+      }
+
+      input:disabled + .toggle-slider {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
+
+      .network-expanded {
+        overflow: hidden;
+        max-height: 0;
+        flex-direction: column;
+        align-items: center;
+        gap: 16px;
+        padding-top: 0;
+        border-top: 0px solid var(--border-dim);
+        transition:
+          max-height 0.4s var(--spring),
+          padding-top 0.3s var(--standard),
+          border-top-width 0.3s var(--standard);
+        display: flex; /* always flex, controlled by max-height */
+      }
+
+      .network-expanded.visible {
+        max-height: 400px;
+        padding-top: 16px;
+        border-top-width: 1px;
+      }
+
+      /* Chevron collapse button */
+      .network-collapse-btn {
+        background: none;
+        border: none;
+        cursor: pointer;
+        color: var(--text-3);
+        display: none;
+        align-items: center;
+        justify-content: center;
+        padding: 4px;
+        border-radius: var(--r-sm);
+        transition: color var(--t-fast) var(--standard),
+                    transform var(--t-base) var(--spring);
+      }
+
+      .network-collapse-btn:hover {
+        color: var(--text-1);
+      }
+
+      .network-collapse-btn svg {
+        width: 16px;
+        height: 16px;
+        transition: transform 0.3s var(--spring);
+      }
+
+      .network-collapse-btn.active {
+        display: flex;
+      }
+
+      .network-collapse-btn.collapsed svg {
+        transform: rotate(-180deg);
+      }
+
+      .qr-container {
+        padding: 12px;
+        background: #FFFFFF;
+        border-radius: 12px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        flex-shrink: 0; /* Never squash the QR code */
+      }
+
+      .network-url-box {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        background: var(--bg-elevated);
+        border: 1px solid var(--border-base);
+        padding: 5px 14px;
+        border-radius: var(--r-full); /* Safari Pill Shape */
+        font-family: var(--font);
+        font-size: var(--fs-xs);
+        color: var(--text-2);
+        max-width: 320px;
+        width: 100%; /* Fluid on mobile */
+        margin: 0 auto;
+        overflow: hidden;
+        flex-shrink: 0;
+        box-sizing: border-box; /* Ensure padding doesn't add to width */
+      }
+      
+      .network-url-box:hover {
+        border-color: var(--accent);
+        background: var(--bg-raised);
+      }
+
+      .network-url-icon {
+        color: var(--text-3);
+        flex-shrink: 0;
+      }
+
+      .network-url-box span {
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis; /* Truncate if screen is too narrow */
+        font-family: monospace;
+        letter-spacing: -0.01em;
+        flex: 1;
+        min-width: 0; /* Allow shrinking */
+        text-align: center;
+        opacity: 0.8;
+      }
+
+      .network-url-box button {
+        background: transparent;
+        border: none;
+        color: var(--accent);
+        cursor: pointer;
+        padding: 4px 6px;
+        border-radius: var(--r-xs);
+        font-size: 10px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        transition: all 0.2s var(--standard);
+        flex-shrink: 0;
+      }
+
+      .network-url-box button:hover {
+        color: var(--text-1);
+        transform: scale(1.05);
+      }
+
+      /* ============================================================
+         DEVICE MONITOR — Active Sessions List
+      ============================================================ */
+      .device-monitor {
+        width: 100%;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        margin-top: 4px;
+      }
+
+      .device-monitor-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding-bottom: 8px;
+        border-bottom: 1px solid var(--border-dim);
+      }
+
+      .device-monitor-title {
+        font-size: var(--fs-2xs);
+        font-weight: var(--fw-bold);
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: var(--text-3);
+      }
+
+      .device-list {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        max-height: 160px;
+        overflow-y: auto;
+        padding-right: 4px;
+        padding-bottom: 60px; /* Air at bottom of scroll */
+      }
+      
+      /* Webkit scrollbar styling for a premium feel */
+      .device-list::-webkit-scrollbar {
+        width: 4px;
+      }
+      .device-list::-webkit-scrollbar-track {
+        background: transparent;
+      }
+      .device-list::-webkit-scrollbar-thumb {
+        background: rgba(0, 0, 0, 0.1);
+        border-radius: 4px;
+      }
+      .theme-dark .device-list::-webkit-scrollbar-thumb {
+        background: rgba(255, 255, 255, 0.1);
+      }
+
+      .device-item {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 10px 14px;
+        background: var(--bg-elevated);
+        border: 1px solid var(--border-dim);
+        border-radius: var(--r-md);
+        transition: border-color 0.2s;
+      }
+
+      .device-item.is-me {
+        border-color: var(--accent-dim);
+      }
+
+      .device-item-left {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        min-width: 0;
+      }
+
+      .device-icon-wrap {
+        width: 32px;
+        height: 32px;
+        background: var(--bg-raised);
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+        color: var(--text-2);
+      }
+
+      .device-info {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        min-width: 0;
+      }
+
+      .device-name {
+        font-size: var(--fs-sm);
+        font-weight: var(--fw-semibold);
+        color: var(--text-1);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      .device-meta {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-family: monospace;
+        font-size: 11px;
+        color: var(--text-3);
+      }
+
+      .device-badge {
+        font-family: var(--font);
+        font-size: 9px;
+        font-weight: var(--fw-bold);
+        padding: 1px 5px;
+        border-radius: 4px;
+        text-transform: uppercase;
+      }
+
+      .badge-host { background: var(--accent); color: #fff; }
+      .badge-me   { background: var(--success); color: #fff; }
+
+      .kick-btn {
+        background: var(--danger-bg);
+        border: 1px solid rgba(255, 59, 48, 0.2);
+        color: var(--danger);
+        padding: 5px 10px;
+        border-radius: var(--r-xs);
+        font-size: 10px;
+        font-weight: var(--fw-bold);
+        text-transform: uppercase;
+        cursor: pointer;
+        opacity: 0.8;
+        transition: opacity 0.2s, background 0.2s;
+      }
+
+      .kick-btn:hover {
+        opacity: 1;
+        background: rgba(255, 59, 48, 0.15);
+      }
+
+      /* Locked State UI */
+      .toggle-switch.is-locked {
+        opacity: 0.5;
+        cursor: not-allowed !important;
+      }
+      .toggle-switch.is-locked * {
+        cursor: not-allowed !important;
+      }
+      /* ============================================================
+         LANGUAGE TOGGLE — compact iOS-pill inside card header
+      ============================================================ */
+      .lang-toggle {
+        display: flex;
+        align-items: center;
+        cursor: pointer;
+        flex-shrink: 0;
+        margin-left: auto;
+      }
+
+      .lang-toggle input {
+        opacity: 0;
+        width: 0;
+        height: 0;
+        position: absolute;
+      }
+
+      .lang-toggle-track {
+        width: 28px;
+        height: 16px;
+        border-radius: 16px;
+        background: var(--text-4);
+        position: relative;
+        transition: background 0.25s var(--standard);
+        flex-shrink: 0;
+      }
+
+      .lang-toggle-track::before {
+        content: '';
+        position: absolute;
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        background: white;
+        top: 2px;
+        left: 2px;
+        transition: transform 0.25s var(--spring);
+        box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+      }
+
+      .lang-toggle input:checked + .lang-toggle-track {
+        background: var(--accent);
+      }
+
+      .lang-toggle input:checked + .lang-toggle-track::before {
+        transform: translateX(12px);
+      }
+
+      /* Dim the card when language is disabled */
+      .preview-card.lang-disabled {
+        opacity: 0.45;
+      }
+
+      .preview-card.lang-disabled .preview-text,
+      .preview-card.lang-disabled .card-footer {
+        pointer-events: none;
+      }
+
+      /* ============================================================
+         RESPONSIVE HEADER — compact icon-only mode
+      ============================================================ */
+
+      /* Wi-Fi icon inside the ws-pill — hidden on wide screens */
+      .ws-wifi-icon {
+        display: none;
+        width: 16px;
+        height: 16px;
+        flex-shrink: 0;
+      }
+
+      /* Slash line on the Wi-Fi icon (shown when disconnected) */
+      .ws-wifi-slash {
+        transition: opacity var(--t-fast) var(--standard);
+        opacity: 0;
+      }
+
+      .ws-pill.error .ws-wifi-slash {
+        opacity: 1;
+      }
+
+      @media (max-width: 640px) {
+        /* Copy Link: hide text label, make it a compact square */
+        .obs-copy-btn .btn-label {
+          display: none;
+        }
+        .obs-copy-btn {
+          padding: 8px;
+          gap: 0;
+        }
+        .obs-copy-btn svg {
+          width: 16px;
+          height: 16px;
+        }
+
+        /* WS Pill: hide dot + text, show Wi-Fi icon only */
+        .ws-dot,
+        #wsLabel {
+          display: none;
+        }
+        .ws-wifi-icon {
+          display: block;
+        }
+        /* Size the pill to match the theme toggle */
+        .ws-pill {
+          padding: 8px;
+          border-radius: var(--r-full);
+          width: 36px;
+          height: 36px;
+          justify-content: center;
+        }
+        /* Colour the Wi-Fi icon based on state */
+        .ws-pill.connected .ws-wifi-icon {
+          color: var(--success);
+        }
+        .ws-pill.error .ws-wifi-icon {
+          color: var(--danger);
+        }
+        .ws-pill .ws-wifi-icon {
+          color: var(--text-3);
+        }
+
+        /* Swap copy icon for a cleaner link icon on mobile */
+        .obs-copy-btn .icon-copy  { display: none; }
+        .obs-copy-btn .icon-link  { display: block; }
+      }
+
+      /* ============================================================
+         COPY TOAST — Apple iOS notification banner style
+         Drops in from below the header, respects light/dark mode.
+      ============================================================ */
+      .copy-toast {
+        position: fixed;
+        top: 72px; /* Below the app header */
+        left: 50%;
+        transform: translateX(-50%) translateY(-24px);
+        opacity: 0;
+        pointer-events: none;
+        z-index: 9999;
+
+        /* Layout */
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        min-width: 280px;
+        max-width: calc(100vw - 48px);
+        padding: 14px 18px;
+
+        /* Shape */
+        border-radius: var(--r-xl); /* 20px — matches premium cards */
+
+        /* Light mode default — will be overridden by .theme-dark */
+        background: rgba(255, 255, 255, 0.86);
+        backdrop-filter: blur(32px) saturate(180%);
+        -webkit-backdrop-filter: blur(32px) saturate(180%);
+        border: 1px solid rgba(0, 0, 0, 0.08);
+        box-shadow:
+          0 2px  4px  rgba(0, 0, 0, 0.06),
+          0 8px  24px rgba(0, 0, 0, 0.10),
+          0 16px 48px rgba(0, 0, 0, 0.08);
+
+        /* Animation */
+        transition:
+          opacity   0.36s var(--decel),
+          transform 0.40s var(--spring);
+      }
+
+      /* Dark mode override */
+      .theme-dark .copy-toast {
+        background: rgba(26, 26, 28, 0.90);
+        border-color: rgba(255, 255, 255, 0.10);
+        box-shadow:
+          0 2px  4px  rgba(0, 0, 0, 0.30),
+          0 8px  24px rgba(0, 0, 0, 0.40),
+          0 16px 48px rgba(0, 0, 0, 0.30);
+      }
+
+      .copy-toast.visible {
+        opacity: 1;
+        transform: translateX(-50%) translateY(0);
+      }
+
+      /* Icon container — filled green circle with white check */
+      .copy-toast-icon-wrap {
+        width: 28px;
+        height: 28px;
+        border-radius: 50%;
+        background: #34C759;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+      }
+
+      /* Slightly richer green in dark mode */
+      .theme-dark .copy-toast-icon-wrap {
+        background: #30D158;
+      }
+
+      .copy-toast-icon-wrap svg {
+        width: 15px;
+        height: 15px;
+        color: #FFFFFF;
+        flex-shrink: 0;
+      }
+
+      /* Text container */
+      .copy-toast-.legacy-body {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        flex: 1;
+        min-width: 0;
+      }
+
+      .copy-toast-title {
+        font-family: var(--font);
+        font-size: var(--fs-sm); /* 13px */
+        font-weight: var(--fw-semibold);
+        color: #1D1D1F;
+        letter-spacing: -0.01em;
+        line-height: var(--lh-tight);
+      }
+
+      .theme-dark .copy-toast-title {
+        color: rgba(255, 255, 255, 0.92);
+      }
+
+      .copy-toast-sub {
+        font-family: var(--font);
+        font-size: var(--fs-xs); /* 11px */
+        font-weight: var(--fw-regular);
+        color: #6E6E73;
+        letter-spacing: 0;
+        line-height: var(--lh-snug);
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .theme-dark .copy-toast-sub {
+        color: rgba(255, 255, 255, 0.40);
+      }
+
+      /* Hide toast on desktop — safety net */
+      @media (min-width: 641px) {
+        .copy-toast { display: none; }
+      }
+
+      /* Desktop: show copy icon, hide link icon */
+      .obs-copy-btn .icon-copy  { display: block; }
+      .obs-copy-btn .icon-link  { display: none; }
+
+    
+@keyframes skeleton-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+.skeleton-bar {
+  height: 14px;
+  background-color: var(--text-4);
+  border-radius: 4px;
+  margin-bottom: 8px;
+  animation: skeleton-pulse 1.5s ease-in-out infinite;
+}
