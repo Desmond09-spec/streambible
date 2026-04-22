@@ -1607,3 +1607,214 @@
   margin-bottom: 8px;
   animation: skeleton-pulse 1.5s ease-in-out infinite;
 }
+/* ============================================================
+   DISCOVERY STYLES
+============================================================ */
+.discovery-section {
+  width: 100%;
+  max-width: 1100px;
+  margin-top: -8px;
+  margin-bottom: 8px;
+}
+
+.discovery-prominent {
+  background: var(--bg-raised);
+  border-radius: var(--r-xl);
+  border: 1px solid var(--accent-glow);
+  box-shadow: var(--shadow-sm);
+  padding: var(--s-4) var(--s-5);
+  animation: slideDown 0.6s var(--spring);
+}
+
+@keyframes slideDown {
+  from { opacity: 0; transform: translateY(-10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.discovery-prominent .device-monitor-title {
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+  color: var(--accent);
+  font-weight: var(--fw-bold);
+  font-size: var(--fs-sm);
+  letter-spacing: 0.02em;
+}
+
+.live-pulse {
+  width: 8px;
+  height: 8px;
+  background: var(--success);
+  border-radius: 50%;
+  position: relative;
+}
+
+.live-pulse::after {
+  content: "";
+  position: absolute;
+  inset: -4px;
+  border: 1px solid var(--success);
+  border-radius: 50%;
+  animation: pulse-ring 1.5s cubic-bezier(0.215, 0.61, 0.355, 1) infinite;
+}
+
+@keyframes pulse-ring {
+  0% { transform: scale(0.33); opacity: 0; }
+  80%, 100% { opacity: 0; transform: scale(1.5); }
+}
+
+.discovery-item {
+  padding: 12px !important;
+  background: var(--bg-body);
+  border: 1px solid var(--border-dim);
+  border-radius: var(--r-md);
+  margin-top: 8px;
+  transition: border-color var(--t-base), transform var(--t-base);
+}
+
+.discovery-item:hover {
+  border-color: var(--accent);
+  transform: scale(1.01);
+}
+
+.join-request-btn {
+  padding: 8px 18px;
+  border-radius: var(--r-full);
+  background: var(--accent);
+  color: white;
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-bold);
+  box-shadow: var(--shadow-sm);
+  transition: transform var(--t-fast), opacity var(--t-fast);
+}
+
+.join-request-btn:hover {
+  transform: translateY(-1px);
+}
+
+.join-request-btn:active {
+  transform: scale(0.95);
+}
+
+.join-request-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ============================================================
+   JOIN REQUEST MODAL & FEEDBACK
+============================================================ */
+.join-modal {
+  background: var(--bg-card) !important;
+  border: 1px solid var(--border-bright) !important;
+  box-shadow: var(--shadow-xl) !important;
+}
+
+.modal-icon {
+  font-size: 32px;
+  margin-bottom: 12px;
+}
+
+.modal-title {
+  font-size: var(--fs-lg);
+  font-weight: var(--fw-bold);
+  color: var(--text-1);
+  margin-bottom: 8px;
+}
+
+.modal-body-text {
+  font-size: var(--fs-sm);
+  color: var(--text-2);
+  line-height: 1.5;
+  margin-bottom: 24px;
+}
+
+.modal-actions {
+  display: flex;
+  gap: 12px;
+}
+
+.modal-btn {
+  flex: 1;
+  padding: 12px;
+  border-radius: var(--r-md);
+  font-weight: var(--fw-semibold);
+  font-size: var(--fs-sm);
+  border: none;
+  cursor: pointer;
+  transition: transform var(--t-fast), opacity var(--t-fast);
+}
+
+.modal-btn-decline {
+  background: var(--danger-bg);
+  color: var(--danger);
+}
+
+.modal-btn-accept {
+  background: var(--accent);
+  color: #FFFFFF;
+}
+
+.modal-btn:hover {
+  transform: translateY(-1px);
+  opacity: 0.9;
+}
+
+.modal-btn:active {
+  transform: scale(0.96);
+}
+
+/* Guest Feedback Pills */
+.request-pending-pill,
+.request-declined-pill {
+  position: fixed;
+  bottom: 100px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 10500;
+  padding: 10px 20px;
+  border-radius: var(--r-full);
+  background: var(--bg-card);
+  border: 1px solid var(--border-bright);
+  box-shadow: var(--shadow-lg);
+  color: var(--text-1);
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-medium);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  backdrop-filter: blur(10px);
+}
+
+.request-declined-pill {
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
+.cancel-request-btn {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-dim);
+  color: var(--text-2);
+  padding: 4px 10px;
+  border-radius: var(--r-xs);
+  font-size: 10px;
+  cursor: pointer;
+}
+
+.cancel-request-btn:hover {
+  background: var(--danger-bg);
+  color: var(--danger);
+}
+
+.spinner-dots {
+  width: 8px;
+  height: 8px;
+  background: var(--accent);
+  border-radius: 50%;
+  animation: dotPulse 1s ease-in-out infinite alternate;
+}
+
+@keyframes dotPulse {
+  from { opacity: 0.4; transform: scale(0.8); }
+  to { opacity: 1; transform: scale(1.2); }
+}

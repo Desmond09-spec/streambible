@@ -2,16 +2,26 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import './ControllerLegacy.css';
 import { parseReference, getCanonicalBookName, fetchEnglishVerse, fetchYorubaVerse } from '../services/bibleService';
-import { useSyncPublisher, usePresence } from '../hooks/useSync';
+import { useSyncPublisher, usePresence, useHeartbeat, useDiscovery } from '../hooks/useSync';
+import { supabase } from '../lib/supabase';
 
 const ControllerPage: React.FC = () => {
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
   const [query, setQuery] = useState('');
   const [roomId, setRoomId] = useState<string>('');
-  const { pushVerse, clearScreen: broadcastClear } = useSyncPublisher(roomId);
   const [remoteAccess, setRemoteAccess] = useState(false);
   const isHost = localStorage.getItem(`streambible-host-${roomId}`) === 'true';
+  const { pushVerse, clearScreen: broadcastClear } = useSyncPublisher(roomId);
   const { devices, myId, hostStatus } = usePresence(roomId, false, remoteAccess);
+  
+  // Discovery & Heartbeat
+  useHeartbeat(roomId, isHost, remoteAccess);
+  const { nearbySessions } = useDiscovery();
+  
+  // Request State
+  const [joinRequest, setJoinRequest] = useState<{ roomId: string, deviceId: string, name: string } | null>(null);
+  const [incomingRequest, setIncomingRequest] = useState<{ roomId: string, deviceId: string, name: string } | null>(null);
+  const [requestStatus, setRequestStatus] = useState<'idle' | 'pending' | 'accepted' | 'declined'>('idle');
   
   const [enText, setEnText] = useState('');
   const [enRef, setEnRef] = useState('');
@@ -135,6 +145,101 @@ const ControllerPage: React.FC = () => {
     setQuery('');
     setStatus('default');
     setStatusMsg('Ready');
+  };
+
+  // Handle Join Requests (Host Side)
+  useEffect(() => {
+    if (!roomId || !isHost) return;
+    console.log('[Host] Listening for join requests on room:', roomId);
+    const channel = supabase.channel(`streambible-sync-${roomId}`);
+    
+    const sub = channel.on('broadcast', { event: 'JOIN_REQUEST' }, ({ payload }) => {
+       console.log('[Host] Received JOIN_REQUEST:', payload);
+       if (payload.deviceId !== myId) {
+         setIncomingRequest({
+           roomId: payload.fromRoom,
+           deviceId: payload.deviceId,
+           name: payload.name
+         });
+       }
+    }).subscribe();
+
+    return () => { channel.unsubscribe(); };
+  }, [roomId, isHost, myId]);
+
+  // Handle Approval (Guest Side)
+  useEffect(() => {
+    if (requestStatus !== 'pending' || !joinRequest) return;
+    
+    console.log('[Guest] Waiting for JOIN_RESPONSE on room:', joinRequest.roomId);
+    const channel = supabase.channel(`streambible-sync-${joinRequest.roomId}`);
+    const sub = channel.on('broadcast', { event: 'JOIN_RESPONSE' }, ({ payload }) => {
+       console.log('[Guest] Received JOIN_RESPONSE:', payload);
+       if (payload.targetDeviceId === myId) {
+          console.log('[Guest] Response is for ME! Accepted:', payload.accepted);
+          if (payload.accepted) {
+            setRequestStatus('accepted');
+            const newUrl = `${window.location.pathname}?room=${payload.newRoomId}`;
+            console.log('[Guest] Migrating to:', newUrl);
+            window.location.href = newUrl;
+          } else {
+            setRequestStatus('declined');
+            setJoinRequest(null);
+            setTimeout(() => setRequestStatus('idle'), 4000);
+          }
+       }
+    }).subscribe();
+
+    return () => { channel.unsubscribe(); };
+  }, [isHost, requestStatus, myId, joinRequest]);
+
+  const handleJoinRequest = async (targetRoomId: string) => {
+    if (targetRoomId === roomId) return;
+    console.log('[Guest] Initiating join request for room:', targetRoomId);
+    setRequestStatus('pending');
+    setJoinRequest({ roomId: targetRoomId, deviceId: '', name: 'Target Room' });
+
+    const channel = supabase.channel(`streambible-sync-${targetRoomId}`);
+    await channel.subscribe(async (status) => {
+      if (status === 'SUBSCRIBED') {
+        console.log('[Guest] Subscribed to target channel, sending broadcast...');
+        await channel.send({
+          type: 'broadcast',
+          event: 'JOIN_REQUEST',
+          payload: {
+            fromRoom: roomId,
+            deviceId: myId,
+            name: getFriendlyDeviceName()
+          }
+        });
+      } else {
+        console.warn('[Guest] Subscription status:', status);
+      }
+    });
+  };
+
+  const handleResponse = async (accepted: boolean) => {
+    if (!incomingRequest) return;
+    
+    console.log('[Host] Sending response to guest:', incomingRequest.deviceId, 'Accepted:', accepted);
+    const channel = supabase.channel(`streambible-sync-${roomId}`);
+    const result = await channel.send({
+      type: 'broadcast',
+      event: 'JOIN_RESPONSE',
+      payload: {
+        targetDeviceId: incomingRequest.deviceId,
+        accepted,
+        newRoomId: roomId
+      }
+    });
+    
+    console.log('[Host] Broadcast result:', result);
+    setIncomingRequest(null);
+  };
+
+  const getFriendlyDeviceName = () => {
+     const dev = devices.find(d => d.id === myId);
+     return dev ? dev.name : 'Unknown Device';
   };
 
   const copyUrl = (url: string) => {
@@ -358,6 +463,120 @@ const ControllerPage: React.FC = () => {
               </motion.div>
             )}
           </AnimatePresence>
+        </div>
+
+        {/* JOIN REQUEST MODAL (Host Side) */}
+        <AnimatePresence>
+          {incomingRequest && isHost && (
+            <motion.div 
+              initial={{ opacity: 0, y: 50, x: '-50%', scale: 0.9 }}
+              animate={{ opacity: 1, y: 0, x: '-50%', scale: 1 }}
+              exit={{ opacity: 0, y: 20, x: '-50%', scale: 0.9 }}
+              className="glass join-modal"
+              style={{
+                position: 'fixed',
+                bottom: '100px',
+                left: '50%',
+                zIndex: 11000,
+                width: '90%',
+                maxWidth: '380px',
+                textAlign: 'center',
+                padding: 'var(--s-6)',
+                borderRadius: 'var(--r-2xl)',
+              }}
+            >
+              <div className="modal-icon">🤝</div>
+              <h3 className="modal-title">Join Request</h3>
+              <p className="modal-body-text">
+                <strong>{incomingRequest.name}</strong> is nearby and wants to join your session.
+              </p>
+              <div className="modal-actions">
+                <button 
+                  onClick={() => handleResponse(false)}
+                  className="modal-btn modal-btn-decline"
+                >
+                  Decline
+                </button>
+                <button 
+                  onClick={() => handleResponse(true)}
+                  className="modal-btn modal-btn-accept"
+                >
+                  Accept
+                </button>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* REQUEST SENT FEEDBACK (Guest Side) */}
+        <AnimatePresence>
+          {requestStatus === 'pending' && (
+            <motion.div 
+              initial={{ opacity: 0, y: 20, x: '-50%' }}
+              animate={{ opacity: 1, y: 0, x: '-50%' }}
+              exit={{ opacity: 0, y: 20, x: '-50%' }}
+              className="request-pending-pill"
+            >
+              <span className="spinner-dots"></span>
+              Request sent. Waiting for Host approval...
+              <button onClick={() => setRequestStatus('idle')} className="cancel-request-btn">Cancel</button>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* DECLINED FEEDBACK (Guest Side) */}
+        <AnimatePresence>
+          {requestStatus === 'declined' && (
+            <motion.div 
+              initial={{ opacity: 0, y: 20, x: '-50%' }}
+              animate={{ opacity: 1, y: 0, x: '-50%' }}
+              exit={{ opacity: 0, y: 20, x: '-50%' }}
+              className="request-declined-pill"
+            >
+              🔒 Request declined by the Host.
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* DISCOVERY SECTION (First Glance) */}
+        <div className="discovery-section">
+           {nearbySessions.filter(s => s.room_id !== roomId).length > 0 && (
+             <div className="device-monitor discovery-prominent">
+               <div className="device-monitor-header">
+                 <span className="device-monitor-title">
+                   <span className="live-pulse"></span>
+                   Nearby Sessions
+                 </span>
+               </div>
+               <div className="device-list">
+                 {nearbySessions.filter(s => s.room_id !== roomId).map(session => (
+                   <div key={session.room_id} className="device-item discovery-item">
+                     <div className="device-item-left">
+                       <div className="device-icon-wrap" style={{ background: 'var(--color-accent-primary)', color: 'white' }}>
+                         <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M5 12.55a11 11 0 0 1 14.08 0"></path>
+                            <path d="M1.42 9a16 16 0 0 1 21.16 0"></path>
+                            <path d="M8.53 16.11a6 6 0 0 1 6.95 0"></path>
+                            <line x1="12" y1="20" x2="12.01" y2="20"></line>
+                         </svg>
+                       </div>
+                       <div className="device-info">
+                         <div className="device-name">Room: {session.room_id}</div>
+                         <div className="device-meta">Church Wi-Fi Network</div>
+                       </div>
+                     </div>
+                     <button 
+                       onClick={() => handleJoinRequest(session.room_id)}
+                       disabled={requestStatus === 'pending'}
+                       className="join-request-btn"
+                     >
+                       {requestStatus === 'pending' && joinRequest?.roomId === session.room_id ? 'Wait...' : 'Request Join'}
+                     </button>
+                   </div>
+                 ))}
+               </div>
+             </div>
+           )}
         </div>
 
         {/* SEARCH BAR (Now a form for native mobile submission) */}

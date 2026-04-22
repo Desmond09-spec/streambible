@@ -16,6 +16,14 @@ export interface DevicePresence {
   isOverlay: boolean;
 }
 
+export interface ActiveSession {
+  room_id: string;
+  host_device_id: string;
+  public_ip: string;
+  last_seen: string;
+  is_discoverable: boolean;
+}
+
 function getDeviceId() {
   let id = localStorage.getItem('streambible-device-id');
   if (!id) {
@@ -189,4 +197,96 @@ export function usePresence(roomId: string, isOverlay: boolean = false, remoteAc
   }, [roomId, isOverlay, remoteAccess]);
 
   return { devices, myId, hostStatus };
+}
+
+/**
+ * Heartbeat hook — keeps a session active in the global discovery table.
+ */
+export function useHeartbeat(roomId: string, isHost: boolean, isDiscoverable: boolean) {
+  useEffect(() => {
+    if (!roomId || !isHost) return;
+
+    const sendHeartbeat = async () => {
+      try {
+        const ipRes = await fetch('https://api.ipify.org?format=json');
+        const { ip } = await ipRes.json();
+        console.log('Heartbeat IP:', ip);
+
+        const { error } = await supabase
+          .from('active_sessions')
+          .upsert({
+            room_id: roomId,
+            host_device_id: getDeviceId(),
+            public_ip: ip,
+            is_discoverable: isDiscoverable,
+            last_seen: new Date().toISOString()
+          }, { onConflict: 'room_id' });
+        
+        if (error) console.error('Supabase Heartbeat Error:', error);
+      } catch (e) {
+        console.error('Heartbeat failed', e);
+      }
+    };
+
+    sendHeartbeat();
+    const interval = setInterval(sendHeartbeat, 20000);
+
+    const cleanup = () => {
+      // Use navigator.sendBeacon if possible for more reliable tab-close cleanup
+      // But for simple projects, a basic delete works fairly well if the tab is still closing
+      const { supabaseUrl, supabaseAnonKey } = (supabase as any);
+      if (supabaseUrl && supabaseAnonKey) {
+        const url = `${supabaseUrl}/rest/v1/active_sessions?room_id=eq.${roomId}`;
+        const headers = {
+          'apikey': supabaseAnonKey,
+          'Authorization': `Bearer ${supabaseAnonKey}`,
+          'Content-Type': 'application/json'
+        };
+        fetch(url, { method: 'DELETE', headers, keepalive: true });
+      }
+    };
+
+    window.addEventListener('beforeunload', cleanup);
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('beforeunload', cleanup);
+      cleanup();
+    };
+  }, [roomId, isHost, isDiscoverable]);
+}
+
+/**
+ * Discovery hook — finds sessions on the same public IP.
+ */
+export function useDiscovery() {
+  const [nearbySessions, setNearbySessions] = useState<ActiveSession[]>([]);
+
+  const refresh = useCallback(async () => {
+    try {
+      const ipRes = await fetch('https://api.ipify.org?format=json');
+      const { ip } = await ipRes.json();
+      console.log('Discovery IP:', ip);
+
+      const { data, error } = await supabase
+        .from('active_sessions')
+        .select('*')
+        .eq('public_ip', ip)
+        .eq('is_discoverable', true)
+        .gt('last_seen', new Date(Date.now() - 60000).toISOString()); // filter stale
+      
+      if (error) console.error('Supabase Discovery Error:', error);
+      setNearbySessions(data || []);
+    } catch (e) {
+      console.error('Discovery failed', e);
+    }
+  }, []);
+
+  useEffect(() => {
+    refresh();
+    const interval = setInterval(refresh, 15000);
+    return () => clearInterval(interval);
+  }, [refresh]);
+
+  return { nearbySessions, refresh };
 }
