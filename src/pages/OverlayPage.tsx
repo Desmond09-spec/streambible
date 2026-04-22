@@ -1,34 +1,29 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { AutoFitFont } from '../components/AutoFitFont';
 
-// Mock Type for the Broadcast Data
-interface ActiveVerse {
-  reference: string;
-  textEn: string;
-  textYo?: string;
+import { useSyncSubscriber } from '../hooks/useSync';
+import type { VersePayload } from '../hooks/useSync';
+
+// Extension of VersePayload for local UI state
+interface ActiveVerse extends VersePayload {
   isVisible: boolean;
 }
 
 const OverlayPage: React.FC = () => {
-  // Mock State - In the final version, this will be driven by Supabase Realtime
   const [verse, setVerse] = useState<ActiveVerse>({
-    reference: "GENESIS 1:1",
-    textEn: "In the beginning God created the heaven and the earth.",
-    textYo: "Ni atetekose Olorun da orun on aiye.",
+    ref: "",
+    en: "",
+    yo: "",
+    showEn: true,
+    showYo: true,
     isVisible: false
   });
 
-  // For testing purposes, toggle visibility on click
-  // In OBS, the user won't click this, it's just for development preview.
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 't') {
-        setVerse(prev => ({ ...prev, isVisible: !prev.isVisible }));
-      }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, []);
+  useSyncSubscriber(
+    (payload) => setVerse({ ...payload, isVisible: true }),
+    () => setVerse((prev) => ({ ...prev, isVisible: false }))
+  );
 
   return (
     <div 
@@ -40,10 +35,7 @@ const OverlayPage: React.FC = () => {
         overflow: 'hidden'
       }}
     >
-      {/* Dev helper text (will be removed in production) */}
-      <div style={{ position: 'absolute', top: 10, left: 10, color: 'rgba(255,255,255,0.3)', fontSize: '12px' }}>
-        Press 'T' to toggle verse (Dev Mode)
-      </div>
+
 
       <AnimatePresence>
         {verse.isVisible && (
@@ -79,11 +71,13 @@ const OverlayPage: React.FC = () => {
                 padding: 'var(--space-6) var(--space-8)',
                 boxShadow: '0 30px 60px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.2)',
                 maxWidth: '1400px',
-                width: '100%',
+                width: '92vw',
+                height: '35vh', // Fixed height so the content shrinks instead of pushing the box down
                 position: 'relative',
                 overflow: 'hidden'
               }}
             >
+              <AutoFitFont dependencies={[verse]}>
               {/* Subtle light sweep effect */}
               <motion.div
                 initial={{ left: '-100%' }}
@@ -104,43 +98,46 @@ const OverlayPage: React.FC = () => {
                 <h2 
                   style={{ 
                     color: 'var(--color-accent-primary)', 
-                    fontSize: 'var(--font-size-xl)', 
+                    fontSize: 'calc(var(--font-size-xl) * var(--font-scale))', 
                     fontWeight: 'var(--font-weight-bold)',
                     letterSpacing: '0.1em',
                     textTransform: 'uppercase',
-                    marginBottom: 'var(--space-3)'
+                    marginBottom: 'calc(var(--space-3) * var(--font-scale))'
                   }}
                 >
-                  {verse.reference}
+                  {verse.ref}
                 </h2>
                 
-                <p 
-                  style={{ 
-                    color: '#ffffff', 
-                    fontSize: 'var(--font-size-4xl)', 
-                    fontWeight: 'var(--font-weight-semibold)',
-                    lineHeight: 1.3,
-                    textShadow: '0 2px 10px rgba(0,0,0,0.5)',
-                    marginBottom: verse.textYo ? 'var(--space-3)' : 0
-                  }}
-                >
-                  {verse.textEn}
-                </p>
+                {verse.showEn && (
+                  <p 
+                    style={{ 
+                      color: '#ffffff', 
+                      fontSize: 'calc(var(--font-size-4xl) * var(--font-scale))', 
+                      fontWeight: 'var(--font-weight-semibold)',
+                      lineHeight: 1.3,
+                      textShadow: '0 2px 10px rgba(0,0,0,0.5)',
+                      marginBottom: (verse.showYo && verse.yo) ? 'calc(var(--space-3) * var(--font-scale))' : 0
+                    }}
+                  >
+                    {verse.en}
+                  </p>
+                )}
 
-                {verse.textYo && (
+                {verse.showYo && verse.yo && (
                   <p 
                     style={{ 
                       color: 'rgba(255, 255, 255, 0.75)', 
-                      fontSize: 'var(--font-size-3xl)', 
+                      fontSize: 'calc(var(--font-size-3xl) * var(--font-scale))', 
                       fontWeight: 'var(--font-weight-medium)',
                       lineHeight: 1.3,
                       fontStyle: 'italic'
                     }}
                   >
-                    {verse.textYo}
+                    {verse.yo}
                   </p>
                 )}
               </div>
+              </AutoFitFont>
             </div>
           </motion.div>
         )}

@@ -162,120 +162,100 @@ function normalizeName(name: string): string {
 
 function getBookCode(bookName: string): string | null {
   const normalized = normalizeName(bookName);
-  if (bibleBookMap[normalized]) {
-    return bibleBookMap[normalized];
-  }
+  if (bibleBookMap[normalized]) return bibleBookMap[normalized];
 
   let bestMatch: string | null = null;
   let bestLength = 0;
-
   for (const alias in bibleBookMap) {
     if (alias.startsWith(normalized) && normalized.length > bestLength) {
       bestMatch = bibleBookMap[alias];
       bestLength = normalized.length;
     }
   }
-
   return bestMatch;
 }
 
 export function parseReference(query: string): BibleReference | null {
   const normalizedQuery = query.trim().replace(/\s+/g, " ");
-  const splitIndex = normalizedQuery.lastIndexOf(" ");
-  if (splitIndex === -1) return null;
+  
+  // Matches book name (letters, optional leading 1/2/3) and trailing numbers/colons/hyphens
+  const match = normalizedQuery.match(/^([123]?\s*[a-zA-Z\s]+?)\s*(\d[\d\s:\-]*?)?$/i);
+  if (!match) return null;
 
-  const bookName = normalizedQuery.slice(0, splitIndex);
-  const chapterVerse = normalizedQuery.slice(splitIndex + 1);
-  const [chapterText, verseText] = chapterVerse.split(":");
+  const bookName = match[1].trim();
   const bookCode = getBookCode(bookName);
-  const chapter = Number(chapterText);
   
-  if (!bookCode || Number.isNaN(chapter)) return null;
+  if (!bookCode) return null;
 
-  let verseStart: number | undefined;
-  let verseEnd: number | undefined;
+  const numberPart = match[2] ? match[2].trim() : "";
   
-  if (verseText) {
-    const rangeParts = verseText.split("-").map((value) => Number(value));
-    if (rangeParts.some((value) => Number.isNaN(value))) return null;
-    verseStart = rangeParts[0];
-    verseEnd = rangeParts.length === 2 ? rangeParts[1] : verseStart;
+  let chapter = 1;
+  let verseStart: number = 1;
+  let verseEnd: number | undefined;
+
+  if (numberPart) {
+    // Clean up spaces around hyphens (e.g. "1 - 5" -> "1-5")
+    const cleanNumbers = numberPart.replace(/\s*-\s*/g, "-");
+    // Split by space or colon to separate chapter and verse (e.g. "1 5" or "1:5")
+    const parts = cleanNumbers.split(/[\s:]+/);
+    
+    if (parts.length > 0 && parts[0]) {
+      chapter = Number(parts[0]);
+    }
+    if (parts.length > 1 && parts[1]) {
+      const vParts = parts[1].split("-");
+      verseStart = Number(vParts[0]);
+      if (vParts.length > 1 && vParts[1]) {
+        verseEnd = Number(vParts[1]);
+      }
+    }
   }
 
-  return {
-    bookCode,
-    chapter,
-    verseStart,
-    verseEnd,
-  };
+  if (Number.isNaN(chapter) || Number.isNaN(verseStart)) return null;
+  if (verseEnd !== undefined && Number.isNaN(verseEnd)) return null;
+
+  return { bookCode, chapter, verseStart, verseEnd };
 }
 
 export function getCanonicalBookName(bookCode: string): string {
   return canonicalBookNames[bookCode] || "";
 }
 
-/**
- * Fetch English Verse from Bible-api.com
- */
-export async function fetchEnglishVerse(query: string): Promise<string> {
+// ─── Supabase-powered fetch functions ─────────────────────────────────────────
+import { supabase } from '../lib/supabase';
+
+async function fetchVerses(translation: string, query: string): Promise<string> {
   const reference = parseReference(query);
   if (!reference) throw new Error("Unable to parse reference.");
 
-  let urlQuery = `${canonicalBookNames[reference.bookCode]} ${reference.chapter}`;
-  if (reference.verseStart) {
-    urlQuery += `:${reference.verseStart}`;
-    if (reference.verseEnd && reference.verseEnd !== reference.verseStart) {
-      urlQuery += `-${reference.verseEnd}`;
-    }
-  }
+  const verseEnd = reference.verseEnd ?? reference.verseStart;
 
-  const res = await fetch(`https://bible-api.com/${encodeURIComponent(urlQuery)}`);
-  if (!res.ok) {
-    throw new Error("English verse not found.");
-  }
-  const data = await res.json();
-  
-  // Format the text by replacing newlines and trimming
-  let text = data.text.replace(/\n/g, " ").replace(/\s+/g, " ").trim();
-  return text;
+  const { data, error } = await supabase
+    .from('verses')
+    .select('verse, text')
+    .eq('translation', translation)
+    .eq('book_code', reference.bookCode)
+    .eq('chapter', reference.chapter)
+    .gte('verse', reference.verseStart)
+    .lte('verse', verseEnd)
+    .order('verse', { ascending: true });
+
+  if (error) throw new Error(error.message);
+  if (!data || data.length === 0) throw new Error("Verse not found.");
+
+  return data.map((row: { verse: number; text: string }) => row.text.trim()).join(' ');
 }
 
 /**
- * Fetch Yoruba Verse from helloao.org
+ * Fetch English verse(s) from Supabase (KJV)
+ */
+export async function fetchEnglishVerse(query: string): Promise<string> {
+  return fetchVerses('kjv', query);
+}
+
+/**
+ * Fetch Yoruba verse(s) from Supabase
  */
 export async function fetchYorubaVerse(query: string): Promise<string> {
-  const reference = parseReference(query);
-  if (!reference) throw new Error("Unable to parse Yoruba reference.");
-
-  // HelloAO uses standard book codes (GEN, EXO) for Yoruba API
-  const bookCode = reference.bookCode;
-  const chapter = reference.chapter;
-  let versesToFetch = [];
-
-  if (reference.verseStart) {
-    const end = reference.verseEnd ?? reference.verseStart;
-    for (let i = reference.verseStart; i <= end; i++) {
-      versesToFetch.push(i);
-    }
-  } else {
-    // If no verse specified, throw error or handle chapter fetch
-    throw new Error("Please specify a verse for Yoruba translation.");
-  }
-
-  try {
-    const fetchPromises = versesToFetch.map(async (v) => {
-      const res = await fetch(`https://helloao.org/api/available_translations/yor_bib/books/${bookCode}/chapters/${chapter}/verses/${v}.json`);
-      if (!res.ok) throw new Error("Verse not found");
-      const data = await res.json();
-      return data.content || data.text || "";
-    });
-
-    const results = await Promise.all(fetchPromises);
-    const combined = results.map(r => r.replace(/\n/g, " ").trim()).join(" ");
-    
-    if (!combined) throw new Error("Yoruba verse not found.");
-    return combined;
-  } catch (error) {
-    throw new Error("Failed to fetch Yoruba translation.");
-  }
+  return fetchVerses('yor', query);
 }

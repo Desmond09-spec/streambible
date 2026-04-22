@@ -1,13 +1,34 @@
-import React, { useState, useEffect } from 'react';
+const fs = require('fs');
+
+const tsxDestPath = 'C:\\Users\\danie\\OneDrive\\Documents\\Projects\\Streambible-suite\\bible-overlay\\streambible-dual\\src\\pages\\ControllerPage.tsx';
+const cssDestPath = 'C:\\Users\\danie\\OneDrive\\Documents\\Projects\\Streambible-suite\\bible-overlay\\streambible-dual\\src\\pages\\ControllerLegacy.css';
+
+// Append pulse animation to CSS
+let cssContent = fs.readFileSync(cssDestPath, 'utf-8');
+if (!cssContent.includes('@keyframes skeleton-pulse')) {
+  cssContent += `
+@keyframes skeleton-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+.skeleton-bar {
+  height: 14px;
+  background-color: var(--text-4);
+  border-radius: 4px;
+  margin-bottom: 8px;
+  animation: skeleton-pulse 1.5s ease-in-out infinite;
+}
+`;
+  fs.writeFileSync(cssDestPath, cssContent);
+}
+
+const tsxContent = `import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import './ControllerLegacy.css';
-import { parseReference, getCanonicalBookName, fetchEnglishVerse, fetchYorubaVerse } from '../services/bibleService';
-import { useSyncPublisher } from '../hooks/useSync';
 
 const ControllerPage: React.FC = () => {
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
   const [query, setQuery] = useState('');
-  const { pushVerse, clearScreen: broadcastClear } = useSyncPublisher();
   
   const [enText, setEnText] = useState('');
   const [enRef, setEnRef] = useState('');
@@ -26,7 +47,6 @@ const ControllerPage: React.FC = () => {
   const [remoteAccess, setRemoteAccess] = useState(false);
   
   const [isCopied, setIsCopied] = useState(false);
-  const [isTransitioning, setIsTransitioning] = useState(false);
 
   useEffect(() => {
     const saved = localStorage.getItem('streambible-theme') || 'light';
@@ -53,11 +73,14 @@ const ControllerPage: React.FC = () => {
   }, [query]);
 
   const toggleTheme = () => {
+    const wrapper = document.getElementById('controller-legacy-wrapper');
+    if (wrapper) wrapper.classList.add('theme-transitioning');
     const next = theme === 'dark' ? 'light' : 'dark';
-    setIsTransitioning(true);
     setTheme(next);
     localStorage.setItem('streambible-theme', next);
-    setTimeout(() => setIsTransitioning(false), 280);
+    setTimeout(() => {
+      if (wrapper) wrapper.classList.remove('theme-transitioning');
+    }, 280);
   };
 
   const handleSearch = async (searchQuery: string = query) => {
@@ -66,35 +89,18 @@ const ControllerPage: React.FC = () => {
     setStatus('fetching');
     setStatusMsg('Fetching…');
 
-    // Build canonical reference label (e.g. "Jn 3:16" → "John 3:16")
-    const parsed = parseReference(searchQuery);
-    let canonicalRef = searchQuery; // fallback to raw query
-    if (parsed) {
-      const bookName = getCanonicalBookName(parsed.bookCode);
-      const versePart = parsed.verseStart
-        ? `:${parsed.verseStart}${parsed.verseEnd && parsed.verseEnd !== parsed.verseStart ? `-${parsed.verseEnd}` : ''}`
-        : '';
-      canonicalRef = `${bookName} ${parsed.chapter}${versePart}`;
-    }
+    // MOCKED DELAY for skeleton UI demonstration
+    await new Promise(resolve => setTimeout(resolve, 800));
 
-    try {
-      const [enResponse, yoResponse] = await Promise.all([
-        fetchEnglishVerse(searchQuery).catch(() => 'Verse not found in KJV.'),
-        fetchYorubaVerse(searchQuery).catch(() => 'Ẹsẹ yii ko si ninu Bibeli Yoruba.')
-      ]);
+    // Mocked responses
+    setEnText('For God so loved the world, that he gave his only begotten Son, that whosoever believeth in him should not perish, but have everlasting life.');
+    setEnRef(searchQuery.toUpperCase() + ' (MOCKED)');
+    
+    setYoText('Nitori Ọlọrun fẹ araye to bẹ̃ gẹ, ti o fi Ọmọ bibi rẹ̀ kanṣoṣo funni, ki ẹnikẹni ti o ba gbà a gbọ́ mã ba ṣegbe, ṣugbọn ki o le ni iye ainipẹkun.');
+    setYoRef(searchQuery.toUpperCase() + ' (MOCKED)');
 
-      setEnText(enResponse);
-      setEnRef(canonicalRef);
-      
-      setYoText(yoResponse);
-      setYoRef(canonicalRef);
-
-      setStatus('success');
-      setStatusMsg('Ready to push');
-    } catch (error) {
-      setStatus('error');
-      setStatusMsg('Error fetching verses');
-    }
+    setStatus('success');
+    setStatusMsg('Ready to push');
   };
 
   const onFormSubmit = (e: React.FormEvent) => {
@@ -103,19 +109,11 @@ const ControllerPage: React.FC = () => {
   };
 
   const pushLive = () => {
-    pushVerse({
-      ref: enRef,
-      en: enText,
-      yo: yoText,
-      showEn,
-      showYo,
-    });
     setStatus('live');
     setStatusMsg('Live on stream');
   };
 
   const clearScreen = () => {
-    broadcastClear();
     setEnText(''); setEnRef('');
     setYoText(''); setYoRef('');
     setQuery('');
@@ -138,7 +136,7 @@ const ControllerPage: React.FC = () => {
   );
 
   return (
-    <div id="controller-legacy-wrapper" className={`theme-${theme} legacy-body${isTransitioning ? ' theme-transitioning' : ''}`} style={{ width: '100%', minHeight: '100vh', flex: 1 }}>
+    <div id="controller-legacy-wrapper" className={\`theme-\${theme} legacy-body\`} style={{ width: '100%', minHeight: '100vh', flex: 1 }}>
       
       {/* Toast Notification with Framer Motion */}
       <AnimatePresence>
@@ -239,7 +237,7 @@ const ControllerPage: React.FC = () => {
                 <span className="toggle-slider"></span>
               </label>
               <button 
-                className={`network-collapse-btn ${isNetworkExpanded ? '' : 'collapsed'} ${remoteAccess ? 'active' : ''}`}
+                className={\`network-collapse-btn \${isNetworkExpanded ? '' : 'collapsed'} \${remoteAccess ? 'active' : ''}\`}
                 onClick={() => setIsNetworkExpanded(!isNetworkExpanded)}
               >
                 <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -327,7 +325,7 @@ const ControllerPage: React.FC = () => {
         {/* PREVIEWS */}
         <div className="previews">
           {/* ENGLISH CARD */}
-          <div className={`preview-card ${!showEn ? 'lang-disabled' : ''}`}>
+          <div className={\`preview-card \${!showEn ? 'lang-disabled' : ''}\`}>
             <div className="card-label">
               <span className="card-label-dot"></span>
               English
@@ -337,13 +335,13 @@ const ControllerPage: React.FC = () => {
                 <span className="lang-toggle-track"></span>
               </label>
             </div>
-            <div className={`preview-text ${enText && status !== 'fetching' ? 'has-content' : ''} ${enExpanded ? 'expanded' : ''}`}>
+            <div className={\`preview-text \${enText && status !== 'fetching' ? 'has-content' : ''} \${enExpanded ? 'expanded' : ''}\`}>
               {status === 'fetching' ? <SkeletonLoader /> : (enText || 'Waiting for a verse…')}
             </div>
             <div className="card-footer">
-              <span className={`card-ref ${enRef && status !== 'fetching' ? 'visible' : ''}`}>{enRef}</span>
+              <span className={\`card-ref \${enRef && status !== 'fetching' ? 'visible' : ''}\`}>{enRef}</span>
               <button 
-                className={`expand-btn ${enText.length > 230 && status !== 'fetching' ? 'visible' : ''}`}
+                className={\`expand-btn \${enText.length > 230 && status !== 'fetching' ? 'visible' : ''}\`}
                 onClick={() => setEnExpanded(!enExpanded)}
               >
                 {enExpanded ? 'Show less' : 'Show more'}
@@ -352,7 +350,7 @@ const ControllerPage: React.FC = () => {
           </div>
 
           {/* YORUBA CARD */}
-          <div className={`preview-card ${!showYo ? 'lang-disabled' : ''}`}>
+          <div className={\`preview-card \${!showYo ? 'lang-disabled' : ''}\`}>
             <div className="card-label">
               <span className="card-label-dot"></span>
               Yoruba
@@ -362,13 +360,13 @@ const ControllerPage: React.FC = () => {
                 <span className="lang-toggle-track"></span>
               </label>
             </div>
-            <div className={`preview-text ${yoText && status !== 'fetching' ? 'has-content' : ''} ${yoExpanded ? 'expanded' : ''}`}>
+            <div className={\`preview-text \${yoText && status !== 'fetching' ? 'has-content' : ''} \${yoExpanded ? 'expanded' : ''}\`}>
                {status === 'fetching' ? <SkeletonLoader /> : (yoText || 'Nduro fun ẹsẹ kan…')}
             </div>
             <div className="card-footer">
-              <span className={`card-ref ${yoRef && status !== 'fetching' ? 'visible' : ''}`}>{yoRef}</span>
+              <span className={\`card-ref \${yoRef && status !== 'fetching' ? 'visible' : ''}\`}>{yoRef}</span>
               <button 
-                className={`expand-btn ${yoText.length > 230 && status !== 'fetching' ? 'visible' : ''}`}
+                className={\`expand-btn \${yoText.length > 230 && status !== 'fetching' ? 'visible' : ''}\`}
                 onClick={() => setYoExpanded(!yoExpanded)}
               >
                 {yoExpanded ? 'Show less' : 'Show more'}
@@ -382,7 +380,7 @@ const ControllerPage: React.FC = () => {
       <footer className="action-bar">
         <div className="action-row">
           <button 
-            className={`btn-live ${status === 'live' ? 'is-live' : ''}`} 
+            className={\`btn-live \${status === 'live' ? 'is-live' : ''}\`} 
             onClick={pushLive} 
             disabled={(!enText && !yoText) || status === 'fetching'}
           >
@@ -400,3 +398,7 @@ const ControllerPage: React.FC = () => {
 };
 
 export default ControllerPage;
+`;
+
+fs.writeFileSync(tsxDestPath, tsxContent);
+console.log('UI upgrades implemented successfully!');

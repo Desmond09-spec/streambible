@@ -1,13 +1,33 @@
-import React, { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+const fs = require('fs');
+
+const commonPath = 'C:\\Users\\danie\\OneDrive\\Documents\\Projects\\Streambible-suite\\bible-overlay\\desktop-old\\common.css';
+const htmlPath = 'C:\\Users\\danie\\OneDrive\\Documents\\Projects\\Streambible-suite\\bible-overlay\\desktop-old\\controller.html';
+const cssDestPath = 'C:\\Users\\danie\\OneDrive\\Documents\\Projects\\Streambible-suite\\bible-overlay\\streambible-dual\\src\\pages\\ControllerLegacy.css';
+const tsxDestPath = 'C:\\Users\\danie\\OneDrive\\Documents\\Projects\\Streambible-suite\\bible-overlay\\streambible-dual\\src\\pages\\ControllerPage.tsx';
+
+// 1. Process CSS
+let common = fs.readFileSync(commonPath, 'utf-8');
+let html = fs.readFileSync(htmlPath, 'utf-8');
+
+// Replace body with .legacy-body to prevent conflicts with index.css
+const styleMatch = html.match(/<style>([\s\S]*?)<\/style>/i);
+let controllerCss = styleMatch ? styleMatch[1] : '';
+
+controllerCss = controllerCss.replace(/\bbody\s*\{/g, '.legacy-body {');
+// common.css has body styles in .theme-light/.theme-dark but we apply the class to the div, so we don't need to change common.css EXCEPT if it targets body globally.
+// Looking at common.css, there are no 'body {' rules, only '.theme-light {' etc.
+
+const combinedCss = common + '\n' + controllerCss;
+fs.writeFileSync(cssDestPath, combinedCss);
+
+// 2. Process TSX
+const tsxContent = `import React, { useState, useEffect } from 'react';
 import './ControllerLegacy.css';
-import { parseReference, getCanonicalBookName, fetchEnglishVerse, fetchYorubaVerse } from '../services/bibleService';
-import { useSyncPublisher } from '../hooks/useSync';
+import { fetchEnglishVerse, fetchYorubaVerse } from '../services/bibleService';
 
 const ControllerPage: React.FC = () => {
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
   const [query, setQuery] = useState('');
-  const { pushVerse, clearScreen: broadcastClear } = useSyncPublisher();
   
   const [enText, setEnText] = useState('');
   const [enRef, setEnRef] = useState('');
@@ -24,148 +44,92 @@ const ControllerPage: React.FC = () => {
   
   const [isNetworkExpanded, setIsNetworkExpanded] = useState(false);
   const [remoteAccess, setRemoteAccess] = useState(false);
-  
-  const [isCopied, setIsCopied] = useState(false);
-  const [isTransitioning, setIsTransitioning] = useState(false);
 
   useEffect(() => {
     const saved = localStorage.getItem('streambible-theme') || 'light';
     setTheme(saved as 'light' | 'dark');
   }, []);
 
-  // Debounced Live Search
-  useEffect(() => {
-    if (!query.trim()) {
-      if (status !== 'live') {
-        setStatus('default');
-        setStatusMsg('Ready');
-        setEnText(''); setEnRef('');
-        setYoText(''); setYoRef('');
-      }
-      return;
-    }
-    
-    const delayDebounceFn = setTimeout(() => {
-      handleSearch(query);
-    }, 400);
-
-    return () => clearTimeout(delayDebounceFn);
-  }, [query]);
-
   const toggleTheme = () => {
+    const wrapper = document.getElementById('controller-legacy-wrapper');
+    if (wrapper) wrapper.classList.add('theme-transitioning');
     const next = theme === 'dark' ? 'light' : 'dark';
-    setIsTransitioning(true);
     setTheme(next);
     localStorage.setItem('streambible-theme', next);
-    setTimeout(() => setIsTransitioning(false), 280);
+    setTimeout(() => {
+      if (wrapper) wrapper.classList.remove('theme-transitioning');
+    }, 280);
   };
 
-  const handleSearch = async (searchQuery: string = query) => {
-    if (!searchQuery.trim()) return;
+  const handleSearch = async () => {
+    if (!query.trim()) return;
 
     setStatus('fetching');
     setStatusMsg('Fetching…');
-
-    // Build canonical reference label (e.g. "Jn 3:16" → "John 3:16")
-    const parsed = parseReference(searchQuery);
-    let canonicalRef = searchQuery; // fallback to raw query
-    if (parsed) {
-      const bookName = getCanonicalBookName(parsed.bookCode);
-      const versePart = parsed.verseStart
-        ? `:${parsed.verseStart}${parsed.verseEnd && parsed.verseEnd !== parsed.verseStart ? `-${parsed.verseEnd}` : ''}`
-        : '';
-      canonicalRef = `${bookName} ${parsed.chapter}${versePart}`;
-    }
+    setEnText(''); setEnRef(''); setEnExpanded(false);
+    setYoText(''); setYoRef(''); setYoExpanded(false);
 
     try {
-      const [enResponse, yoResponse] = await Promise.all([
-        fetchEnglishVerse(searchQuery).catch(() => 'Verse not found in KJV.'),
-        fetchYorubaVerse(searchQuery).catch(() => 'Ẹsẹ yii ko si ninu Bibeli Yoruba.')
-      ]);
-
-      setEnText(enResponse);
-      setEnRef(canonicalRef);
+      let fetchedEn = '';
+      let fetchedYo = '';
       
-      setYoText(yoResponse);
-      setYoRef(canonicalRef);
+      try {
+        fetchedEn = await fetchEnglishVerse(query);
+      } catch (e) {}
+      
+      try {
+        fetchedYo = await fetchYorubaVerse(query);
+      } catch (e) {}
+
+      if (!fetchedEn && !fetchedYo) {
+        throw new Error('no-content');
+      }
+
+      setEnText(fetchedEn || '—');
+      setEnRef(query.toUpperCase());
+      
+      setYoText(fetchedYo || '—');
+      setYoRef(query.toUpperCase());
 
       setStatus('success');
       setStatusMsg('Ready to push');
-    } catch (error) {
+
+    } catch (e) {
       setStatus('error');
-      setStatusMsg('Error fetching verses');
+      setStatusMsg('Nothing found — try "John 3:16" format');
     }
   };
 
-  const onFormSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    handleSearch(query);
-  };
-
   const pushLive = () => {
-    pushVerse({
-      ref: enRef,
-      en: enText,
-      yo: yoText,
-      showEn,
-      showYo,
-    });
     setStatus('live');
     setStatusMsg('Live on stream');
+    // TODO: Send via Supabase
   };
 
   const clearScreen = () => {
-    broadcastClear();
     setEnText(''); setEnRef('');
     setYoText(''); setYoRef('');
     setQuery('');
     setStatus('default');
     setStatusMsg('Ready');
+    // TODO: Send via Supabase
   };
-
-  const handleCopyLink = () => {
-    setIsCopied(true);
-    setTimeout(() => setIsCopied(false), 3000);
-  };
-
-  const SkeletonLoader = () => (
-    <div style={{ width: '100%', paddingTop: '4px' }}>
-      <div className="skeleton-bar" style={{ width: '100%' }}></div>
-      <div className="skeleton-bar" style={{ width: '90%' }}></div>
-      <div className="skeleton-bar" style={{ width: '95%' }}></div>
-      <div className="skeleton-bar" style={{ width: '60%' }}></div>
-    </div>
-  );
 
   return (
-    <div id="controller-legacy-wrapper" className={`theme-${theme} legacy-body${isTransitioning ? ' theme-transitioning' : ''}`} style={{ width: '100%', minHeight: '100vh', flex: 1 }}>
+    <div id="controller-legacy-wrapper" className={\`theme-\${theme} legacy-body\`}>
       
-      {/* Toast Notification with Framer Motion */}
-      <AnimatePresence>
-        {isCopied && (
-          <motion.div 
-            initial={{ opacity: 0, y: -20, x: '-50%', scale: 0.95 }}
-            animate={{ opacity: 1, y: 0, x: '-50%', scale: 1 }}
-            exit={{ opacity: 0, y: -10, x: '-50%', scale: 0.95 }}
-            transition={{ type: 'spring', damping: 20, stiffness: 300 }}
-            className="copy-toast visible" 
-            role="status" 
-            aria-live="polite" 
-            aria-atomic="true"
-            style={{ x: '-50%' }}
-          >
-            <div className="copy-toast-icon-wrap">
-              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                <polyline points="2.5 8.5 6 12 13.5 4"/>
-              </svg>
-            </div>
-            <div className="copy-toast-body">
-              <span className="copy-toast-title">Link copied</span>
-              <span className="copy-toast-sub">Bible overlay link copied to clipboard</span>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {/* Toast Notification */}
+      <div className="copy-toast" id="copyToast" role="status" aria-live="polite" aria-atomic="true">
+        <div className="copy-toast-icon-wrap">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="2.5 8.5 6 12 13.5 4"/>
+          </svg>
+        </div>
+        <div className="copy-toast-body">
+          <span className="copy-toast-title">Link copied</span>
+          <span className="copy-toast-sub">Bible overlay link copied to clipboard</span>
+        </div>
+      </div>
 
       {/* HEADER */}
       <header className="header">
@@ -183,7 +147,7 @@ const ControllerPage: React.FC = () => {
         </div>
 
         <div className="header-right">
-          <button className="obs-copy-btn" onClick={handleCopyLink}>
+          <button className="obs-copy-btn" onClick={() => alert('Supabase link coming soon!')}>
             <svg className="icon-copy" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
               <path d="M6 5H4a2 2 0 0 0-2 2v4a2 2 0 0 0 2 2h2m4-10h2a2 2 0 0 1 2 2v4a2 2 0 0 1-2 2h-2M5 8h6"/>
             </svg>
@@ -206,7 +170,7 @@ const ControllerPage: React.FC = () => {
 
           <div className="ws-pill connected">
             <span className="ws-dot"></span>
-            <span id="wsLabel">Connected</span>
+            <span>Connected</span>
             <svg className="ws-wifi-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
               <path d="M1 6a10.9 10.9 0 0 1 14 0"/>
               <path d="M3.5 9a7 7 0 0 1 9 0"/>
@@ -239,7 +203,7 @@ const ControllerPage: React.FC = () => {
                 <span className="toggle-slider"></span>
               </label>
               <button 
-                className={`network-collapse-btn ${isNetworkExpanded ? '' : 'collapsed'} ${remoteAccess ? 'active' : ''}`}
+                className={\`network-collapse-btn \${isNetworkExpanded ? '' : 'collapsed'} \${remoteAccess ? 'active' : ''}\`}
                 onClick={() => setIsNetworkExpanded(!isNetworkExpanded)}
               >
                 <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -249,63 +213,52 @@ const ControllerPage: React.FC = () => {
             </div>
           </div>
           
-          <AnimatePresence initial={false}>
-            {isNetworkExpanded && remoteAccess && (
-              <motion.div 
-                initial={{ height: 0, opacity: 0 }}
-                animate={{ height: 'auto', opacity: 1 }}
-                exit={{ height: 0, opacity: 0 }}
-                transition={{ type: 'spring', bounce: 0, duration: 0.4 }}
-                className="network-expanded visible"
-                style={{ overflow: 'hidden' }}
-              >
-                <div className="qr-container">
-                   {/* QR Code Placeholder */}
-                   <div style={{ width: 140, height: 140, background: '#f0f0f0', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 8, color: '#999', fontSize: 12 }}>QR Code</div>
-                </div>
-                <div className="network-url-box">
-                  <svg className="network-url-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                    <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
-                    <path d="M7 11V7a5 5 0 0110 0v4"></path>
-                  </svg>
-                  <span>http://192.168.x.x:5173/controller</span>
-                  <button onClick={handleCopyLink}>Copy</button>
-                </div>
+          <div className={\`network-expanded \${isNetworkExpanded && remoteAccess ? 'visible' : ''}\`}>
+            <div className="qr-container">
+               {/* QR Code Placeholder */}
+               <div style={{ width: 140, height: 140, background: '#f0f0f0', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 8, color: '#999', fontSize: 12 }}>QR Code</div>
+            </div>
+            <div className="network-url-box">
+              <svg className="network-url-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                <path d="M7 11V7a5 5 0 0110 0v4"></path>
+              </svg>
+              <span>http://192.168.x.x:5173/controller</span>
+              <button>Copy</button>
+            </div>
 
-                {/* DEVICE MONITOR SECTION */}
-                <div className="device-monitor">
-                   <div className="device-monitor-header">
-                     <span className="device-monitor-title">Live Sessions</span>
-                   </div>
-                   <div className="device-list">
-                     {/* Mock Session */}
-                     <div className="device-item is-me">
-                       <div className="device-item-left">
-                         <div className="device-icon-wrap">
-                           <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                              <rect x="5" y="2" width="14" height="20" rx="2" ry="2"></rect>
-                              <line x1="12" y1="18" x2="12.01" y2="18"></line>
-                           </svg>
-                         </div>
-                         <div className="device-info">
-                           <div className="device-name">Current Device</div>
-                           <div className="device-meta">
-                             localhost
-                             <span className="device-badge badge-host">Host</span>
-                             <span className="device-badge badge-me">You</span>
-                           </div>
-                         </div>
+            {/* DEVICE MONITOR SECTION */}
+            <div className="device-monitor">
+               <div className="device-monitor-header">
+                 <span className="device-monitor-title">Live Sessions</span>
+               </div>
+               <div className="device-list">
+                 {/* Mock Session */}
+                 <div className="device-item is-me">
+                   <div className="device-item-left">
+                     <div className="device-icon-wrap">
+                       <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <rect x="5" y="2" width="14" height="20" rx="2" ry="2"></rect>
+                          <line x1="12" y1="18" x2="12.01" y2="18"></line>
+                       </svg>
+                     </div>
+                     <div className="device-info">
+                       <div className="device-name">Current Device</div>
+                       <div className="device-meta">
+                         localhost
+                         <span className="device-badge badge-host">Host</span>
+                         <span className="device-badge badge-me">You</span>
                        </div>
                      </div>
                    </div>
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
+                 </div>
+               </div>
+            </div>
+          </div>
         </div>
 
-        {/* SEARCH BAR (Now a form for native mobile submission) */}
-        <form className="search-bar" onSubmit={onFormSubmit}>
+        {/* SEARCH BAR */}
+        <div className="search-bar">
           <span className="search-icon">
             <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
               <circle cx="6.5" cy="6.5" r="4"/>
@@ -320,14 +273,15 @@ const ControllerPage: React.FC = () => {
             spellCheck="false"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
           />
           <kbd className="search-hint">Enter ↵</kbd>
-        </form>
+        </div>
 
         {/* PREVIEWS */}
         <div className="previews">
           {/* ENGLISH CARD */}
-          <div className={`preview-card ${!showEn ? 'lang-disabled' : ''}`}>
+          <div className={\`preview-card \${!showEn ? 'lang-disabled' : ''}\`}>
             <div className="card-label">
               <span className="card-label-dot"></span>
               English
@@ -337,13 +291,13 @@ const ControllerPage: React.FC = () => {
                 <span className="lang-toggle-track"></span>
               </label>
             </div>
-            <div className={`preview-text ${enText && status !== 'fetching' ? 'has-content' : ''} ${enExpanded ? 'expanded' : ''}`}>
-              {status === 'fetching' ? <SkeletonLoader /> : (enText || 'Waiting for a verse…')}
+            <div className={\`preview-text \${enText ? 'has-content' : ''} \${enExpanded ? 'expanded' : ''}\`}>
+              {enText || 'Waiting for a verse…'}
             </div>
             <div className="card-footer">
-              <span className={`card-ref ${enRef && status !== 'fetching' ? 'visible' : ''}`}>{enRef}</span>
+              <span className={\`card-ref \${enRef ? 'visible' : ''}\`}>{enRef}</span>
               <button 
-                className={`expand-btn ${enText.length > 230 && status !== 'fetching' ? 'visible' : ''}`}
+                className={\`expand-btn \${enText.length > 230 ? 'visible' : ''}\`}
                 onClick={() => setEnExpanded(!enExpanded)}
               >
                 {enExpanded ? 'Show less' : 'Show more'}
@@ -352,7 +306,7 @@ const ControllerPage: React.FC = () => {
           </div>
 
           {/* YORUBA CARD */}
-          <div className={`preview-card ${!showYo ? 'lang-disabled' : ''}`}>
+          <div className={\`preview-card \${!showYo ? 'lang-disabled' : ''}\`}>
             <div className="card-label">
               <span className="card-label-dot"></span>
               Yoruba
@@ -362,13 +316,13 @@ const ControllerPage: React.FC = () => {
                 <span className="lang-toggle-track"></span>
               </label>
             </div>
-            <div className={`preview-text ${yoText && status !== 'fetching' ? 'has-content' : ''} ${yoExpanded ? 'expanded' : ''}`}>
-               {status === 'fetching' ? <SkeletonLoader /> : (yoText || 'Nduro fun ẹsẹ kan…')}
+            <div className={\`preview-text \${yoText ? 'has-content' : ''} \${yoExpanded ? 'expanded' : ''}\`}>
+              {yoText || 'Nduro fun ẹsẹ kan…'}
             </div>
             <div className="card-footer">
-              <span className={`card-ref ${yoRef && status !== 'fetching' ? 'visible' : ''}`}>{yoRef}</span>
+              <span className={\`card-ref \${yoRef ? 'visible' : ''}\`}>{yoRef}</span>
               <button 
-                className={`expand-btn ${yoText.length > 230 && status !== 'fetching' ? 'visible' : ''}`}
+                className={\`expand-btn \${yoText.length > 230 ? 'visible' : ''}\`}
                 onClick={() => setYoExpanded(!yoExpanded)}
               >
                 {yoExpanded ? 'Show less' : 'Show more'}
@@ -382,9 +336,9 @@ const ControllerPage: React.FC = () => {
       <footer className="action-bar">
         <div className="action-row">
           <button 
-            className={`btn-live ${status === 'live' ? 'is-live' : ''}`} 
+            className={\`btn-live \${status === 'live' ? 'is-live' : ''}\`} 
             onClick={pushLive} 
-            disabled={(!enText && !yoText) || status === 'fetching'}
+            disabled={!enText && !yoText}
           >
             Push Live
           </button>
@@ -400,3 +354,7 @@ const ControllerPage: React.FC = () => {
 };
 
 export default ControllerPage;
+`;
+
+fs.writeFileSync(tsxDestPath, tsxContent);
+console.log('Fixed ControllerPage.tsx and ControllerLegacy.css!');
