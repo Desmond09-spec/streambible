@@ -204,7 +204,7 @@ const ControllerPage: React.FC = () => {
     console.log('[Host] Listening for join requests on room:', roomId);
     const channel = supabase.channel(`streambible-sync-${roomId}`);
     
-    const sub = channel.on('broadcast', { event: 'JOIN_REQUEST' }, ({ payload }) => {
+    channel.on('broadcast', { event: 'JOIN_REQUEST' }, ({ payload }) => {
        console.log('[Host] Received JOIN_REQUEST:', payload);
        if (payload.deviceId !== myId) {
          setIncomingRequest({
@@ -224,7 +224,7 @@ const ControllerPage: React.FC = () => {
     
     console.log('[Guest] Waiting for JOIN_RESPONSE on room:', joinRequest.roomId);
     const channel = supabase.channel(`streambible-sync-${joinRequest.roomId}`);
-    const sub = channel.on('broadcast', { event: 'JOIN_RESPONSE' }, ({ payload }) => {
+    channel.on('broadcast', { event: 'JOIN_RESPONSE' }, ({ payload }) => {
        console.log('[Guest] Received JOIN_RESPONSE:', payload);
        if (payload.targetDeviceId === myId) {
           console.log('[Guest] Response is for ME! Accepted:', payload.accepted);
