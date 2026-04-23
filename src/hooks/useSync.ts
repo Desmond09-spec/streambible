@@ -259,10 +259,14 @@ export function useHeartbeat(roomId: string, isHost: boolean, isDiscoverable: bo
 /**
  * Discovery hook — finds sessions on the same public IP.
  */
-export function useDiscovery() {
+export function useDiscovery(enabled: boolean) {
   const [nearbySessions, setNearbySessions] = useState<ActiveSession[]>([]);
+  const [isDiscovering, setIsDiscovering] = useState(false);
 
   const refresh = useCallback(async () => {
+    if (!enabled) return;
+    
+    setIsDiscovering(true);
     try {
       const ipRes = await fetch('https://api.ipify.org?format=json');
       const { ip } = await ipRes.json();
@@ -279,14 +283,21 @@ export function useDiscovery() {
       setNearbySessions(data || []);
     } catch (e) {
       console.error('Discovery failed', e);
+    } finally {
+      setIsDiscovering(false);
     }
-  }, []);
+  }, [enabled]);
 
   useEffect(() => {
-    refresh();
-    const interval = setInterval(refresh, 15000);
-    return () => clearInterval(interval);
-  }, [refresh]);
+    if (enabled) {
+      refresh();
+      const interval = setInterval(refresh, 15000);
+      return () => clearInterval(interval);
+    } else {
+      setNearbySessions([]);
+      setIsDiscovering(false);
+    }
+  }, [enabled, refresh]);
 
-  return { nearbySessions, refresh };
+  return { nearbySessions, refresh, isDiscovering };
 }

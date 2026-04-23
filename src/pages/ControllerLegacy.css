@@ -1818,3 +1818,197 @@
   from { opacity: 0.4; transform: scale(0.8); }
   to { opacity: 1; transform: scale(1.2); }
 }
+
+/* ============================================================
+   INTERACTIVE WALKTHROUGH OVERLAY
+============================================================ */
+.walkthrough-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 20000;
+  pointer-events: auto;
+}
+
+.walkthrough-svg-mask {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.walkthrough-spotlight {
+  position: absolute;
+  pointer-events: none;
+  box-shadow: 0 0 0 2px var(--accent), 0 0 20px var(--accent-glow);
+  z-index: 20001;
+}
+
+.walkthrough-tooltip {
+  position: absolute;
+  width: 320px;
+  padding: var(--s-5);
+  border-radius: 20px; /* More rounded Apple feel */
+  z-index: 20002;
+  box-shadow: 0 20px 40px rgba(0,0,0,0.15), 0 0 0 1px var(--border-bright);
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-3);
+  background: var(--bg-card);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+}
+
+.walkthrough-arrow {
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  background: var(--bg-card);
+  border-radius: 2px;
+  z-index: -1;
+  box-shadow: -1px -1px 1px var(--border-dim);
+}
+
+/* If placement is bottom, arrow is at the top pointing up */
+.walkthrough-tooltip[data-placement="bottom"] .walkthrough-arrow {
+  box-shadow: -1px -1px 0px var(--border-bright);
+}
+
+/* If placement is top, arrow is at the bottom pointing down */
+.walkthrough-tooltip[data-placement="top"] .walkthrough-arrow {
+  box-shadow: 1px 1px 0px var(--border-bright);
+}
+
+.walkthrough-progress {
+  font-size: var(--fs-2xs);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-widest);
+  color: var(--accent);
+  font-weight: var(--fw-bold);
+}
+
+.walkthrough-title {
+  font-size: var(--fs-md);
+  font-weight: var(--fw-bold);
+  color: var(--text-1);
+  line-height: var(--lh-tight);
+}
+
+.walkthrough-text {
+  font-size: var(--fs-sm);
+  color: var(--text-2);
+  line-height: var(--lh-relaxed);
+}
+
+.walkthrough-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: var(--s-2);
+}
+
+.walkthrough-btn-skip {
+  background: transparent;
+  border: none;
+  color: var(--text-3);
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-medium);
+  cursor: pointer;
+  padding: var(--s-2);
+  transition: color var(--t-fast) var(--standard);
+}
+
+.walkthrough-btn-skip:hover {
+  color: var(--text-1);
+}
+
+.walkthrough-btn-next {
+  background: var(--text-1);
+  color: var(--bg-body);
+  border: none;
+  padding: 8px 16px;
+  border-radius: var(--r-full);
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-semibold);
+  cursor: pointer;
+  transition: transform var(--t-fast) var(--standard), opacity var(--t-fast) var(--standard);
+}
+
+.walkthrough-btn-next:hover {
+  transform: translateY(-1px);
+}
+
+.walkthrough-btn-next:active {
+  transform: scale(0.96);
+}
+
+.walkthrough-btn-learn {
+  background: var(--bg-elevated);
+  color: var(--text-1);
+  border: 1px solid var(--border-bright);
+  padding: 8px 16px;
+  border-radius: var(--r-full);
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-semibold);
+  cursor: pointer;
+  transition: transform var(--t-fast) var(--standard), opacity var(--t-fast) var(--standard);
+}
+
+.walkthrough-btn-learn:hover {
+  transform: translateY(-1px);
+  border-color: var(--text-2);
+}
+
+.walkthrough-btn-learn:active {
+  transform: scale(0.96);
+}
+
+/* Ensure body doesn't scroll while tour is active */
+body:has(.walkthrough-overlay) {
+  overflow: hidden;
+}
+
+/* ============================================================
+   DISCOVERY UI UPDATES
+============================================================ */
+.live-pulse.is-paused {
+  background-color: var(--text-3);
+  box-shadow: none;
+  animation: none;
+}
+
+.refresh-discovery-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px;
+  border-radius: var(--r-sm);
+  cursor: pointer;
+  transition: all var(--t-fast);
+}
+
+.refresh-discovery-btn:hover:not(:disabled) {
+  background: var(--bg-elevated);
+  color: var(--text-1);
+}
+
+.refresh-discovery-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.discovery-empty-state {
+  padding: var(--s-6) var(--s-4);
+  text-align: center;
+  color: var(--text-2);
+  font-size: var(--fs-sm);
+  background: var(--bg-body);
+  border-radius: 0 0 var(--r-xl) var(--r-xl);
+}

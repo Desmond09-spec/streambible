@@ -4,6 +4,8 @@ import './ControllerLegacy.css';
 import { parseReference, getCanonicalBookName, fetchEnglishVerse, fetchYorubaVerse } from '../services/bibleService';
 import { useSyncPublisher, usePresence, useHeartbeat, useDiscovery } from '../hooks/useSync';
 import { supabase } from '../lib/supabase';
+import WalkthroughOverlay from '../components/WalkthroughOverlay';
+import type { TourStep } from '../components/WalkthroughOverlay';
 
 const ControllerPage: React.FC = () => {
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
@@ -15,8 +17,10 @@ const ControllerPage: React.FC = () => {
   const { devices, myId, hostStatus } = usePresence(roomId, false, remoteAccess);
   
   // Discovery & Heartbeat
-  useHeartbeat(roomId, isHost, remoteAccess);
-  const { nearbySessions } = useDiscovery();
+  // Room is always discoverable, regardless of Remote Access toggle
+  useHeartbeat(roomId, isHost, true);
+  const [discoveryEnabled, setDiscoveryEnabled] = useState(false);
+  const { nearbySessions, refresh: refreshDiscovery, isDiscovering } = useDiscovery(discoveryEnabled);
   
   // Request State
   const [joinRequest, setJoinRequest] = useState<{ roomId: string, deviceId: string, name: string } | null>(null);
@@ -41,9 +45,56 @@ const ControllerPage: React.FC = () => {
   const [isCopied, setIsCopied] = useState(false);
   const [isTransitioning, setIsTransitioning] = useState(false);
 
+  // Walkthrough State
+  const [showTour, setShowTour] = useState(false);
+
+  const tourSteps: TourStep[] = [
+    {
+      targetId: 'center-screen',
+      title: 'Welcome to StreamBible',
+      text: 'Let\'s take a quick tour of your new live controller.'
+    },
+    {
+      targetId: 'search-bar',
+      title: 'Search for Verses',
+      text: 'Type any reference here (like "John 3:16") and hit Enter to fetch it instantly.'
+    },
+    {
+      targetId: 'preview-cards',
+      title: 'Preview & Toggle',
+      text: 'Review the text before it goes live. Use the toggles to hide or show specific translations on the stream.'
+    },
+    {
+      targetId: 'action-bar',
+      title: 'Go Live',
+      text: 'When you are ready, click "Push Live" to display the verse on your OBS overlay.'
+    },
+    {
+      targetId: 'header-links',
+      title: 'Overlay Links',
+      text: 'Copy these URLs and paste them into your OBS Browser Source to display the overlay on your stream.'
+    },
+    {
+      targetId: 'network-panel',
+      title: 'Network & Security',
+      text: 'Expand this panel to allow nearby devices on your Wi-Fi to join your session, or scan the QR code to connect mobile devices.'
+    },
+    {
+      targetId: 'center-screen',
+      title: 'Learn More',
+      text: 'Want to know more about the vision for StreamBible, request features, or submit a review? Visit our Help page.',
+      learnMoreLink: '/help'
+    }
+  ];
+
   useEffect(() => {
     const saved = localStorage.getItem('streambible-theme') || 'light';
     setTheme(saved as 'light' | 'dark');
+
+    const hasSeenTour = localStorage.getItem('streambible-tour-seen');
+    if (!hasSeenTour) {
+      setTimeout(() => setShowTour(true), 1000); // Small delay to let UI load
+    }
 
     // Room ID Setup
     const params = new URLSearchParams(window.location.search);
@@ -248,6 +299,11 @@ const ControllerPage: React.FC = () => {
     setTimeout(() => setIsCopied(false), 3000);
   };
 
+  const finishTour = () => {
+    setShowTour(false);
+    localStorage.setItem('streambible-tour-seen', 'true');
+  };
+
   const regenerateRoom = () => {
     if (confirm("This will disconnect all currently connected overlays and controllers. Continue?")) {
       broadcastClear(); // Wipe old screens
@@ -271,6 +327,8 @@ const ControllerPage: React.FC = () => {
   return (
     <div id="controller-legacy-wrapper" className={`theme-${theme} legacy-body${isTransitioning ? ' theme-transitioning' : ''}`} style={{ width: '100%', minHeight: '100vh', flex: 1 }}>
       
+      {showTour && <WalkthroughOverlay steps={tourSteps} onComplete={finishTour} />}
+
       {/* Toast Notification with Framer Motion */}
       <AnimatePresence>
         {isCopied && (
@@ -313,7 +371,7 @@ const ControllerPage: React.FC = () => {
           </div>
         </div>
 
-        <div className="header-right" style={{ display: 'flex', gap: 'var(--space-2)', alignItems: 'center' }}>
+        <div id="header-links" className="header-right" style={{ display: 'flex', gap: 'var(--space-2)', alignItems: 'center' }}>
           <button className="obs-copy-btn" onClick={() => copyUrl(`${window.location.origin}/overlay?room=${roomId}`)} title="Copy Lower Third Overlay Link">
             <svg className="icon-copy" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
               <path d="M6 5H4a2 2 0 0 0-2 2v4a2 2 0 0 0 2 2h2m4-10h2a2 2 0 0 1 2 2v4a2 2 0 0 1-2 2h-2M5 8h6"/>
@@ -326,6 +384,12 @@ const ControllerPage: React.FC = () => {
               <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/>
             </svg>
             <span className="btn-label">Fullscreen</span>
+          </button>
+
+          <button className="theme-toggle" onClick={() => setShowTour(true)} title="Restart Tour">
+            <span>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+            </span>
           </button>
 
           <button className="theme-toggle" onClick={toggleTheme}>
@@ -355,7 +419,7 @@ const ControllerPage: React.FC = () => {
       {/* MAIN */}
       <main className="main">
         {/* NETWORK SECURITY PANEL */}
-        <div className="network-panel">
+        <div id="network-panel" className="network-panel">
           <div className="network-header">
             <div className="network-title-box">
               <div className="network-title">
@@ -539,48 +603,105 @@ const ControllerPage: React.FC = () => {
         </AnimatePresence>
 
         {/* DISCOVERY SECTION (First Glance) */}
-        <div className="discovery-section">
-           {nearbySessions.filter(s => s.room_id !== roomId).length > 0 && (
-             <div className="device-monitor discovery-prominent">
-               <div className="device-monitor-header">
-                 <span className="device-monitor-title">
-                   <span className="live-pulse"></span>
-                   Nearby Sessions
-                 </span>
-               </div>
-               <div className="device-list">
-                 {nearbySessions.filter(s => s.room_id !== roomId).map(session => (
-                   <div key={session.room_id} className="device-item discovery-item">
-                     <div className="device-item-left">
-                       <div className="device-icon-wrap" style={{ background: 'var(--color-accent-primary)', color: 'white' }}>
-                         <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                            <path d="M5 12.55a11 11 0 0 1 14.08 0"></path>
-                            <path d="M1.42 9a16 16 0 0 1 21.16 0"></path>
-                            <path d="M8.53 16.11a6 6 0 0 1 6.95 0"></path>
-                            <line x1="12" y1="20" x2="12.01" y2="20"></line>
-                         </svg>
-                       </div>
-                       <div className="device-info">
-                         <div className="device-name">Room: {session.room_id}</div>
-                         <div className="device-meta">Church Wi-Fi Network</div>
-                       </div>
-                     </div>
-                     <button 
-                       onClick={() => handleJoinRequest(session.room_id)}
-                       disabled={requestStatus === 'pending'}
-                       className="join-request-btn"
-                     >
-                       {requestStatus === 'pending' && joinRequest?.roomId === session.room_id ? 'Wait...' : 'Request Join'}
-                     </button>
-                   </div>
-                 ))}
+        <div id="discovery-section" className="discovery-section">
+           <div className="device-monitor discovery-prominent">
+             <div className="device-monitor-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+               <span className="device-monitor-title" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                 {discoveryEnabled && isDiscovering ? (
+                    <span className="spinner-dots" style={{ margin: '0 4px' }}></span>
+                 ) : (
+                    <span className={`live-pulse ${!discoveryEnabled ? 'is-paused' : ''}`}></span>
+                 )}
+                 Discover Nearby Sessions
+               </span>
+               <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                 {discoveryEnabled && (
+                   <button 
+                     onClick={refreshDiscovery} 
+                     disabled={isDiscovering}
+                     className="refresh-discovery-btn"
+                     title="Refresh List"
+                   >
+                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="14" height="14">
+                       <polyline points="23 4 23 10 17 10"></polyline>
+                       <polyline points="1 20 1 14 7 14"></polyline>
+                       <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+                     </svg>
+                   </button>
+                 )}
+                 <label className="toggle-switch">
+                   <input 
+                     type="checkbox" 
+                     checked={discoveryEnabled} 
+                     onChange={(e) => setDiscoveryEnabled(e.target.checked)} 
+                   />
+                   <span className="toggle-slider"></span>
+                 </label>
                </div>
              </div>
-           )}
+             
+             <AnimatePresence mode="wait">
+               {!discoveryEnabled ? (
+                 <motion.div 
+                   key="disabled"
+                   initial={{ opacity: 0 }}
+                   animate={{ opacity: 1 }}
+                   exit={{ opacity: 0 }}
+                   className="discovery-empty-state"
+                 >
+                   Turn on discovery to find and join active StreamBible sessions on your Wi-Fi network.
+                 </motion.div>
+               ) : nearbySessions.filter(s => s.room_id !== roomId).length > 0 ? (
+                 <motion.div 
+                   key="list"
+                   initial={{ opacity: 0 }}
+                   animate={{ opacity: 1 }}
+                   exit={{ opacity: 0 }}
+                   className="device-list"
+                 >
+                   {nearbySessions.filter(s => s.room_id !== roomId).map(session => (
+                     <div key={session.room_id} className="device-item discovery-item">
+                       <div className="device-item-left">
+                         <div className="device-icon-wrap" style={{ background: 'var(--color-accent-primary)', color: 'white' }}>
+                           <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                              <path d="M5 12.55a11 11 0 0 1 14.08 0"></path>
+                              <path d="M1.42 9a16 16 0 0 1 21.16 0"></path>
+                              <path d="M8.53 16.11a6 6 0 0 1 6.95 0"></path>
+                              <line x1="12" y1="20" x2="12.01" y2="20"></line>
+                           </svg>
+                         </div>
+                         <div className="device-info">
+                           <div className="device-name">Room: {session.room_id}</div>
+                           <div className="device-meta">Church Wi-Fi Network</div>
+                         </div>
+                       </div>
+                       <button 
+                         onClick={() => handleJoinRequest(session.room_id)}
+                         disabled={requestStatus === 'pending'}
+                         className="join-request-btn"
+                       >
+                         {requestStatus === 'pending' && joinRequest?.roomId === session.room_id ? 'Wait...' : 'Request Join'}
+                       </button>
+                     </div>
+                   ))}
+                 </motion.div>
+               ) : (
+                 <motion.div 
+                   key="empty"
+                   initial={{ opacity: 0 }}
+                   animate={{ opacity: 1 }}
+                   exit={{ opacity: 0 }}
+                   className="discovery-empty-state"
+                 >
+                   {isDiscovering ? 'Scanning network...' : 'No nearby sessions found. Make sure Remote Access is enabled on the host device.'}
+                 </motion.div>
+               )}
+             </AnimatePresence>
+           </div>
         </div>
 
         {/* SEARCH BAR (Now a form for native mobile submission) */}
-        <form className="search-bar" onSubmit={onFormSubmit}>
+        <form id="search-bar" className="search-bar" onSubmit={onFormSubmit}>
           <span className="search-icon">
             <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
               <circle cx="6.5" cy="6.5" r="4"/>
@@ -600,7 +721,7 @@ const ControllerPage: React.FC = () => {
         </form>
 
         {/* PREVIEWS */}
-        <div className="previews">
+        <div id="preview-cards" className="previews">
           {/* ENGLISH CARD */}
           <div className={`preview-card ${!showEn ? 'lang-disabled' : ''}`}>
             <div className="card-label">
@@ -654,7 +775,7 @@ const ControllerPage: React.FC = () => {
       </main>
 
       {/* ACTION BAR */}
-      <footer className="action-bar">
+      <footer id="action-bar" className="action-bar">
         <div className="action-row">
           <button 
             className={`btn-live ${status === 'live' ? 'is-live' : ''}`} 
