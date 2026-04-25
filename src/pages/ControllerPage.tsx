@@ -94,7 +94,7 @@ const ControllerPage: React.FC = () => {
     {
       id: 'search',
       title: 'Search in Milliseconds',
-      text: 'Type a reference like "John 3:16" in the search bar and press Enter. StreamBible will instantly fetch it from our database of over 3,000 translations.'
+      text: 'Type a reference like "John 3:16" in the search bar. StreamBible will instantly fetch it from YouVersion’s library of over 3,000 translations.'
     },
     {
       id: 'preview',
