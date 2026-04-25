@@ -1586,10 +1586,7 @@
         color: rgba(255, 255, 255, 0.40);
       }
 
-      /* Hide toast on desktop — safety net */
-      @media (min-width: 641px) {
-        .copy-toast { display: none; }
-      }
+
 
       /* Desktop: show copy icon, hide link icon */
       .obs-copy-btn .icon-copy  { display: block; }
