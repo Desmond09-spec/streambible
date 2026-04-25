@@ -121,6 +121,185 @@
   font-weight: var(--fw-semibold);
 }
 
+/* GUIDED TOUR SECTION */
+.help-tour-section {
+  margin-top: var(--s-4);
+  margin-bottom: var(--s-8);
+}
+
+.tour-steps-container {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-16);
+  margin-top: var(--s-10);
+}
+
+.tour-row {
+  display: flex;
+  align-items: center;
+  gap: var(--s-10);
+}
+
+.tour-row.reverse {
+  flex-direction: row-reverse;
+}
+
+@media (max-width: 768px) {
+  .tour-row, .tour-row.reverse {
+    flex-direction: column;
+    gap: var(--s-6);
+  }
+}
+
+.tour-graphic-col {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+}
+
+.tour-text-col {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-3);
+}
+
+.tour-step-badge {
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-bold);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--accent);
+  background: var(--accent-dim);
+  padding: 4px 10px;
+  border-radius: var(--r-full);
+  align-self: flex-start;
+  margin-bottom: var(--s-2);
+}
+
+.tour-step-title {
+  font-size: var(--fs-xl);
+  font-weight: var(--fw-bold);
+  letter-spacing: var(--tracking-tight);
+}
+
+/* CSS UI MOCKUPS */
+.tour-mockup {
+  width: 100%;
+  max-width: 320px;
+  height: 200px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-bright);
+  border-radius: var(--r-2xl);
+  box-shadow: var(--shadow-lg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  overflow: hidden;
+}
+
+/* Search Mockup */
+.mockup-search-bar {
+  width: 80%;
+  height: 40px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-dim);
+  border-radius: var(--r-xl);
+  display: flex;
+  align-items: center;
+  padding: 0 16px;
+  gap: 12px;
+  box-shadow: var(--shadow-sm);
+  color: var(--text-1);
+}
+
+.mockup-cursor {
+  width: 2px;
+  height: 18px;
+  background: var(--accent);
+  animation: blink 1s step-end infinite;
+}
+
+@keyframes blink { 50% { opacity: 0; } }
+
+/* Dual Mockup */
+.dual-mockup {
+  gap: 16px;
+  padding: 24px;
+}
+
+.mockup-card {
+  flex: 1;
+  height: 100%;
+  background: var(--bg-raised);
+  border: 1px solid var(--border-dim);
+  border-radius: var(--r-lg);
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  box-shadow: var(--shadow-sm);
+  position: relative;
+  top: 10px;
+}
+
+.mockup-card.right {
+  top: -10px;
+}
+
+.mockup-card-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.mockup-dot {
+  width: 6px;
+  height: 6px;
+  background: var(--accent);
+  border-radius: 50%;
+  opacity: 0.5;
+}
+
+.mockup-rule {
+  flex: 1;
+  height: 1px;
+  background: var(--border-dim);
+}
+
+.mockup-badge {
+  font-size: 8px;
+  color: var(--text-3);
+  font-weight: 700;
+}
+
+.mockup-skeleton-line {
+  height: 6px;
+  background: var(--border-dim);
+  border-radius: 4px;
+}
+
+/* OBS Mockup */
+.obs-mockup {
+  background: radial-gradient(circle at center, var(--accent-dim) 0%, var(--bg-card) 70%);
+}
+
+.mockup-obs-button {
+  background: var(--accent);
+  color: #fff;
+  padding: 12px 24px;
+  border-radius: var(--r-full);
+  font-weight: 600;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  box-shadow: 0 4px 20px var(--accent-dim);
+}
+
+
 /* FEEDBACK FORM */
 .help-section-title {
   font-size: var(--fs-2xl);

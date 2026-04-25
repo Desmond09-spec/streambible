@@ -3,10 +3,12 @@ import { supabase } from '../lib/supabase';
 
 export interface VersePayload {
   ref: string;
-  en: string;
-  yo: string;
-  showEn: boolean;
-  showYo: boolean;
+  primaryText: string;
+  primaryVersion: string;
+  secondaryText: string;
+  secondaryVersion: string;
+  showPrimary: boolean;
+  showSecondary: boolean;
 }
 
 export interface DevicePresence {

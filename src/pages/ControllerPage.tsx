@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { MoreHorizontal, ExternalLink, MonitorUp, Sparkles } from 'lucide-react';
 import './ControllerLegacy.css';
-import { parseReference, getCanonicalBookName, fetchEnglishVerse, fetchYorubaVerse } from '../services/bibleService';
+import { parseReference, getCanonicalBookName, fetchVerse, fetchAllYouVersionVersions, curatedVersions } from '../services/bibleService';
 import { useSyncPublisher, usePresence, useHeartbeat, useDiscovery } from '../hooks/useSync';
 import { supabase } from '../lib/supabase';
 import WalkthroughOverlay from '../components/WalkthroughOverlay';
 import type { TourStep } from '../components/WalkthroughOverlay';
+import { CustomDropdown } from '../components/CustomDropdown';
 
 const ControllerPage: React.FC = () => {
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
@@ -15,6 +17,7 @@ const ControllerPage: React.FC = () => {
   const isHost = localStorage.getItem(`streambible-host-${roomId}`) === 'true';
   const { pushVerse, clearScreen: broadcastClear } = useSyncPublisher(roomId);
   const { devices, myId, hostStatus } = usePresence(roomId, false, remoteAccess);
+  const wsConnected = hostStatus === 'online';
   
   // Discovery & Heartbeat
   // Room is always discoverable, regardless of Remote Access toggle
@@ -27,63 +30,79 @@ const ControllerPage: React.FC = () => {
   const [incomingRequest, setIncomingRequest] = useState<{ roomId: string, deviceId: string, name: string } | null>(null);
   const [requestStatus, setRequestStatus] = useState<'idle' | 'pending' | 'accepted' | 'declined'>('idle');
   
-  const [enText, setEnText] = useState('');
-  const [enRef, setEnRef] = useState('');
-  const [enExpanded, setEnExpanded] = useState(false);
-  const [showEn, setShowEn] = useState(true);
+  const [primaryVersion, setPrimaryVersion] = useState(() => localStorage.getItem('streambible-primary-version') || '114');
+  const [secondaryVersion, setSecondaryVersion] = useState(() => localStorage.getItem('streambible-secondary-version') || '1');
+  const [showPrimary, setShowPrimary] = useState(() => localStorage.getItem('streambible-show-primary') !== 'false');
+  const [showSecondary, setShowSecondary] = useState(() => localStorage.getItem('streambible-show-secondary') !== 'false');
 
-  const [yoText, setYoText] = useState('');
-  const [yoRef, setYoRef] = useState('');
-  const [yoExpanded, setYoExpanded] = useState(false);
-  const [showYo, setShowYo] = useState(true);
+  const [primaryText, setPrimaryText] = useState('');
+  const [primaryRef, setPrimaryRef] = useState('');
+  const [primaryExpanded, setPrimaryExpanded] = useState(false);
+
+  const [secondaryText, setSecondaryText] = useState('');
+  const [secondaryRef, setSecondaryRef] = useState('');
+  const [secondaryExpanded, setSecondaryExpanded] = useState(false);
+
+  const [extraVersions, setExtraVersions] = useState<any[]>([]);
+  const [fetchingExtra, setFetchingExtra] = useState(false);
+  const [showExtraVersions, setShowExtraVersions] = useState(false);
 
   const [status, setStatus] = useState<'default' | 'fetching' | 'success' | 'live' | 'error'>('default');
   const [statusMsg, setStatusMsg] = useState('Ready');
-  
+
+  useEffect(() => {
+    localStorage.setItem('streambible-primary-version', primaryVersion);
+    localStorage.setItem('streambible-secondary-version', secondaryVersion);
+    localStorage.setItem('streambible-show-primary', showPrimary.toString());
+    localStorage.setItem('streambible-show-secondary', showSecondary.toString());
+  }, [primaryVersion, secondaryVersion, showPrimary, showSecondary]);
+
+  const loadExtraVersions = async () => {
+    if (fetchingExtra || extraVersions.length > 0) return;
+    setFetchingExtra(true);
+    try {
+      const data = await fetchAllYouVersionVersions();
+      setExtraVersions(data);
+      setShowExtraVersions(true);
+    } catch (e) {
+      console.error(e);
+      alert('Failed to load extra versions.');
+    } finally {
+      setFetchingExtra(false);
+    }
+  };
+
   const [isNetworkExpanded, setIsNetworkExpanded] = useState(false);
   
   const [isCopied, setIsCopied] = useState(false);
+  const [showFallbackToast, setShowFallbackToast] = useState(false);
+  const [isUsingFallback, setIsUsingFallback] = useState(false);
   const [isTransitioning, setIsTransitioning] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   // Walkthrough State
   const [showTour, setShowTour] = useState(false);
 
-  const tourSteps: TourStep[] = [
+  const tourSteps = [
     {
-      targetId: 'center-screen',
+      id: 'welcome',
       title: 'Welcome to StreamBible',
-      text: 'Let\'s take a quick tour of your new live controller.'
+      text: 'A clean, simple, and powerful way to present scripture on your livestream. Let\'s quickly go over the basics.'
     },
     {
-      targetId: 'search-bar',
-      title: 'Search for Verses',
-      text: 'Type any reference here (like "John 3:16") and hit Enter to fetch it instantly.'
+      id: 'search',
+      title: 'Search in Milliseconds',
+      text: 'Type a reference like "John 3:16" in the search bar and press Enter. StreamBible will instantly fetch it from our database of over 3,000 translations.'
     },
     {
-      targetId: 'preview-cards',
-      title: 'Preview & Toggle',
-      text: 'Review the text before it goes live. Use the toggles to hide or show specific translations on the stream.'
+      id: 'preview',
+      title: 'Dual Language Support',
+      text: 'Preview your text before it goes live. You can even toggle a secondary translation (like Yoruba) to display side-by-side with English.'
     },
     {
-      targetId: 'action-bar',
-      title: 'Go Live',
-      text: 'When you are ready, click "Push Live" to display the verse on your OBS overlay.'
-    },
-    {
-      targetId: 'header-links',
-      title: 'Overlay Links',
-      text: 'Copy these URLs and paste them into your OBS Browser Source to display the overlay on your stream.'
-    },
-    {
-      targetId: 'network-panel',
-      title: 'Network & Security',
-      text: 'Expand this panel to allow nearby devices on your Wi-Fi to join your session, or scan the QR code to connect mobile devices.'
-    },
-    {
-      targetId: 'center-screen',
-      title: 'Learn More',
-      text: 'Want to know more about the vision for StreamBible, request features, or submit a review? Visit our Help page.',
-      learnMoreLink: '/help'
+      id: 'broadcast',
+      title: 'Push to OBS',
+      text: 'Once you are happy with the preview, click "Push Live". Copy the overlay link from the top right and paste it into an OBS Browser Source to see it on screen!'
     }
   ];
 
@@ -108,25 +127,6 @@ const ControllerPage: React.FC = () => {
     setRoomId(currentRoom);
   }, []);
 
-  // Debounced Live Search
-  useEffect(() => {
-    if (!query.trim()) {
-      if (status !== 'live') {
-        setStatus('default');
-        setStatusMsg('Ready');
-        setEnText(''); setEnRef('');
-        setYoText(''); setYoRef('');
-      }
-      return;
-    }
-    
-    const delayDebounceFn = setTimeout(() => {
-      handleSearch(query);
-    }, 400);
-
-    return () => clearTimeout(delayDebounceFn);
-  }, [query]);
-
   const toggleTheme = () => {
     const next = theme === 'dark' ? 'light' : 'dark';
     setIsTransitioning(true);
@@ -141,9 +141,8 @@ const ControllerPage: React.FC = () => {
     setStatus('fetching');
     setStatusMsg('Fetching…');
 
-    // Build canonical reference label (e.g. "Jn 3:16" → "John 3:16")
     const parsed = parseReference(searchQuery);
-    let canonicalRef = searchQuery; // fallback to raw query
+    let canonicalRef = searchQuery;
     if (parsed) {
       const bookName = getCanonicalBookName(parsed.bookCode);
       const versePart = parsed.verseStart
@@ -153,16 +152,49 @@ const ControllerPage: React.FC = () => {
     }
 
     try {
-      const [enResponse, yoResponse] = await Promise.all([
-        fetchEnglishVerse(searchQuery).catch(() => 'Verse not found in KJV.'),
-        fetchYorubaVerse(searchQuery).catch(() => 'Ẹsẹ yii ko si ninu Bibeli Yoruba.')
-      ]);
+      let pText = 'Verse not found.';
+      let sText = 'Verse not found.';
+      let isLocalFallback = false;
 
-      setEnText(enResponse);
-      setEnRef(canonicalRef);
+      try {
+         const pRes = await fetchVerse(primaryVersion, searchQuery);
+         pText = pRes.text;
+         if (pRes.source === 'local') isLocalFallback = true;
+      } catch (e) {
+         // Attempted fetch failed
+      }
+
+      if (isLocalFallback) {
+          setIsUsingFallback(true);
+          setPrimaryVersion('1');
+          setSecondaryVersion('2079');
+          setShowFallbackToast(true);
+          setTimeout(() => setShowFallbackToast(false), 5000);
+          
+          try { pText = (await fetchVerse('1', searchQuery)).text; } catch(e){}
+          try { sText = (await fetchVerse('2079', searchQuery)).text; } catch(e){}
+      } else {
+          setIsUsingFallback(false);
+          try {
+             const sRes = await fetchVerse(secondaryVersion, searchQuery);
+             sText = sRes.text;
+             if (sRes.source === 'local') {
+                 setIsUsingFallback(true);
+                 setPrimaryVersion('1');
+                 setSecondaryVersion('2079');
+                 setShowFallbackToast(true);
+                 setTimeout(() => setShowFallbackToast(false), 5000);
+                 try { pText = (await fetchVerse('1', searchQuery)).text; } catch(e){}
+                 try { sText = (await fetchVerse('2079', searchQuery)).text; } catch(e){}
+             }
+          } catch (e) { }
+      }
+
+      setPrimaryText(pText);
+      setPrimaryRef(canonicalRef);
       
-      setYoText(yoResponse);
-      setYoRef(canonicalRef);
+      setSecondaryText(sText);
+      setSecondaryRef(canonicalRef);
 
       setStatus('success');
       setStatusMsg('Ready to push');
@@ -178,12 +210,17 @@ const ControllerPage: React.FC = () => {
   };
 
   const pushLive = () => {
+    const pVersionObj = curatedVersions.find(v => v.id === primaryVersion) || extraVersions.find(v => v.id.toString() === primaryVersion);
+    const sVersionObj = curatedVersions.find(v => v.id === secondaryVersion) || extraVersions.find(v => v.id.toString() === secondaryVersion);
+
     pushVerse({
-      ref: enRef,
-      en: enText,
-      yo: yoText,
-      showEn,
-      showYo,
+      ref: primaryRef,
+      primaryText: primaryText,
+      primaryVersion: pVersionObj ? (pVersionObj.abbreviation || pVersionObj.local_abbreviation) : '',
+      secondaryText: secondaryText,
+      secondaryVersion: sVersionObj ? (sVersionObj.abbreviation || sVersionObj.local_abbreviation) : '',
+      showPrimary: showPrimary,
+      showSecondary: showSecondary,
     });
     setStatus('live');
     setStatusMsg('Live on stream');
@@ -191,21 +228,18 @@ const ControllerPage: React.FC = () => {
 
   const clearScreen = () => {
     broadcastClear();
-    setEnText(''); setEnRef('');
-    setYoText(''); setYoRef('');
+    setPrimaryText(''); setPrimaryRef('');
+    setSecondaryText(''); setSecondaryRef('');
     setQuery('');
     setStatus('default');
     setStatusMsg('Ready');
   };
 
-  // Handle Join Requests (Host Side)
   useEffect(() => {
     if (!roomId || !isHost) return;
-    console.log('[Host] Listening for join requests on room:', roomId);
     const channel = supabase.channel(`streambible-sync-${roomId}`);
     
     channel.on('broadcast', { event: 'JOIN_REQUEST' }, ({ payload }) => {
-       console.log('[Host] Received JOIN_REQUEST:', payload);
        if (payload.deviceId !== myId) {
          setIncomingRequest({
            roomId: payload.fromRoom,
@@ -218,20 +252,15 @@ const ControllerPage: React.FC = () => {
     return () => { channel.unsubscribe(); };
   }, [roomId, isHost, myId]);
 
-  // Handle Approval (Guest Side)
   useEffect(() => {
     if (requestStatus !== 'pending' || !joinRequest) return;
     
-    console.log('[Guest] Waiting for JOIN_RESPONSE on room:', joinRequest.roomId);
     const channel = supabase.channel(`streambible-sync-${joinRequest.roomId}`);
     channel.on('broadcast', { event: 'JOIN_RESPONSE' }, ({ payload }) => {
-       console.log('[Guest] Received JOIN_RESPONSE:', payload);
        if (payload.targetDeviceId === myId) {
-          console.log('[Guest] Response is for ME! Accepted:', payload.accepted);
           if (payload.accepted) {
             setRequestStatus('accepted');
             const newUrl = `${window.location.pathname}?room=${payload.newRoomId}`;
-            console.log('[Guest] Migrating to:', newUrl);
             window.location.href = newUrl;
           } else {
             setRequestStatus('declined');
@@ -246,14 +275,12 @@ const ControllerPage: React.FC = () => {
 
   const handleJoinRequest = async (targetRoomId: string) => {
     if (targetRoomId === roomId) return;
-    console.log('[Guest] Initiating join request for room:', targetRoomId);
     setRequestStatus('pending');
     setJoinRequest({ roomId: targetRoomId, deviceId: '', name: 'Target Room' });
 
     const channel = supabase.channel(`streambible-sync-${targetRoomId}`);
     await channel.subscribe(async (status) => {
       if (status === 'SUBSCRIBED') {
-        console.log('[Guest] Subscribed to target channel, sending broadcast...');
         await channel.send({
           type: 'broadcast',
           event: 'JOIN_REQUEST',
@@ -263,8 +290,6 @@ const ControllerPage: React.FC = () => {
             name: getFriendlyDeviceName()
           }
         });
-      } else {
-        console.warn('[Guest] Subscription status:', status);
       }
     });
   };
@@ -272,9 +297,8 @@ const ControllerPage: React.FC = () => {
   const handleResponse = async (accepted: boolean) => {
     if (!incomingRequest) return;
     
-    console.log('[Host] Sending response to guest:', incomingRequest.deviceId, 'Accepted:', accepted);
     const channel = supabase.channel(`streambible-sync-${roomId}`);
-    const result = await channel.send({
+    await channel.send({
       type: 'broadcast',
       event: 'JOIN_RESPONSE',
       payload: {
@@ -284,7 +308,6 @@ const ControllerPage: React.FC = () => {
       }
     });
     
-    console.log('[Host] Broadcast result:', result);
     setIncomingRequest(null);
   };
 
@@ -306,7 +329,7 @@ const ControllerPage: React.FC = () => {
 
   const regenerateRoom = () => {
     if (confirm("This will disconnect all currently connected overlays and controllers. Continue?")) {
-      broadcastClear(); // Wipe old screens
+      broadcastClear();
       const newRoom = Math.random().toString(36).substring(2, 7).toUpperCase();
       const newUrl = `${window.location.pathname}?room=${newRoom}`;
       window.history.replaceState({}, '', newUrl);
@@ -329,7 +352,6 @@ const ControllerPage: React.FC = () => {
       
       {showTour && <WalkthroughOverlay steps={tourSteps} onComplete={finishTour} />}
 
-      {/* Toast Notification with Framer Motion */}
       <AnimatePresence>
         {isCopied && (
           <motion.div 
@@ -356,7 +378,38 @@ const ControllerPage: React.FC = () => {
         )}
       </AnimatePresence>
 
-      {/* HEADER */}
+      <AnimatePresence>
+        {showFallbackToast && (
+          <motion.div 
+            initial={{ opacity: 0, y: -20, x: '-50%' }}
+            animate={{ opacity: 1, y: 0, x: '-50%' }}
+            exit={{ opacity: 0, y: -20, x: '-50%' }}
+            transition={{ type: "spring", stiffness: 400, damping: 30 }}
+            className="copy-toast visible" 
+            role="alert" 
+            aria-live="assertive" 
+            style={{ 
+               x: '-50%', 
+               background: 'rgba(255, 159, 10, 0.15)', 
+               border: '1px solid rgba(255, 159, 10, 0.3)',
+               color: 'var(--text-1)'
+            }}
+          >
+            <div className="copy-toast-icon-wrap" style={{ background: 'rgba(255, 159, 10, 0.2)', color: 'var(--warning)' }}>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" width="16" height="16">
+                <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+                <line x1="12" y1="9" x2="12" y2="13"/>
+                <line x1="12" y1="17" x2="12.01" y2="17"/>
+              </svg>
+            </div>
+            <div className="copy-toast-body">
+              <span className="copy-toast-title">Offline Mode</span>
+              <span className="copy-toast-sub">Primary source unreachable. Defaulting to local KJV/Yoruba database.</span>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       <header className="header">
         <div className="wordmark">
           <div className="wordmark-icon">
@@ -366,12 +419,15 @@ const ControllerPage: React.FC = () => {
             </svg>
           </div>
           <div className="wordmark-text">
-            <span className="wordmark-name">StreamBible</span>
-            <span className="wordmark-sub">Live Controller</span>
+            <span className="wordmark-name" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              StreamBible
+              <span className={`ws-dot-mobile ${wsConnected ? 'connected' : 'error'}`}></span>
+            </span>
+            <span className="wordmark-sub mobile-hidden">Live Controller</span>
           </div>
         </div>
 
-        <div id="header-links" className="header-right" style={{ display: 'flex', gap: 'var(--space-2)', alignItems: 'center' }}>
+        <div id="header-links" className="header-right mobile-hidden" style={{ display: 'flex', gap: 'var(--space-2)', alignItems: 'center' }}>
           <button className="obs-copy-btn" onClick={() => copyUrl(`${window.location.origin}/overlay?room=${roomId}`)} title="Copy Lower Third Overlay Link">
             <svg className="icon-copy" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
               <path d="M6 5H4a2 2 0 0 0-2 2v4a2 2 0 0 0 2 2h2m4-10h2a2 2 0 0 1 2 2v4a2 2 0 0 1-2 2h-2M5 8h6"/>
@@ -379,7 +435,7 @@ const ControllerPage: React.FC = () => {
             <span className="btn-label">Overlay</span>
           </button>
           
-          <button className="obs-copy-btn" onClick={() => copyUrl(`${window.location.origin}/full-screen?room=${roomId}`)} title="Copy Full Screen Overlay Link">
+          <button className="obs-copy-btn" onClick={() => copyUrl(`${window.location.origin}/fullscreen?room=${roomId}`)} title="Copy Full Screen Overlay Link">
             <svg className="icon-copy" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
               <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/>
             </svg>
@@ -414,11 +470,13 @@ const ControllerPage: React.FC = () => {
             </svg>
           </div>
         </div>
+
+        <button className="mobile-more-btn" onClick={() => setIsMobileMenuOpen(true)}>
+          <MoreHorizontal size={20} />
+        </button>
       </header>
 
-      {/* MAIN */}
       <main className="main">
-        {/* NETWORK SECURITY PANEL */}
         <div id="network-panel" className="network-panel">
           <div className="network-header">
             <div className="network-title-box">
@@ -485,7 +543,6 @@ const ControllerPage: React.FC = () => {
                   )}
                 </div>
 
-                {/* DEVICE MONITOR SECTION */}
                 <div className="device-monitor">
                    <div className="device-monitor-header">
                      <span className="device-monitor-title">Live Sessions</span>
@@ -529,7 +586,6 @@ const ControllerPage: React.FC = () => {
           </AnimatePresence>
         </div>
 
-        {/* JOIN REQUEST MODAL (Host Side) */}
         <AnimatePresence>
           {incomingRequest && isHost && (
             <motion.div 
@@ -572,7 +628,6 @@ const ControllerPage: React.FC = () => {
           )}
         </AnimatePresence>
 
-        {/* REQUEST SENT FEEDBACK (Guest Side) */}
         <AnimatePresence>
           {requestStatus === 'pending' && (
             <motion.div 
@@ -588,7 +643,6 @@ const ControllerPage: React.FC = () => {
           )}
         </AnimatePresence>
 
-        {/* DECLINED FEEDBACK (Guest Side) */}
         <AnimatePresence>
           {requestStatus === 'declined' && (
             <motion.div 
@@ -602,7 +656,6 @@ const ControllerPage: React.FC = () => {
           )}
         </AnimatePresence>
 
-        {/* DISCOVERY SECTION (First Glance) */}
         <div id="discovery-section" className="discovery-section">
            <div className="device-monitor discovery-prominent">
              <div className="device-monitor-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -700,7 +753,6 @@ const ControllerPage: React.FC = () => {
            </div>
         </div>
 
-        {/* SEARCH BAR (Now a form for native mobile submission) */}
         <form id="search-bar" className="search-bar" onSubmit={onFormSubmit}>
           <span className="search-icon">
             <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
@@ -720,67 +772,159 @@ const ControllerPage: React.FC = () => {
           <kbd className="search-hint">Enter ↵</kbd>
         </form>
 
-        {/* PREVIEWS */}
         <div id="preview-cards" className="previews">
-          {/* ENGLISH CARD */}
-          <div className={`preview-card ${!showEn ? 'lang-disabled' : ''}`}>
+          <div className={`preview-card ${!showPrimary ? 'lang-disabled' : ''}`}>
             <div className="card-label">
               <span className="card-label-dot"></span>
-              English
+              Window 1
               <span className="card-label-rule"></span>
-              <label className="lang-toggle" title="Show English on stream">
-                <input type="checkbox" checked={showEn} onChange={(e) => setShowEn(e.target.checked)} />
+              <div style={{ flex: 1, margin: '0 12px' }}>
+                <CustomDropdown
+                  value={primaryVersion}
+                  onChange={setPrimaryVersion}
+                  onLoadMore={loadExtraVersions}
+                  curatedVersions={curatedVersions}
+                  extraVersions={extraVersions}
+                  showExtraVersions={showExtraVersions}
+                  fetchingExtra={fetchingExtra}
+                  isFallbackActive={isUsingFallback}
+                />
+              </div>
+              <label className="lang-toggle" title="Show on stream">
+                <input type="checkbox" checked={showPrimary} onChange={(e) => setShowPrimary(e.target.checked)} />
                 <span className="lang-toggle-track"></span>
               </label>
             </div>
-            <div className={`preview-text ${enText && status !== 'fetching' ? 'has-content' : ''} ${enExpanded ? 'expanded' : ''}`}>
-              {status === 'fetching' ? <SkeletonLoader /> : (enText || 'Waiting for a verse…')}
+            <div className={`preview-text ${primaryText && status !== 'fetching' ? 'has-content' : ''} ${primaryExpanded ? 'expanded' : ''}`}>
+              {status === 'fetching' ? <SkeletonLoader /> : (primaryText || 'Waiting for a verse…')}
             </div>
             <div className="card-footer">
-              <span className={`card-ref ${enRef && status !== 'fetching' ? 'visible' : ''}`}>{enRef}</span>
+              <span className={`card-ref ${primaryRef && status !== 'fetching' ? 'visible' : ''}`}>{primaryRef}</span>
               <button 
-                className={`expand-btn ${enText.length > 230 && status !== 'fetching' ? 'visible' : ''}`}
-                onClick={() => setEnExpanded(!enExpanded)}
+                className={`expand-btn ${primaryText.length > 230 && status !== 'fetching' ? 'visible' : ''}`}
+                onClick={() => setPrimaryExpanded(!primaryExpanded)}
               >
-                {enExpanded ? 'Show less' : 'Show more'}
+                {primaryExpanded ? 'Show less' : 'Show more'}
               </button>
             </div>
           </div>
 
-          {/* YORUBA CARD */}
-          <div className={`preview-card ${!showYo ? 'lang-disabled' : ''}`}>
+          <div className={`preview-card ${!showSecondary ? 'lang-disabled' : ''}`}>
             <div className="card-label">
               <span className="card-label-dot"></span>
-              Yoruba
+              Window 2
               <span className="card-label-rule"></span>
-              <label className="lang-toggle" title="Show Yoruba on stream">
-                <input type="checkbox" checked={showYo} onChange={(e) => setShowYo(e.target.checked)} />
+              <div style={{ flex: 1, margin: '0 12px' }}>
+                <CustomDropdown
+                  value={secondaryVersion}
+                  onChange={setSecondaryVersion}
+                  onLoadMore={loadExtraVersions}
+                  curatedVersions={curatedVersions}
+                  extraVersions={extraVersions}
+                  showExtraVersions={showExtraVersions}
+                  fetchingExtra={fetchingExtra}
+                  isFallbackActive={isUsingFallback}
+                />
+              </div>
+              <label className="lang-toggle" title="Show on stream">
+                <input type="checkbox" checked={showSecondary} onChange={(e) => setShowSecondary(e.target.checked)} />
                 <span className="lang-toggle-track"></span>
               </label>
             </div>
-            <div className={`preview-text ${yoText && status !== 'fetching' ? 'has-content' : ''} ${yoExpanded ? 'expanded' : ''}`}>
-               {status === 'fetching' ? <SkeletonLoader /> : (yoText || 'Nduro fun ẹsẹ kan…')}
+            <div className={`preview-text ${secondaryText && status !== 'fetching' ? 'has-content' : ''} ${secondaryExpanded ? 'expanded' : ''}`}>
+               {status === 'fetching' ? <SkeletonLoader /> : (secondaryText || 'Nduro fun ẹsẹ kan…')}
             </div>
             <div className="card-footer">
-              <span className={`card-ref ${yoRef && status !== 'fetching' ? 'visible' : ''}`}>{yoRef}</span>
+              <span className={`card-ref ${secondaryRef && status !== 'fetching' ? 'visible' : ''}`}>{secondaryRef}</span>
               <button 
-                className={`expand-btn ${yoText.length > 230 && status !== 'fetching' ? 'visible' : ''}`}
-                onClick={() => setYoExpanded(!yoExpanded)}
+                className={`expand-btn ${secondaryText.length > 230 && status !== 'fetching' ? 'visible' : ''}`}
+                onClick={() => setSecondaryExpanded(!secondaryExpanded)}
               >
-                {yoExpanded ? 'Show less' : 'Show more'}
+                {secondaryExpanded ? 'Show less' : 'Show more'}
               </button>
             </div>
           </div>
         </div>
       </main>
 
-      {/* ACTION BAR */}
+      <AnimatePresence>
+        {isMobileMenuOpen && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              className="bottom-sheet-backdrop"
+              onClick={() => setIsMobileMenuOpen(false)}
+            />
+            <motion.div
+              initial={{ y: '100%' }}
+              animate={{ y: 0 }}
+              exit={{ y: '100%' }}
+              transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+              className="bottom-sheet-modal"
+            >
+              <div className="bottom-sheet-handle" />
+              
+              <div className="bottom-sheet-header">
+                <h3>Menu</h3>
+                <div className={`ws-pill ${wsConnected ? 'connected' : 'error'}`} style={{ border: 'none', background: 'transparent', padding: 0 }}>
+                  <span className="ws-dot"></span>
+                  <span style={{ fontSize: '13px', fontWeight: 500 }}>{wsConnected ? 'Sync Active' : 'Offline'}</span>
+                </div>
+              </div>
+
+              <div className="bottom-sheet-body">
+                <button className="bottom-sheet-btn" onClick={() => { copyUrl(`${window.location.origin}/overlay?room=${roomId}`); setIsMobileMenuOpen(false); }}>
+                  <div className="bottom-sheet-btn-icon"><ExternalLink size={18} /></div>
+                  <div className="bottom-sheet-btn-text">
+                    <span>Overlay Link</span>
+                    <span className="sub">Copy link for OBS Browser Source</span>
+                  </div>
+                </button>
+
+                <button className="bottom-sheet-btn" onClick={() => { copyUrl(`${window.location.origin}/fullscreen?room=${roomId}`); setIsMobileMenuOpen(false); }}>
+                  <div className="bottom-sheet-btn-icon"><MonitorUp size={18} /></div>
+                  <div className="bottom-sheet-btn-text">
+                    <span>Fullscreen Link</span>
+                    <span className="sub">Copy link for full-screen display</span>
+                  </div>
+                </button>
+
+                <button className="bottom-sheet-btn" onClick={() => { toggleTheme(); setIsMobileMenuOpen(false); }}>
+                  <div className="bottom-sheet-btn-icon">
+                    {theme === 'dark' ? <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" width="18" height="18"><circle cx="8" cy="8" r="3"/><line x1="8" y1="1" x2="8" y2="2.5"/><line x1="8" y1="13.5" x2="8" y2="15"/><line x1="1" y1="8" x2="2.5" y2="8"/><line x1="13.5" y1="8" x2="15" y2="8"/><line x1="3.05" y1="3.05" x2="4.1" y2="4.1"/><line x1="11.9" y1="11.9" x2="12.95" y2="12.95"/><line x1="3.05" y1="12.95" x2="4.1" y2="11.9"/><line x1="11.9" y1="4.1" x2="12.95" y2="3.05"/></svg> : <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" width="18" height="18"><path d="M13.5 10A5.5 5.5 0 0 1 6 2.5a5.5 5.5 0 1 0 7.5 7.5z"/></svg>}
+                  </div>
+                  <div className="bottom-sheet-btn-text">
+                    <span>Toggle Theme</span>
+                    <span className="sub">Switch to {theme === 'dark' ? 'Light' : 'Dark'} mode</span>
+                  </div>
+                </button>
+
+                <button className="bottom-sheet-btn" onClick={() => { setShowTour(true); setIsMobileMenuOpen(false); }}>
+                  <div className="bottom-sheet-btn-icon"><Sparkles size={18} /></div>
+                  <div className="bottom-sheet-btn-text">
+                    <span>Restart Tour</span>
+                    <span className="sub">Replay the introductory walkthrough</span>
+                  </div>
+                </button>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+
+      <div style={{ textAlign: 'center', marginTop: '10px', marginBottom: '10px', display: 'flex', justifyContent: 'center' }}>
+        <img src="/youversion-logo.svg" alt="Provided by YouVersion" style={{ width: '140px', opacity: 0.5, filter: theme === 'dark' ? 'invert(1)' : 'none' }} />
+      </div>
+
       <footer id="action-bar" className="action-bar">
         <div className="action-row">
           <button 
             className={`btn-live ${status === 'live' ? 'is-live' : ''}`} 
             onClick={pushLive} 
-            disabled={(!enText && !yoText) || status === 'fetching'}
+            disabled={(!primaryText && !secondaryText) || status === 'fetching'}
           >
             Push Live
           </button>

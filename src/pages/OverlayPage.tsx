@@ -19,10 +19,12 @@ const OverlayPage: React.FC = () => {
   }, []);
   const [verse, setVerse] = useState<ActiveVerse>({
     ref: "",
-    en: "",
-    yo: "",
-    showEn: true,
-    showYo: true,
+    primaryText: "",
+    primaryVersion: "",
+    secondaryText: "",
+    secondaryVersion: "",
+    showPrimary: true,
+    showSecondary: true,
     isVisible: false
   });
 
@@ -34,7 +36,7 @@ const OverlayPage: React.FC = () => {
 
   const { hostStatus } = usePresence(roomId || "", true);
 
-  if (roomId === null || hostStatus !== 'online') {
+  if (roomId === null || hostStatus === 'offline') {
     // Only show the error if we've checked the URL and it's definitely missing
     if (window.location.search && !new URLSearchParams(window.location.search).get('room')) {
        return (
@@ -133,7 +135,7 @@ const OverlayPage: React.FC = () => {
                   {verse.ref}
                 </h2>
                 
-                {verse.showEn && (
+                {verse.showPrimary && verse.primaryText && (
                   <p 
                     style={{ 
                       color: '#ffffff', 
@@ -141,14 +143,14 @@ const OverlayPage: React.FC = () => {
                       fontWeight: 'var(--font-weight-semibold)',
                       lineHeight: 1.3,
                       textShadow: '0 2px 10px rgba(0,0,0,0.5)',
-                      marginBottom: (verse.showYo && verse.yo) ? 'calc(var(--space-3) * var(--font-scale))' : 0
+                      marginBottom: (verse.showSecondary && verse.secondaryText) ? 'calc(var(--space-3) * var(--font-scale))' : 0
                     }}
                   >
-                    {verse.en}
+                    {verse.primaryText}
                   </p>
                 )}
 
-                {verse.showYo && verse.yo && (
+                {verse.showSecondary && verse.secondaryText && (
                   <p 
                     style={{ 
                       color: 'rgba(255, 255, 255, 0.75)', 
@@ -158,9 +160,14 @@ const OverlayPage: React.FC = () => {
                       fontStyle: 'italic'
                     }}
                   >
-                    {verse.yo}
+                    {verse.secondaryText}
                   </p>
                 )}
+              </div>
+              
+              {/* YOUVERSION ATTRIBUTION */}
+              <div style={{ position: 'absolute', bottom: '12px', right: '20px', opacity: 0.35 }}>
+                <img src="/youversion-logo.svg" alt="Provided by YouVersion" style={{ width: '100px' }} />
               </div>
               </AutoFitFont>
             </div>

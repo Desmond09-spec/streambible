@@ -221,41 +221,126 @@ export function getCanonicalBookName(bookCode: string): string {
   return canonicalBookNames[bookCode] || "";
 }
 
-// ─── Supabase-powered fetch functions ─────────────────────────────────────────
+export function formatYouVersionReference(reference: BibleReference): string {
+  if (!reference.verseStart) {
+    return `${reference.bookCode}.${reference.chapter}`;
+  }
+  let refStr = `${reference.bookCode}.${reference.chapter}.${reference.verseStart}`;
+  if (reference.verseEnd && reference.verseEnd !== reference.verseStart) {
+    refStr += `-${reference.bookCode}.${reference.chapter}.${reference.verseEnd}`;
+  }
+  return refStr;
+}
+
+// ─── YouVersion-powered fetch functions via Supabase Edge Function ──────────
 import { supabase } from '../lib/supabase';
 
-async function fetchVerses(translation: string, query: string): Promise<string> {
-  const reference = parseReference(query);
-  if (!reference) throw new Error("Unable to parse reference.");
+export const curatedVersions = [
+  { id: '1', name: 'King James Version', abbreviation: 'KJV', language: 'English' },
+  { id: '111', name: 'New International Version', abbreviation: 'NIV', language: 'English' },
+  { id: '114', name: 'New King James Version', abbreviation: 'NKJV', language: 'English' },
+  { id: '116', name: 'New Living Translation', abbreviation: 'NLT', language: 'English' },
+  { id: '59', name: 'English Standard Version', abbreviation: 'ESV', language: 'English' },
+  { id: '8', name: 'Amplified Bible', abbreviation: 'AMP', language: 'English' },
+  { id: '97', name: 'The Message', abbreviation: 'MSG', language: 'English' },
+  { id: '2079', name: 'Yoruba Contemporary Bible', abbreviation: 'YCB', language: 'Yoruba' },
+  { id: '2533', name: 'Bibeli Mimo', abbreviation: 'BM', language: 'Yoruba' },
+  // Add a few more as placeholders to show a good curated list
+  { id: '314', name: 'New American Standard Bible', abbreviation: 'NASB', language: 'English' },
+  { id: '2020', name: 'Christian Standard Bible', abbreviation: 'CSB', language: 'English' },
+  { id: '1713', name: 'Revised Standard Version', abbreviation: 'RSV', language: 'English' },
+];
 
+/**
+ * Local Fallback Mechanism
+ * Queries the static Supabase `verses` table (KJV & Yoruba) if YouVersion is unavailable.
+ */
+async function fetchLocalFallback(versionId: string, reference: BibleReference): Promise<string> {
+  const isYoruba = ['2079', '2533'].includes(versionId.toString());
+  const translationCode = isYoruba ? 'yor' : 'kjv';
+  
   const verseEnd = reference.verseEnd ?? reference.verseStart;
 
   const { data, error } = await supabase
     .from('verses')
     .select('verse, text')
-    .eq('translation', translation)
+    .eq('translation', translationCode)
     .eq('book_code', reference.bookCode)
     .eq('chapter', reference.chapter)
     .gte('verse', reference.verseStart)
     .lte('verse', verseEnd)
     .order('verse', { ascending: true });
 
-  if (error) throw new Error(error.message);
-  if (!data || data.length === 0) throw new Error("Verse not found.");
+  if (error) throw new Error("Fallback failed: " + error.message);
+  if (!data || data.length === 0) throw new Error("Verse not found in local fallback database.");
 
   return data.map((row: { verse: number; text: string }) => row.text.trim()).join(' ');
 }
 
-/**
- * Fetch English verse(s) from Supabase (KJV)
- */
-export async function fetchEnglishVerse(query: string): Promise<string> {
-  return fetchVerses('kjv', query);
+export async function fetchVerse(versionId: string, query: string): Promise<{ text: string, source: 'youversion' | 'local' }> {
+  const reference = parseReference(query);
+  if (!reference) throw new Error("Unable to parse reference.");
+
+  const yvRef = formatYouVersionReference(reference);
+  const cacheKey = `yv_${versionId}_${yvRef}`;
+
+  // 1. Check Local Cache
+  const cached = localStorage.getItem(cacheKey);
+  if (cached) {
+    try {
+       const parsed = JSON.parse(cached);
+       if (parsed.text && parsed.source) {
+          console.log(`[Tier 1] Serving from local cache: ${yvRef} (${versionId})`);
+          return parsed;
+       }
+    } catch(e) {
+       // Legacy cache was just string, ignore and refetch
+    }
+  }
+
+  // 2. Check Global Cache / YouVersion API via Edge Function
+  console.log(`[Tier 2] Fetching from Edge Function: ${yvRef} (${versionId})`);
+  
+  let verseText = "";
+  
+  try {
+    const { data, error } = await supabase.functions.invoke('fetch-verse', {
+      body: { action: 'fetch_verse', reference: yvRef, versionId: versionId }
+    });
+
+    if (error || data?.error) {
+       throw new Error("YouVersion fetch failed");
+    }
+    
+    verseText = data.text;
+    if (!verseText || verseText === "Text not found") throw new Error("Verse not found.");
+    
+    const result = { text: verseText, source: 'youversion' as const };
+    localStorage.setItem(cacheKey, JSON.stringify(result));
+    return result;
+    
+  } catch (err) {
+    console.warn(`[Fallback] YouVersion unavailable. Querying local database for ${yvRef} (${versionId})...`);
+    verseText = await fetchLocalFallback(versionId, reference);
+    return { text: verseText, source: 'local' };
+  }
 }
 
-/**
- * Fetch Yoruba verse(s) from Supabase
- */
-export async function fetchYorubaVerse(query: string): Promise<string> {
-  return fetchVerses('yor', query);
+export async function fetchAllYouVersionVersions() {
+  const { data, error } = await supabase.functions.invoke('fetch-verse', {
+    body: { action: 'fetch_versions' }
+  });
+  
+  if (error || data?.error || data?.fault) {
+    console.error("YouVersion API Error:", error || data);
+    throw new Error("Failed to fetch extra versions. Check API Key permissions.");
+  }
+  
+  // Ensure we return an array, handling various possible JSON structures
+  let list = [];
+  if (Array.isArray(data)) list = data;
+  else if (data?.data && Array.isArray(data.data)) list = data.data;
+  else if (data?.response?.data && Array.isArray(data.response.data)) list = data.response.data;
+  
+  return list;
 }

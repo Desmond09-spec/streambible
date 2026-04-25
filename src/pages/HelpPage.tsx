@@ -48,7 +48,7 @@ const HelpPage: React.FC = () => {
     },
     {
       question: "What translation does it use?",
-      answer: "Currently, it pulls from the KJV (English) and the standard Yoruba Bible. We are planning to add more translations in the future!"
+      answer: "StreamBible is powered by the YouVersion Platform, giving you instant access to over 3,000+ Bible translations across 2,000 languages, including KJV, NIV, NLT, and regional translations like Yoruba."
     }
   ];
 
@@ -112,6 +112,83 @@ const HelpPage: React.FC = () => {
               <h3 className="feature-title">OBS Ready</h3>
               <p className="walkthrough-text" style={{margin:0}}>Works natively with OBS Browser Sources. Just copy the link and you're set.</p>
             </div>
+          </div>
+        </section>
+
+        {/* GUIDED TOUR */}
+        <section className="help-tour-section">
+          <h2 className="help-section-title">How to Use StreamBible</h2>
+          <div className="tour-steps-container">
+            
+            {/* Step 1 */}
+            <div className="tour-row">
+              <div className="tour-graphic-col">
+                <div className="tour-mockup search-mockup">
+                  <div className="mockup-search-bar">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="14" height="14" style={{opacity: 0.5}}>
+                      <circle cx="11" cy="11" r="8"></circle>
+                      <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                    </svg>
+                    <span style={{fontFamily: 'monospace', opacity: 0.9}}>John 3:16</span>
+                    <div className="mockup-cursor"></div>
+                  </div>
+                </div>
+              </div>
+              <div className="tour-text-col">
+                <div className="tour-step-badge">Step 1</div>
+                <h3 className="tour-step-title">Search in Milliseconds</h3>
+                <p className="walkthrough-text">Type any reference—like "Romans 8:28" or "Gen 1:1"—into the search bar and press Enter. StreamBible immediately fetches the text from our library of over 3,000 translations.</p>
+              </div>
+            </div>
+
+            {/* Step 2 */}
+            <div className="tour-row reverse">
+              <div className="tour-graphic-col">
+                <div className="tour-mockup dual-mockup">
+                  <div className="mockup-card left">
+                    <div className="mockup-card-header">
+                      <div className="mockup-dot"></div> <div className="mockup-rule"></div> <span className="mockup-badge">KJV</span>
+                    </div>
+                    <div className="mockup-skeleton-line" style={{width: '90%'}}></div>
+                    <div className="mockup-skeleton-line" style={{width: '75%'}}></div>
+                    <div className="mockup-skeleton-line" style={{width: '85%'}}></div>
+                  </div>
+                  <div className="mockup-card right">
+                    <div className="mockup-card-header">
+                      <div className="mockup-dot"></div> <div className="mockup-rule"></div> <span className="mockup-badge">YCB</span>
+                    </div>
+                    <div className="mockup-skeleton-line" style={{width: '85%'}}></div>
+                    <div className="mockup-skeleton-line" style={{width: '80%'}}></div>
+                    <div className="mockup-skeleton-line" style={{width: '60%'}}></div>
+                  </div>
+                </div>
+              </div>
+              <div className="tour-text-col">
+                <div className="tour-step-badge">Step 2</div>
+                <h3 className="tour-step-title">Dual Translation Preview</h3>
+                <p className="walkthrough-text">Preview your verse safely off-stream. You can set up two windows side-by-side (perfect for bilingual services) and instantly switch translations using the dropdowns.</p>
+              </div>
+            </div>
+
+            {/* Step 3 */}
+            <div className="tour-row">
+              <div className="tour-graphic-col">
+                <div className="tour-mockup obs-mockup">
+                  <div className="mockup-obs-button">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" width="16" height="16">
+                      <polygon points="5 3 19 12 5 21 5 3"></polygon>
+                    </svg>
+                    <span>Push Live</span>
+                  </div>
+                </div>
+              </div>
+              <div className="tour-text-col">
+                <div className="tour-step-badge">Step 3</div>
+                <h3 className="tour-step-title">Broadcast to OBS</h3>
+                <p className="walkthrough-text">When you're ready, click "Push Live". Copy the overlay URL from the top of the page, add it as a Browser Source in OBS (1920x1080), and your verses will appear beautifully formatted on screen.</p>
+              </div>
+            </div>
+
           </div>
         </section>
 

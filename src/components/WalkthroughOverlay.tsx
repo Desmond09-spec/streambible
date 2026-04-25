@@ -1,11 +1,11 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { Search, SplitSquareHorizontal, Tv, Sparkles, ChevronRight, X } from 'lucide-react';
 
 export interface TourStep {
-  targetId: string;
+  id: string;
   title: string;
   text: string;
-  learnMoreLink?: string;
 }
 
 interface WalkthroughOverlayProps {
@@ -15,60 +15,6 @@ interface WalkthroughOverlayProps {
 
 const WalkthroughOverlay: React.FC<WalkthroughOverlayProps> = ({ steps, onComplete }) => {
   const [currentStep, setCurrentStep] = useState(0);
-  const [targetRect, setTargetRect] = useState<DOMRect | null>(null);
-  const [windowSize, setWindowSize] = useState({
-    width: typeof window !== 'undefined' ? window.innerWidth : 1000,
-    height: typeof window !== 'undefined' ? window.innerHeight : 1000,
-  });
-
-  const updateRect = useCallback(() => {
-    const step = steps[currentStep];
-    if (!step) return;
-
-    // Special case for centered welcome modal
-    if (step.targetId === 'center-screen') {
-      setTargetRect(null);
-      return;
-    }
-
-    const el = document.getElementById(step.targetId);
-    if (el) {
-      // Scroll into view if needed. Check height of element vs viewport height
-      const rawRect = el.getBoundingClientRect();
-      const viewportHeight = window.innerHeight;
-      
-      if (rawRect.height > viewportHeight * 0.8) {
-        // Taller than most of the screen, scroll to start so it doesn't cut off top
-        el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      } else {
-        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      }
-      
-      // Give time for scroll to finish, then measure
-      setTimeout(() => {
-        const rect = el.getBoundingClientRect();
-        setTargetRect(rect);
-      }, 300); // 300ms delay to wait for scroll
-    } else {
-      console.warn(`Tour target element '${step.targetId}' not found.`);
-      setTargetRect(null);
-    }
-  }, [currentStep, steps]);
-
-  useEffect(() => {
-    const handleResize = () => {
-      setWindowSize({ width: window.innerWidth, height: window.innerHeight });
-      updateRect();
-    };
-
-    updateRect();
-    window.addEventListener('resize', handleResize);
-    window.addEventListener('scroll', updateRect);
-    return () => {
-      window.removeEventListener('resize', handleResize);
-      window.removeEventListener('scroll', updateRect);
-    };
-  }, [updateRect]);
 
   const handleNext = () => {
     if (currentStep < steps.length - 1) {
@@ -81,182 +27,135 @@ const WalkthroughOverlay: React.FC<WalkthroughOverlayProps> = ({ steps, onComple
   const step = steps[currentStep];
   if (!step) return null;
 
-  const isCentered = step.targetId === 'center-screen' || !targetRect;
-
-  // Calculate SVG mask paths
-  // We use a large path covering the screen, and subtract a rounded rect from it.
-  const { width: windowWidth, height: windowHeight } = windowSize;
-  
-  // Padding around the target element
-  const padding = 12;
-  const radius = 16; // Corner radius for the cutout
-
-  let maskPath = `M 0 0 H ${windowWidth} V ${windowHeight} H 0 Z`;
-  let spotlightStyle = {};
-
-  if (!isCentered && targetRect) {
-    const x = targetRect.left - padding;
-    const y = targetRect.top - padding;
-    const w = targetRect.width + padding * 2;
-    const h = targetRect.height + padding * 2;
-    const r = radius;
-
-    // Draw a rounded rectangle in the opposite direction to create a hole
-    const cutout = `
-      M ${x + r} ${y}
-      h ${w - 2 * r}
-      a ${r} ${r} 0 0 1 ${r} ${r}
-      v ${h - 2 * r}
-      a ${r} ${r} 0 0 1 -${r} ${r}
-      h -${w - 2 * r}
-      a ${r} ${r} 0 0 1 -${r} -${r}
-      v -${h - 2 * r}
-      a ${r} ${r} 0 0 1 ${r} -${r}
-      Z
-    `;
-    
-    // Combine the outer rect and the inner cutout
-    maskPath = `M 0 0 H ${windowWidth} V ${windowHeight} H 0 Z ${cutout}`;
-
-    // For the glowing border around the cutout
-    spotlightStyle = {
-      left: x,
-      top: y,
-      width: w,
-      height: h,
-      borderRadius: r,
-    };
-  }
-
-  // Calculate Tooltip position
-  let placement = 'center';
-  let tooltipStyle: React.CSSProperties = {
-    top: '50%',
-    left: '50%',
-    x: '-50%',
-    y: '-50%',
+  // Render specific icon based on step ID
+  const renderGraphic = (id: string) => {
+    switch (id) {
+      case 'welcome':
+        return (
+          <div style={{ width: '80px', height: '80px', borderRadius: 'var(--r-2xl)', background: 'linear-gradient(135deg, var(--bg-elevated) 0%, var(--bg-body) 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid var(--border-bright)', boxShadow: 'var(--shadow-lg)' }}>
+             <Sparkles size={36} color="var(--accent)" />
+          </div>
+        );
+      case 'search':
+        return (
+          <div style={{ width: '80px', height: '80px', borderRadius: 'var(--r-2xl)', background: 'linear-gradient(135deg, var(--bg-elevated) 0%, var(--bg-body) 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid var(--border-bright)', boxShadow: 'var(--shadow-lg)' }}>
+             <Search size={36} color="var(--accent)" />
+          </div>
+        );
+      case 'preview':
+        return (
+          <div style={{ width: '80px', height: '80px', borderRadius: 'var(--r-2xl)', background: 'linear-gradient(135deg, var(--bg-elevated) 0%, var(--bg-body) 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid var(--border-bright)', boxShadow: 'var(--shadow-lg)' }}>
+             <SplitSquareHorizontal size={36} color="var(--accent)" />
+          </div>
+        );
+      case 'broadcast':
+        return (
+          <div style={{ width: '80px', height: '80px', borderRadius: 'var(--r-2xl)', background: 'linear-gradient(135deg, var(--bg-elevated) 0%, var(--bg-body) 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid var(--border-bright)', boxShadow: 'var(--shadow-lg)' }}>
+             <Tv size={36} color="var(--accent)" />
+          </div>
+        );
+      default:
+        return null;
+    }
   };
 
-  // Arrow position relative to the tooltip
-  let arrowStyle: React.CSSProperties = {};
-
-  if (!isCentered && targetRect) {
-    const spaceBelow = windowHeight - targetRect.bottom;
-    const spaceAbove = targetRect.top;
-    
-    // We assume the tooltip is ~200px tall and 320px wide
-    const tooltipWidth = 320;
-    
-    // Attempt to center the tooltip horizontally relative to the target
-    let targetCenterX = targetRect.left + (targetRect.width / 2);
-    // Clamp left so it doesn't overflow screen
-    let leftPos = Math.max(16, Math.min(windowWidth - tooltipWidth - 16, targetCenterX - (tooltipWidth / 2)));
-    
-    // Calculate where the arrow should point (relative to the tooltip's left edge)
-    let arrowLeft = targetCenterX - leftPos;
-    // Clamp arrow so it doesn't stick out of the rounded corners
-    arrowLeft = Math.max(24, Math.min(tooltipWidth - 24, arrowLeft));
-
-    if (spaceBelow > 220 || spaceBelow > spaceAbove) {
-      // Place below the element
-      placement = 'bottom';
-      tooltipStyle = {
-        top: targetRect.bottom + padding + 16,
-        left: leftPos,
-        x: 0,
-        y: 0,
-      };
-      arrowStyle = { left: arrowLeft, top: -6, transform: 'rotate(45deg)' };
-    } else {
-      // Place above the element
-      placement = 'top';
-      tooltipStyle = {
-        top: targetRect.top - padding - 16,
-        left: leftPos,
-        x: 0,
-        y: '-100%',
-      };
-      arrowStyle = { left: arrowLeft, bottom: -6, transform: 'rotate(45deg)' };
-    }
-  }
-
-  // Animation values based on placement
-  const initialY = placement === 'center' ? '-45%' : placement === 'top' ? 'calc(-100% + 10px)' : '10px';
-  const animateY = placement === 'center' ? '-50%' : placement === 'top' ? '-100%' : '0px';
-
   return (
-    <div className="walkthrough-overlay">
-      {/* Background Mask */}
-      <svg
-        className="walkthrough-svg-mask"
-        width="100%"
-        height="100%"
-        preserveAspectRatio="none"
-      >
-        <motion.path
-          d={maskPath}
-          fill="rgba(0, 0, 0, 0.65)"
-          fillRule="evenodd"
-          initial={{ d: `M 0 0 H ${windowWidth} V ${windowHeight} H 0 Z` }}
-          animate={{ d: maskPath }}
-          transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-        />
-      </svg>
+    <div style={{
+      position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px'
+    }}>
+      {/* Background Dimmer */}
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        transition={{ duration: 0.4 }}
+        style={{
+          position: 'absolute', inset: 0, background: 'rgba(0, 0, 0, 0.65)', backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)'
+        }}
+        onClick={onComplete}
+      />
 
-      {/* Spotlight Glow Border */}
-      <AnimatePresence>
-        {!isCentered && targetRect && (
-          <motion.div
-            className="walkthrough-spotlight"
-            initial={{ opacity: 0, ...spotlightStyle }}
-            animate={{ opacity: 1, ...spotlightStyle }}
-            transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-          />
-        )}
-      </AnimatePresence>
-
-      {/* Tooltip Card */}
+      {/* Modal Card */}
       <AnimatePresence mode="wait">
         <motion.div
           key={currentStep}
-          className="walkthrough-tooltip"
-          data-placement={placement}
-          style={tooltipStyle}
-          initial={{ opacity: 0, y: initialY, scale: 0.95 }}
-          animate={{ opacity: 1, y: animateY, scale: 1 }}
-          exit={{ opacity: 0, scale: 0.95 }}
-          transition={{ type: 'spring', damping: 22, stiffness: 300 }}
+          initial={{ opacity: 0, y: 20, scale: 0.95 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          exit={{ opacity: 0, y: -20, scale: 0.95 }}
+          transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+          style={{
+            position: 'relative',
+            width: '100%',
+            maxWidth: '420px',
+            background: 'var(--bg-card)',
+            backdropFilter: 'blur(40px) saturate(200%)',
+            WebkitBackdropFilter: 'blur(40px) saturate(200%)',
+            border: '1px solid var(--border-bright)',
+            borderRadius: 'var(--r-2xl)',
+            boxShadow: 'var(--shadow-xl)',
+            overflow: 'hidden',
+            display: 'flex',
+            flexDirection: 'column'
+          }}
+          onClick={(e) => e.stopPropagation()}
         >
-          {placement !== 'center' && (
-            <div className="walkthrough-arrow" style={arrowStyle}></div>
-          )}
-          
-          <div className="walkthrough-progress">
-            Step {currentStep + 1} of {steps.length}
+          {/* Close Button */}
+          <button 
+            onClick={onComplete}
+            style={{ position: 'absolute', top: '16px', right: '16px', background: 'var(--bg-elevated)', border: '1px solid var(--border-dim)', borderRadius: '50%', width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-2)', cursor: 'pointer', zIndex: 10, transition: 'background 0.2s' }}
+            onMouseEnter={(e) => e.currentTarget.style.background = 'var(--bg-body)'}
+            onMouseLeave={(e) => e.currentTarget.style.background = 'var(--bg-elevated)'}
+          >
+            <X size={16} />
+          </button>
+
+          {/* Graphic Area */}
+          <div style={{ padding: '48px 32px 24px', display: 'flex', justifyContent: 'center' }}>
+            {renderGraphic(step.id)}
           </div>
-          <h3 className="walkthrough-title">{step.title}</h3>
-          <p className="walkthrough-text">{step.text}</p>
-          
-          <div className="walkthrough-actions">
-            <button className="walkthrough-btn-skip" onClick={onComplete}>
-              {currentStep === steps.length - 1 ? 'Close' : 'Skip Tour'}
-            </button>
+
+          {/* Content Area */}
+          <div style={{ padding: '0 32px', textAlign: 'center' }}>
+            <h3 style={{ margin: '0 0 12px', fontSize: 'var(--fs-xl)', fontWeight: 600, color: 'var(--text-1)', letterSpacing: '-0.02em' }}>
+              {step.title}
+            </h3>
+            <p style={{ margin: 0, fontSize: 'var(--fs-base)', color: 'var(--text-2)', lineHeight: 1.6 }}>
+              {step.text}
+            </p>
+          </div>
+
+          {/* Footer Area */}
+          <div style={{ padding: '32px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '16px' }}>
+            
+            {/* Dots */}
             <div style={{ display: 'flex', gap: '8px' }}>
-              {step.learnMoreLink && (
-                <button 
-                  className="walkthrough-btn-learn" 
-                  onClick={() => { window.location.href = step.learnMoreLink!; }}
-                >
-                  Learn More
-                </button>
-              )}
-              {currentStep < steps.length - 1 && (
-                <button className="walkthrough-btn-next" onClick={handleNext}>
-                  Next
-                </button>
-              )}
+              {steps.map((_, i) => (
+                <div key={i} style={{
+                  width: '6px', height: '6px', borderRadius: '50%',
+                  background: i === currentStep ? 'var(--text-1)' : 'var(--border-bright)',
+                  transition: 'background 0.3s'
+                }} />
+              ))}
             </div>
+
+            {/* Action Button */}
+            <button 
+              onClick={handleNext}
+              style={{
+                background: 'var(--text-1)', color: 'var(--bg-body)', border: 'none', borderRadius: 'var(--r-full)',
+                padding: '10px 20px', fontSize: '14px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px',
+                cursor: 'pointer', transition: 'transform 0.1s, opacity 0.2s', boxShadow: 'var(--shadow-sm)'
+              }}
+              onMouseEnter={(e) => e.currentTarget.style.opacity = '0.9'}
+              onMouseLeave={(e) => e.currentTarget.style.opacity = '1'}
+              onMouseDown={(e) => e.currentTarget.style.transform = 'scale(0.96)'}
+              onMouseUp={(e) => e.currentTarget.style.transform = 'scale(1)'}
+            >
+              {currentStep === steps.length - 1 ? 'Get Started' : 'Continue'}
+              {currentStep < steps.length - 1 && <ChevronRight size={16} />}
+            </button>
           </div>
+
         </motion.div>
       </AnimatePresence>
     </div>
