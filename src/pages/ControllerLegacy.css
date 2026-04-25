@@ -1549,7 +1549,7 @@
       }
 
       /* Text container */
-      .copy-toast-.legacy-body {
+      .copy-toast-body {
         display: flex;
         flex-direction: column;
         gap: 2px;

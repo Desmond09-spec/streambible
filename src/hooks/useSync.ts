@@ -9,6 +9,7 @@ export interface VersePayload {
   secondaryVersion: string;
   showPrimary: boolean;
   showSecondary: boolean;
+  source: 'youversion' | 'biblebrain' | 'local';
 }
 
 export interface DevicePresence {

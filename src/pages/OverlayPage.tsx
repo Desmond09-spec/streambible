@@ -25,6 +25,7 @@ const OverlayPage: React.FC = () => {
     secondaryVersion: "",
     showPrimary: true,
     showSecondary: true,
+    source: 'youversion',
     isVisible: false
   });
 
@@ -165,10 +166,22 @@ const OverlayPage: React.FC = () => {
                 )}
               </div>
               
-              {/* YOUVERSION ATTRIBUTION */}
-              <div style={{ position: 'absolute', bottom: '12px', right: '20px', opacity: 0.35 }}>
-                <img src="/youversion-logo.svg" alt="Provided by YouVersion" style={{ width: '100px' }} />
-              </div>
+              {/* ATTRIBUTION */}
+              {verse.source === 'youversion' && (
+                <div style={{ position: 'absolute', bottom: '12px', right: '20px', opacity: 0.35 }}>
+                  <img src="/youversion-logo.svg" alt="Provided by YouVersion" style={{ width: '100px' }} />
+                </div>
+              )}
+              {verse.source === 'biblebrain' && (
+                <div style={{ position: 'absolute', bottom: '12px', right: '20px', opacity: 0.5 }}>
+                  <span style={{ color: '#fff', fontSize: '12px', fontWeight: 'bold', letterSpacing: '0.05em', textTransform: 'uppercase' }}>Powered by Bible Brain</span>
+                </div>
+              )}
+              {verse.source === 'local' && (
+                <div style={{ position: 'absolute', bottom: '12px', right: '20px', opacity: 0.5 }}>
+                  <span style={{ color: '#fff', fontSize: '12px', fontWeight: 'bold', letterSpacing: '0.05em', textTransform: 'uppercase' }}>StreamBible Local Data</span>
+                </div>
+              )}
               </AutoFitFont>
             </div>
           </motion.div>

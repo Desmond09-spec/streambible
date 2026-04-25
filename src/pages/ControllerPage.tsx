@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { MoreHorizontal, ExternalLink, MonitorUp, Sparkles } from 'lucide-react';
 import './ControllerLegacy.css';
-import { parseReference, getCanonicalBookName, fetchVerse, fetchAllYouVersionVersions, curatedVersions } from '../services/bibleService';
+import { parseReference, getCanonicalBookName, fetchVerse, fetchAllYouVersionVersions, curatedVersions, type TriageCategory } from '../services/bibleService';
 import { useSyncPublisher, usePresence, useHeartbeat, useDiscovery } from '../hooks/useSync';
 import { supabase } from '../lib/supabase';
 import WalkthroughOverlay from '../components/WalkthroughOverlay';
@@ -73,9 +73,12 @@ const ControllerPage: React.FC = () => {
 
   const [isNetworkExpanded, setIsNetworkExpanded] = useState(false);
   
-  const [isCopied, setIsCopied] = useState(false);
+  const [copiedType, setCopiedType] = useState<'overlay' | 'fullscreen' | 'controller' | null>(null);
   const [showFallbackToast, setShowFallbackToast] = useState(false);
   const [isUsingFallback, setIsUsingFallback] = useState(false);
+  const [fallbackType, setFallbackType] = useState<'biblebrain' | 'local' | null>(null);
+  const [triageReason, setTriageReason] = useState<TriageCategory>(null);
+  const [fallbackOriginalVersion, setFallbackOriginalVersion] = useState<string | null>(null);
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
@@ -134,6 +137,14 @@ const ControllerPage: React.FC = () => {
     setTimeout(() => setIsTransitioning(false), 280);
   };
 
+  useEffect(() => {
+    if (!query.trim()) return;
+    const timerId = setTimeout(() => {
+      handleSearch(query);
+    }, 900);
+    return () => clearTimeout(timerId);
+  }, [query, primaryVersion, secondaryVersion]);
+
   const handleSearch = async (searchQuery: string = query) => {
     if (!searchQuery.trim()) return;
 
@@ -154,39 +165,93 @@ const ControllerPage: React.FC = () => {
       let pText = 'Verse not found.';
       let sText = 'Verse not found.';
       let isLocalFallback = false;
+      let pSource: 'youversion' | 'biblebrain' | 'local' = 'youversion';
+      let sSource: 'youversion' | 'biblebrain' | 'local' = 'youversion';
+      let overallTriage: TriageCategory = null;
 
       try {
          const pRes = await fetchVerse(primaryVersion, searchQuery);
          pText = pRes.text;
-         if (pRes.source === 'local') isLocalFallback = true;
-      } catch (e) {
-         // Attempted fetch failed
+         pSource = pRes.source;
+         if (pRes.triageReason) overallTriage = pRes.triageReason;
+         if (pSource === 'local') isLocalFallback = true;
+      } catch (e: any) {
+         if (e.message === "Verse not found." || e.message === "Unable to parse reference.") {
+            overallTriage = 'user_input';
+         } else if (e.message === "YouVersion fetch failed") {
+            // Already handled by fetchVerse assigning triageReason, but just in case
+         }
       }
 
       if (isLocalFallback) {
           setIsUsingFallback(true);
+          setFallbackType('local');
+          setTriageReason(overallTriage);
+          setFallbackOriginalVersion(primaryVersion);
           setPrimaryVersion('1');
           setSecondaryVersion('2079');
           setShowFallbackToast(true);
           setTimeout(() => setShowFallbackToast(false), 5000);
           
-          try { pText = (await fetchVerse('1', searchQuery)).text; } catch(e){}
-          try { sText = (await fetchVerse('2079', searchQuery)).text; } catch(e){}
+          try { 
+            const pRes = await fetchVerse('1', searchQuery);
+            pText = pRes.text; pSource = pRes.source;
+          } catch(e){}
+          try { 
+            const sRes = await fetchVerse('2079', searchQuery);
+            sText = sRes.text; sSource = sRes.source;
+          } catch(e){}
       } else {
-          setIsUsingFallback(false);
           try {
              const sRes = await fetchVerse(secondaryVersion, searchQuery);
              sText = sRes.text;
-             if (sRes.source === 'local') {
+             sSource = sRes.source;
+             if (sRes.triageReason && !overallTriage) overallTriage = sRes.triageReason;
+             
+             if (sSource === 'local') {
                  setIsUsingFallback(true);
+                 setFallbackType('local');
+                 setTriageReason(overallTriage);
+                 setFallbackOriginalVersion(secondaryVersion);
                  setPrimaryVersion('1');
                  setSecondaryVersion('2079');
                  setShowFallbackToast(true);
                  setTimeout(() => setShowFallbackToast(false), 5000);
-                 try { pText = (await fetchVerse('1', searchQuery)).text; } catch(e){}
-                 try { sText = (await fetchVerse('2079', searchQuery)).text; } catch(e){}
+                 try { 
+                   const pRes = await fetchVerse('1', searchQuery);
+                   pText = pRes.text; pSource = pRes.source;
+                 } catch(e){}
+                 try { 
+                   const ssRes = await fetchVerse('2079', searchQuery);
+                   sText = ssRes.text; sSource = ssRes.source;
+                 } catch(e){}
+             } else if (pSource === 'biblebrain' || sSource === 'biblebrain') {
+                 setIsUsingFallback(true);
+                 setFallbackType('biblebrain');
+                 setTriageReason(overallTriage);
+                 setFallbackOriginalVersion(null);
+                 setShowFallbackToast(true);
+                 setTimeout(() => setShowFallbackToast(false), 5000);
+             } else {
+                 setIsUsingFallback(false);
+                 setFallbackType(null);
+                 setTriageReason(overallTriage);
+                 setFallbackOriginalVersion(null);
+                 if (overallTriage) {
+                    setShowFallbackToast(true);
+                    setTimeout(() => setShowFallbackToast(false), 5000);
+                 }
              }
-          } catch (e) { }
+          } catch (e: any) {
+             if (e.message === "Verse not found." || e.message === "Unable to parse reference.") {
+                if (!overallTriage) overallTriage = 'user_input';
+             }
+             setTriageReason(overallTriage);
+             if (overallTriage) {
+                setShowFallbackToast(true);
+                setTimeout(() => setShowFallbackToast(false), 5000);
+             }
+          }
       }
 
       setPrimaryText(pText);
@@ -195,8 +260,17 @@ const ControllerPage: React.FC = () => {
       setSecondaryText(sText);
       setSecondaryRef(canonicalRef);
 
-      setStatus('success');
-      setStatusMsg('Ready to push');
+      // Catch-all: if nothing was retrieved, ensure the user sees a toast
+      if (pText === 'Verse not found.' && sText === 'Verse not found.') {
+        setTriageReason('user_input');
+        setShowFallbackToast(true);
+        setTimeout(() => setShowFallbackToast(false), 5000);
+        setStatus('success');
+        setStatusMsg('Verse not found');
+      } else {
+        setStatus('success');
+        setStatusMsg('Ready to push');
+      }
     } catch (error) {
       setStatus('error');
       setStatusMsg('Error fetching verses');
@@ -220,6 +294,7 @@ const ControllerPage: React.FC = () => {
       secondaryVersion: sVersionObj ? (sVersionObj.abbreviation || sVersionObj.local_abbreviation) : '',
       showPrimary: showPrimary,
       showSecondary: showSecondary,
+      source: fallbackType || 'youversion'
     });
     setStatus('live');
     setStatusMsg('Live on stream');
@@ -315,10 +390,10 @@ const ControllerPage: React.FC = () => {
      return dev ? dev.name : 'Unknown Device';
   };
 
-  const copyUrl = (url: string) => {
+  const copyUrl = (url: string, type: 'overlay' | 'fullscreen' | 'controller') => {
     navigator.clipboard.writeText(url);
-    setIsCopied(true);
-    setTimeout(() => setIsCopied(false), 3000);
+    setCopiedType(type);
+    setTimeout(() => setCopiedType(null), 3000);
   };
 
   const finishTour = () => {
@@ -352,7 +427,7 @@ const ControllerPage: React.FC = () => {
       {showTour && <WalkthroughOverlay steps={tourSteps} onComplete={finishTour} />}
 
       <AnimatePresence>
-        {isCopied && (
+        {copiedType && (
           <motion.div 
             initial={{ opacity: 0, y: -20, x: '-50%', scale: 0.95 }}
             animate={{ opacity: 1, y: 0, x: '-50%', scale: 1 }}
@@ -371,7 +446,9 @@ const ControllerPage: React.FC = () => {
             </div>
             <div className="copy-toast-body">
               <span className="copy-toast-title">Link copied</span>
-              <span className="copy-toast-sub">Bible overlay link copied to clipboard</span>
+              <span className="copy-toast-sub">
+                {copiedType === 'overlay' ? 'Bible overlay link' : copiedType === 'fullscreen' ? 'Fullscreen display link' : 'Controller link'} copied to clipboard
+              </span>
             </div>
           </motion.div>
         )}
@@ -389,12 +466,12 @@ const ControllerPage: React.FC = () => {
             aria-live="assertive" 
             style={{ 
                x: '-50%', 
-               background: 'rgba(255, 159, 10, 0.15)', 
-               border: '1px solid rgba(255, 159, 10, 0.3)',
+               background: triageReason === 'internal_error' ? 'rgba(255, 69, 58, 0.15)' : triageReason === 'client_network' ? 'rgba(255, 214, 10, 0.15)' : triageReason === 'user_input' ? 'rgba(152, 152, 157, 0.15)' : 'rgba(255, 159, 10, 0.15)', 
+               border: `1px solid ${triageReason === 'internal_error' ? 'rgba(255, 69, 58, 0.3)' : triageReason === 'client_network' ? 'rgba(255, 214, 10, 0.3)' : triageReason === 'user_input' ? 'rgba(152, 152, 157, 0.3)' : 'rgba(255, 159, 10, 0.3)'}`,
                color: 'var(--text-1)'
             }}
           >
-            <div className="copy-toast-icon-wrap" style={{ background: 'rgba(255, 159, 10, 0.2)', color: 'var(--warning)' }}>
+            <div className="copy-toast-icon-wrap" style={{ background: triageReason === 'internal_error' ? 'rgba(255, 69, 58, 0.2)' : triageReason === 'client_network' ? 'rgba(255, 214, 10, 0.2)' : triageReason === 'user_input' ? 'rgba(152, 152, 157, 0.2)' : 'rgba(255, 159, 10, 0.2)', color: triageReason === 'internal_error' ? '#FF453A' : triageReason === 'client_network' ? '#FFD60A' : triageReason === 'user_input' ? '#98989D' : 'var(--warning)' }}>
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" width="16" height="16">
                 <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
                 <line x1="12" y1="9" x2="12" y2="13"/>
@@ -402,8 +479,26 @@ const ControllerPage: React.FC = () => {
               </svg>
             </div>
             <div className="copy-toast-body">
-              <span className="copy-toast-title">Offline Mode</span>
-              <span className="copy-toast-sub">Primary source unreachable. Defaulting to local KJV/Yoruba database.</span>
+              <span className="copy-toast-title">
+                {triageReason === 'client_network' ? 'Network Error' : 
+                 triageReason === 'internal_error' ? 'Critical System Error' : 
+                 triageReason === 'user_input' ? 'Verse Not Found' :
+                 triageReason === 'third_party_outage' && fallbackType === 'biblebrain' ? 'Primary Unreachable' :
+                 triageReason === 'third_party_outage' && fallbackType === 'local' ? 'API Outage' : 'System Alert'}
+              </span>
+              <span className="copy-toast-sub">
+                {triageReason === 'client_network' ? 'You appear to be offline. Defaulting to local database.' : 
+                 triageReason === 'internal_error' ? 'Local database unavailable. Please refresh.' : 
+                 triageReason === 'user_input' ? 'Please check the reference and try again.' :
+                 triageReason === 'third_party_outage' && fallbackType === 'biblebrain' ? 'YouVersion is unreachable. Defaulting to Bible Brain API.' :
+                 triageReason === 'third_party_outage' && fallbackType === 'local' ? 'Primary sources unreachable. Defaulting to local database.' :
+                 'An unknown error occurred.'}
+                 {fallbackOriginalVersion && fallbackOriginalVersion !== '1' && fallbackType === 'local' && (
+                    <span style={{ display: 'block', marginTop: '4px', fontSize: '11px', opacity: 0.8, fontWeight: 500 }}>
+                      Translation unavailable offline. Reverted to KJV.
+                    </span>
+                 )}
+              </span>
             </div>
           </motion.div>
         )}
@@ -427,14 +522,14 @@ const ControllerPage: React.FC = () => {
         </div>
 
         <div id="header-links" className="header-right mobile-hidden" style={{ display: 'flex', gap: 'var(--space-2)', alignItems: 'center' }}>
-          <button className="obs-copy-btn" onClick={() => copyUrl(`${window.location.origin}/overlay?room=${roomId}`)} title="Copy Lower Third Overlay Link">
+          <button className="obs-copy-btn" onClick={() => copyUrl(`${window.location.origin}/overlay?room=${roomId}`, 'overlay')} title="Copy Lower Third Overlay Link">
             <svg className="icon-copy" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
               <path d="M6 5H4a2 2 0 0 0-2 2v4a2 2 0 0 0 2 2h2m4-10h2a2 2 0 0 1 2 2v4a2 2 0 0 1-2 2h-2M5 8h6"/>
             </svg>
             <span className="btn-label">Overlay</span>
           </button>
           
-          <button className="obs-copy-btn" onClick={() => copyUrl(`${window.location.origin}/fullscreen?room=${roomId}`)} title="Copy Full Screen Overlay Link">
+          <button className="obs-copy-btn" onClick={() => copyUrl(`${window.location.origin}/fullscreen?room=${roomId}`, 'fullscreen')} title="Copy Full Screen Overlay Link">
             <svg className="icon-copy" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
               <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/>
             </svg>
@@ -536,7 +631,7 @@ const ControllerPage: React.FC = () => {
                     <path d="M7 11V7a5 5 0 0110 0v4"></path>
                   </svg>
                   <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis' }}>{window.location.origin}/controller?room={roomId}</span>
-                  <button onClick={() => copyUrl(`${window.location.origin}/controller?room=${roomId}`)} style={{ padding: '4px 12px' }}>Copy</button>
+                  <button onClick={() => copyUrl(`${window.location.origin}/controller?room=${roomId}`, 'controller')} style={{ padding: '4px 12px' }}>Copy</button>
                   {isHost && (
                     <button onClick={regenerateRoom} style={{ padding: '4px 12px', background: 'rgba(255,0,0,0.1)', color: '#ff4444' }} title="Reset Session ID">Reset</button>
                   )}
@@ -875,7 +970,7 @@ const ControllerPage: React.FC = () => {
               </div>
 
               <div className="bottom-sheet-body">
-                <button className="bottom-sheet-btn" onClick={() => { copyUrl(`${window.location.origin}/overlay?room=${roomId}`); setIsMobileMenuOpen(false); }}>
+                <button className="bottom-sheet-btn" onClick={() => { copyUrl(`${window.location.origin}/overlay?room=${roomId}`, 'overlay'); setIsMobileMenuOpen(false); }}>
                   <div className="bottom-sheet-btn-icon"><ExternalLink size={18} /></div>
                   <div className="bottom-sheet-btn-text">
                     <span>Overlay Link</span>
@@ -883,7 +978,7 @@ const ControllerPage: React.FC = () => {
                   </div>
                 </button>
 
-                <button className="bottom-sheet-btn" onClick={() => { copyUrl(`${window.location.origin}/fullscreen?room=${roomId}`); setIsMobileMenuOpen(false); }}>
+                <button className="bottom-sheet-btn" onClick={() => { copyUrl(`${window.location.origin}/fullscreen?room=${roomId}`, 'fullscreen'); setIsMobileMenuOpen(false); }}>
                   <div className="bottom-sheet-btn-icon"><MonitorUp size={18} /></div>
                   <div className="bottom-sheet-btn-text">
                     <span>Fullscreen Link</span>
@@ -914,8 +1009,20 @@ const ControllerPage: React.FC = () => {
         )}
       </AnimatePresence>
 
-      <div style={{ textAlign: 'center', marginTop: '10px', marginBottom: '10px', display: 'flex', justifyContent: 'center' }}>
-        <img src="/youversion-logo.svg" alt="Provided by YouVersion" style={{ width: '140px', opacity: 0.5, filter: theme === 'dark' ? 'invert(1)' : 'none' }} />
+      <div style={{ textAlign: 'center', marginTop: '10px', marginBottom: '10px', display: 'flex', justifyContent: 'center', minHeight: '28px', alignItems: 'center' }}>
+        {(!isUsingFallback || fallbackType === null) && (
+          <img src="/youversion-logo.svg" alt="Provided by YouVersion" style={{ width: '140px', opacity: 0.5, filter: theme === 'dark' ? 'invert(1)' : 'none' }} />
+        )}
+        {isUsingFallback && fallbackType === 'biblebrain' && (
+          <span style={{ fontSize: '12px', fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase', opacity: 0.45, color: 'var(--text-1)' }}>
+            Powered by Bible Brain
+          </span>
+        )}
+        {isUsingFallback && fallbackType === 'local' && (
+          <span style={{ fontSize: '12px', fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase', opacity: 0.45, color: 'var(--text-1)' }}>
+            StreamBible Local Data
+          </span>
+        )}
       </div>
 
       <footer id="action-bar" className="action-bar">

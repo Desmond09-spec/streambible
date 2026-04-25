@@ -25,6 +25,7 @@ const FullScreenPage: React.FC = () => {
     secondaryVersion: "",
     showPrimary: true,
     showSecondary: true,
+    source: 'youversion',
     isVisible: false
   });
 
@@ -150,6 +151,23 @@ const FullScreenPage: React.FC = () => {
                 </motion.p>
               )}
             </AutoFitFont>
+
+            {/* ATTRIBUTION */}
+            {verse.source === 'youversion' && (
+              <div style={{ position: 'absolute', bottom: '24px', right: '40px', opacity: 0.25 }}>
+                <img src="/youversion-logo.svg" alt="Provided by YouVersion" style={{ width: '120px' }} />
+              </div>
+            )}
+            {verse.source === 'biblebrain' && (
+              <div style={{ position: 'absolute', bottom: '24px', right: '40px', opacity: 0.35 }}>
+                <span style={{ color: '#fff', fontSize: '14px', fontWeight: 'bold', letterSpacing: '0.05em', textTransform: 'uppercase' }}>Powered by Bible Brain</span>
+              </div>
+            )}
+            {verse.source === 'local' && (
+              <div style={{ position: 'absolute', bottom: '24px', right: '40px', opacity: 0.35 }}>
+                <span style={{ color: '#fff', fontSize: '14px', fontWeight: 'bold', letterSpacing: '0.05em', textTransform: 'uppercase' }}>StreamBible Local Data</span>
+              </div>
+            )}
           </motion.div>
         )}
       </AnimatePresence>

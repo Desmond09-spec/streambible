@@ -236,24 +236,88 @@ export function formatYouVersionReference(reference: BibleReference): string {
 import { supabase } from '../lib/supabase';
 
 export const curatedVersions = [
-  { id: '1', name: 'King James Version', abbreviation: 'KJV', language: 'English' },
-  { id: '111', name: 'New International Version', abbreviation: 'NIV', language: 'English' },
-  { id: '114', name: 'New King James Version', abbreviation: 'NKJV', language: 'English' },
-  { id: '116', name: 'New Living Translation', abbreviation: 'NLT', language: 'English' },
-  { id: '59', name: 'English Standard Version', abbreviation: 'ESV', language: 'English' },
-  { id: '8', name: 'Amplified Bible', abbreviation: 'AMP', language: 'English' },
-  { id: '97', name: 'The Message', abbreviation: 'MSG', language: 'English' },
-  { id: '2079', name: 'Yoruba Contemporary Bible', abbreviation: 'YCB', language: 'Yoruba' },
-  { id: '2533', name: 'Bibeli Mimo', abbreviation: 'BM', language: 'Yoruba' },
-  // Add a few more as placeholders to show a good curated list
-  { id: '314', name: 'New American Standard Bible', abbreviation: 'NASB', language: 'English' },
-  { id: '2020', name: 'Christian Standard Bible', abbreviation: 'CSB', language: 'English' },
-  { id: '1713', name: 'Revised Standard Version', abbreviation: 'RSV', language: 'English' },
+  { id: '1', name: 'King James Version', abbreviation: 'KJV', language: 'English', bibleBrainId: 'ENGKJVO2ET' },
+  { id: '111', name: 'New International Version', abbreviation: 'NIV', language: 'English' }, // Exclusive to YV
+  { id: '114', name: 'New King James Version', abbreviation: 'NKJV', language: 'English' }, // Exclusive to YV
+  { id: '116', name: 'New Living Translation', abbreviation: 'NLT', language: 'English' }, // Exclusive to YV
+  { id: '59', name: 'English Standard Version', abbreviation: 'ESV', language: 'English', bibleBrainId: 'ENGESVO2ET' },
+  { id: '8', name: 'Amplified Bible', abbreviation: 'AMP', language: 'English' }, // Exclusive to YV
+  { id: '97', name: 'The Message', abbreviation: 'MSG', language: 'English' }, // Exclusive to YV
+  { id: '2079', name: 'Yoruba Contemporary Bible', abbreviation: 'YCB', language: 'Yoruba', bibleBrainId: 'YORBMZN2ET' },
+  { id: '2533', name: 'Bibeli Mimo', abbreviation: 'BM', language: 'Yoruba', bibleBrainId: 'YORCBV' },
+  { id: '206', name: 'World English Bible', abbreviation: 'WEB', language: 'English', bibleBrainId: 'ENGWEBO2ET' },
 ];
 
+let circuitBreakerState: 'normal' | 'biblebrain_only' = 'normal';
+let circuitBreakerResetTimer: any = null;
+
+const BIBLE_BRAIN_KEY = 'fbc63a43-6c84-4861-b8d4-53106199480a';
+
+function tripCircuitBreaker() {
+  if (circuitBreakerState === 'biblebrain_only') return;
+  console.warn("⚠️ Circuit Breaker Tripped: Switching to Bible Brain exclusively for 15 minutes.");
+  circuitBreakerState = 'biblebrain_only';
+  
+  if (circuitBreakerResetTimer) clearTimeout(circuitBreakerResetTimer);
+  
+  circuitBreakerResetTimer = setTimeout(() => {
+    console.log("🔄 Circuit Breaker Reset: Attempting YouVersion again.");
+    circuitBreakerState = 'normal';
+  }, 15 * 60 * 1000); // 15 minutes
+}
+
 /**
- * Local Fallback Mechanism
- * Queries the static Supabase `verses` table (KJV & Yoruba) if YouVersion is unavailable.
+ * Utility to wrap promises with a timeout
+ */
+async function fetchWithTimeout<T>(promise: Promise<T>, timeoutMs: number, errorMessage: string = 'Request timed out'): Promise<T> {
+  let timerId: any;
+  const timeoutPromise = new Promise<never>((_, reject) => {
+    timerId = setTimeout(() => reject(new Error(errorMessage)), timeoutMs);
+  });
+  return Promise.race([promise, timeoutPromise]).finally(() => clearTimeout(timerId));
+}
+
+/**
+ * Secondary Fallback Mechanism (Tier 2)
+ * Queries Faith Comes By Hearing's Bible Brain API.
+ */
+async function fetchBibleBrainFallback(versionId: string, reference: BibleReference): Promise<string> {
+  const version = curatedVersions.find(v => v.id === versionId);
+  if (!version || !version.bibleBrainId) {
+    throw new Error(`Bible Brain ID not mapped for YouVersion ID: ${versionId}`);
+  }
+
+  const verseEndStr = reference.verseEnd ? `&verse_end=${reference.verseEnd}` : `&verse_end=${reference.verseStart}`;
+  const url = `https://4.dbt.io/api/bibles/filesets/${version.bibleBrainId}/verses?book_id=${reference.bookCode}&chapter=${reference.chapter}&verse_start=${reference.verseStart}${verseEndStr}&key=${BIBLE_BRAIN_KEY}&v=4`;
+  
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
+
+  let res;
+  try {
+    res = await fetch(url, { signal: controller.signal });
+  } catch (e: any) {
+    if (e.name === 'AbortError') throw new Error('Failed to fetch (timeout)');
+    throw e;
+  } finally {
+    clearTimeout(timeoutId);
+  }
+
+  if (!res.ok) {
+    throw new Error(`Bible Brain API returned ${res.status}: ${await res.text()}`);
+  }
+  
+  const data = await res.json();
+  if (!data.data || data.data.length === 0) {
+    throw new Error("Bible Brain returned empty data");
+  }
+  
+  return data.data.map((v: any) => v.verse_text).join(' ').trim();
+}
+
+/**
+ * Tertiary Fallback Mechanism (Tier 3)
+ * Queries the static Supabase `verses` table (KJV & Yoruba).
  */
 async function fetchLocalFallback(versionId: string, reference: BibleReference): Promise<string> {
   const isYoruba = ['2079', '2533'].includes(versionId.toString());
@@ -277,7 +341,9 @@ async function fetchLocalFallback(versionId: string, reference: BibleReference):
   return data.map((row: { verse: number; text: string }) => row.text.trim()).join(' ');
 }
 
-export async function fetchVerse(versionId: string, query: string): Promise<{ text: string, source: 'youversion' | 'local' }> {
+export type TriageCategory = 'client_network' | 'third_party_outage' | 'internal_error' | 'user_input' | null;
+
+export async function fetchVerse(versionId: string, query: string): Promise<{ text: string, source: 'youversion' | 'biblebrain' | 'local', triageReason: TriageCategory }> {
   const reference = parseReference(query);
   if (!reference) throw new Error("Unable to parse reference.");
 
@@ -298,32 +364,73 @@ export async function fetchVerse(versionId: string, query: string): Promise<{ te
     }
   }
 
-  // 2. Check Global Cache / YouVersion API via Edge Function
-  console.log(`[Tier 2] Fetching from Edge Function: ${yvRef} (${versionId})`);
-  
+  // 2. Multi-Tier Waterfall Query
   let verseText = "";
-  
+  let currentSource: 'youversion' | 'biblebrain' | 'local' = 'youversion';
+  let currentTriage: TriageCategory = null;
+
   try {
-    const { data, error } = await supabase.functions.invoke('fetch-verse', {
+    if (circuitBreakerState === 'biblebrain_only') {
+       currentTriage = 'third_party_outage';
+       throw new Error("Circuit breaker is tripped. Forcing fallback to Bible Brain.");
+    }
+
+    console.log(`[Tier 1] Fetching from Edge Function (YouVersion): ${yvRef} (${versionId})`);
+    
+    const invokePromise = supabase.functions.invoke('fetch-verse', {
       body: { action: 'fetch_verse', reference: yvRef, versionId: versionId }
     });
 
+    // 6-second timeout for the primary fetch
+    const { data, error } = await fetchWithTimeout(invokePromise, 6000, 'Failed to fetch (timeout)');
+
     if (error || data?.error) {
+       // Check if it's a network connection issue vs an API outage
+       if (error && error.message && error.message.toLowerCase().includes('failed to fetch')) {
+          currentTriage = 'client_network';
+       } else {
+          currentTriage = 'third_party_outage';
+          tripCircuitBreaker();
+       }
        throw new Error("YouVersion fetch failed");
     }
     
     verseText = data.text;
-    if (!verseText || verseText === "Text not found") throw new Error("Verse not found.");
+    if (!verseText || verseText === "Text not found") {
+        currentTriage = 'user_input';
+        throw new Error("Verse not found.");
+    }
     
-    const result = { text: verseText, source: 'youversion' as const };
-    localStorage.setItem(cacheKey, JSON.stringify(result));
-    return result;
-    
-  } catch (err) {
-    console.warn(`[Fallback] YouVersion unavailable. Querying local database for ${yvRef} (${versionId})...`);
-    verseText = await fetchLocalFallback(versionId, reference);
-    return { text: verseText, source: 'local' };
+    currentSource = 'youversion';
+  } catch (err: any) {
+    if (err.message && err.message.toLowerCase().includes('failed to fetch')) {
+       currentTriage = 'client_network';
+    }
+    if (!currentTriage) currentTriage = 'internal_error';
+
+    console.warn(`[Tier 2 Fallback] Attempting Bible Brain for ${yvRef} (${versionId})...`);
+    try {
+      verseText = await fetchBibleBrainFallback(versionId, reference);
+      currentSource = 'biblebrain';
+    } catch (bbErr: any) {
+      if (bbErr.message && bbErr.message.toLowerCase().includes('failed to fetch')) {
+         currentTriage = 'client_network';
+      }
+
+      console.warn(`[Tier 3 Fallback] Bible Brain unavailable. Querying Local DB for ${yvRef} (${versionId})...`);
+      try {
+        verseText = await fetchLocalFallback(versionId, reference);
+        currentSource = 'local';
+      } catch (localErr) {
+        currentTriage = 'internal_error';
+        throw localErr;
+      }
+    }
   }
+
+  const result = { text: verseText, source: currentSource, triageReason: currentTriage };
+  localStorage.setItem(cacheKey, JSON.stringify(result));
+  return result;
 }
 
 export async function fetchAllYouVersionVersions() {
