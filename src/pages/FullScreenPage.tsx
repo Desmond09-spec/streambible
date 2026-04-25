@@ -19,10 +19,12 @@ const FullScreenPage: React.FC = () => {
   }, []);
   const [verse, setVerse] = useState<ActiveVerse>({
     ref: "",
-    en: "",
-    yo: "",
-    showEn: true,
-    showYo: true,
+    primaryText: "",
+    primaryVersion: "",
+    secondaryText: "",
+    secondaryVersion: "",
+    showPrimary: true,
+    showSecondary: true,
     isVisible: false
   });
 
@@ -114,7 +116,7 @@ const FullScreenPage: React.FC = () => {
                 {verse.ref}
               </motion.h1>
               
-              {verse.showEn && (
+              {verse.showPrimary && verse.primaryText && (
                 <p 
                   style={{ 
                     color: '#ffffff', 
@@ -124,11 +126,11 @@ const FullScreenPage: React.FC = () => {
                     textShadow: '0 4px 20px rgba(0,0,0,0.8)'
                   }}
                 >
-                  {verse.en}
+                  {verse.primaryText}
                 </p>
               )}
 
-              {verse.showYo && verse.yo && (
+              {verse.showSecondary && verse.secondaryText && (
                 <motion.p 
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
@@ -144,7 +146,7 @@ const FullScreenPage: React.FC = () => {
                     borderTop: '1px solid rgba(255,255,255,0.1)'
                   }}
                 >
-                  {verse.yo}
+                  {verse.secondaryText}
                 </motion.p>
               )}
             </AutoFitFont>

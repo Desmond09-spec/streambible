@@ -6,7 +6,6 @@ import { parseReference, getCanonicalBookName, fetchVerse, fetchAllYouVersionVer
 import { useSyncPublisher, usePresence, useHeartbeat, useDiscovery } from '../hooks/useSync';
 import { supabase } from '../lib/supabase';
 import WalkthroughOverlay from '../components/WalkthroughOverlay';
-import type { TourStep } from '../components/WalkthroughOverlay';
 import { CustomDropdown } from '../components/CustomDropdown';
 
 const ControllerPage: React.FC = () => {
