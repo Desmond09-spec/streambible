@@ -1,19 +1,31 @@
+/* =============================================================================
+   STREAMBIBLE HELP PAGE
+   Full light & dark mode support via .theme-light / .theme-dark class tokens
+   (inherited from ControllerLegacy.css token definitions)
+   ============================================================================= */
+
+/* ── Root ───────────────────────────────────────────────────────────────────── */
 .help-page-wrapper {
   background-color: var(--bg-body);
   color: var(--text-1);
   min-height: 100vh;
-  font-family: var(--font-family);
+  font-family: var(--font, 'Inter', system-ui, sans-serif);
   display: flex;
   flex-direction: column;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  /* Prevents horizontal scroll when mockups break out of padding */
+  overflow-x: clip;
 }
 
+/* ── Header ─────────────────────────────────────────────────────────────────── */
 .help-header {
   position: sticky;
   top: 0;
   z-index: 100;
-  background: var(--bg-card);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
+  background: var(--bg-body);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
   border-bottom: 1px solid var(--border-dim);
   padding: var(--s-3) var(--s-5);
   display: flex;
@@ -28,6 +40,7 @@
   background: transparent;
   border: none;
   color: var(--accent);
+  font-family: var(--font, inherit);
   font-weight: var(--fw-semibold);
   font-size: var(--fs-sm);
   cursor: pointer;
@@ -36,21 +49,22 @@
   transition: opacity var(--t-fast);
 }
 
-.help-back-btn:hover {
-  opacity: 0.8;
-}
+.help-back-btn:hover { opacity: 0.75; }
+.help-back-btn:active { opacity: 0.5; }
 
+/* ── Main Content ───────────────────────────────────────────────────────────── */
 .help-main {
   flex: 1;
   max-width: 800px;
   margin: 0 auto;
+  width: 100%;
   padding: var(--s-8) var(--s-5);
   display: flex;
   flex-direction: column;
   gap: var(--s-12);
 }
 
-/* HERO SECTION */
+/* ── Hero ───────────────────────────────────────────────────────────────────── */
 .help-hero {
   text-align: center;
 }
@@ -68,13 +82,14 @@
 .help-hero-title {
   font-size: var(--fs-3xl);
   font-weight: var(--fw-bold);
+  color: var(--text-1);
   line-height: var(--lh-tight);
   margin-bottom: var(--s-4);
   letter-spacing: var(--tracking-tight);
 }
 
 .help-hero-desc {
-  font-size: var(--fs-lg);
+  font-size: var(--fs-base);
   color: var(--text-2);
   max-width: 600px;
   margin: 0 auto var(--s-6);
@@ -86,25 +101,38 @@
   color: var(--accent);
   font-weight: var(--fw-medium);
   word-spacing: 4px;
+  opacity: 0.8;
 }
 
-/* FEATURES SECTION */
+/* ── Section Title ──────────────────────────────────────────────────────────── */
+.help-section-title {
+  font-size: var(--fs-2xl);
+  font-weight: var(--fw-bold);
+  color: var(--text-1);
+  margin-bottom: var(--s-6);
+  letter-spacing: var(--tracking-tight);
+  text-align: center;
+}
+
+/* ── Feature Cards ──────────────────────────────────────────────────────────── */
 .help-features-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
   gap: var(--s-4);
 }
 
 .feature-card {
-  background: var(--bg-elevated);
-  border: 1px solid var(--border-dim);
+  background: var(--bg-raised);
+  border: 1px solid var(--border-base);
   border-radius: var(--r-xl);
   padding: var(--s-6);
   display: flex;
   flex-direction: column;
   gap: var(--s-3);
   box-shadow: var(--shadow-sm);
-  transition: transform var(--t-fast), box-shadow var(--t-fast);
+  transition:
+    transform var(--t-base) var(--spring),
+    box-shadow var(--t-base) var(--spring);
 }
 
 .feature-card:hover {
@@ -114,14 +142,16 @@
 
 .feature-icon {
   font-size: 28px;
+  line-height: 1;
 }
 
 .feature-title {
   font-size: var(--fs-md);
   font-weight: var(--fw-semibold);
+  color: var(--text-1);
 }
 
-/* GUIDED TOUR SECTION */
+/* ── How-to Section ─────────────────────────────────────────────────────────── */
 .help-tour-section {
   margin-top: var(--s-4);
   margin-bottom: var(--s-8);
@@ -145,9 +175,23 @@
 }
 
 @media (max-width: 768px) {
-  .tour-row, .tour-row.reverse {
+  .tour-row,
+  .tour-row.reverse {
     flex-direction: column;
     gap: var(--s-6);
+  }
+
+  /* Break out of help-main's horizontal padding so the mockup
+     truly spans 90% of the viewport, not 90% of the padded content */
+  .tour-graphic-col {
+    width: calc(100% + 2 * var(--s-5));   /* expand by padding amount on each side */
+    margin-left: calc(-1 * var(--s-5));
+    margin-right: calc(-1 * var(--s-5));
+  }
+
+  .tour-mockup {
+    width: 90%;
+    max-width: none;
   }
 }
 
@@ -180,16 +224,24 @@
 .tour-step-title {
   font-size: var(--fs-xl);
   font-weight: var(--fw-bold);
+  color: var(--text-1);
   letter-spacing: var(--tracking-tight);
 }
 
-/* CSS UI MOCKUPS */
+.walkthrough-text {
+  font-size: var(--fs-sm);
+  color: var(--text-2);
+  line-height: var(--lh-relaxed);
+}
+
+/* ── UI Mockups ─────────────────────────────────────────────────────────────── */
 .tour-mockup {
   width: 100%;
   max-width: 320px;
-  height: 200px;
-  background: var(--bg-card);
-  border: 1px solid var(--border-bright);
+  aspect-ratio: 8 / 5;   /* always landscape — 320×200 ratio */
+  height: auto;           /* controlled entirely by aspect-ratio */
+  background: var(--bg-raised);
+  border: 1px solid var(--border-base);
   border-radius: var(--r-2xl);
   box-shadow: var(--shadow-lg);
   display: flex;
@@ -204,7 +256,7 @@
   width: 80%;
   height: 40px;
   background: var(--bg-elevated);
-  border: 1px solid var(--border-dim);
+  border: 1px solid var(--border-base);
   border-radius: var(--r-xl);
   display: flex;
   align-items: center;
@@ -212,6 +264,7 @@
   gap: 12px;
   box-shadow: var(--shadow-sm);
   color: var(--text-1);
+  font-size: var(--fs-sm);
 }
 
 .mockup-cursor {
@@ -219,11 +272,12 @@
   height: 18px;
   background: var(--accent);
   animation: blink 1s step-end infinite;
+  flex-shrink: 0;
 }
 
 @keyframes blink { 50% { opacity: 0; } }
 
-/* Dual Mockup */
+/* Dual Card Mockup */
 .dual-mockup {
   gap: 16px;
   padding: 24px;
@@ -232,8 +286,8 @@
 .mockup-card {
   flex: 1;
   height: 100%;
-  background: var(--bg-raised);
-  border: 1px solid var(--border-dim);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-base);
   border-radius: var(--r-lg);
   padding: 12px;
   display: flex;
@@ -260,7 +314,8 @@
   height: 6px;
   background: var(--accent);
   border-radius: 50%;
-  opacity: 0.5;
+  opacity: 0.6;
+  flex-shrink: 0;
 }
 
 .mockup-rule {
@@ -273,17 +328,19 @@
   font-size: 8px;
   color: var(--text-3);
   font-weight: 700;
+  letter-spacing: 0.06em;
 }
 
 .mockup-skeleton-line {
   height: 6px;
-  background: var(--border-dim);
+  background: var(--border-base);
   border-radius: 4px;
+  opacity: 0.7;
 }
 
 /* OBS Mockup */
 .obs-mockup {
-  background: radial-gradient(circle at center, var(--accent-dim) 0%, var(--bg-card) 70%);
+  background: radial-gradient(circle at center, var(--accent-dim) 0%, var(--bg-raised) 70%);
 }
 
 .mockup-obs-button {
@@ -296,25 +353,18 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  box-shadow: 0 4px 20px var(--accent-dim);
+  box-shadow:
+    0 4px 12px var(--accent-dim),
+    0 0 0 1px rgba(255,255,255,0.1) inset;
 }
 
-
-/* FEEDBACK FORM */
-.help-section-title {
-  font-size: var(--fs-2xl);
-  font-weight: var(--fw-bold);
-  margin-bottom: var(--s-6);
-  letter-spacing: var(--tracking-tight);
-  text-align: center;
-}
-
+/* ── Feedback Section ───────────────────────────────────────────────────────── */
 .feedback-card {
-  background: var(--bg-card);
-  border: 1px solid var(--border-bright);
+  background: var(--bg-raised);
+  border: 1px solid var(--border-base);
   border-radius: var(--r-2xl);
   padding: var(--s-8);
-  box-shadow: var(--shadow-lg);
+  box-shadow: var(--shadow-md);
 }
 
 .feedback-form {
@@ -323,21 +373,46 @@
   gap: var(--s-4);
 }
 
-.feedback-input, .feedback-textarea {
+.feedback-radio-group {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.feedback-radio-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-medium);
+  color: var(--text-1);
+}
+
+.feedback-input,
+.feedback-textarea {
   width: 100%;
   background: var(--bg-elevated);
-  border: 1px solid var(--border-dim);
+  border: 1px solid var(--border-base);
   border-radius: var(--r-md);
   padding: var(--s-3) var(--s-4);
   font-size: var(--fs-sm);
   color: var(--text-1);
-  font-family: inherit;
-  transition: border-color var(--t-fast);
+  font-family: var(--font, inherit);
+  transition: border-color var(--t-fast), box-shadow var(--t-fast);
+  box-sizing: border-box;
 }
 
-.feedback-input:focus, .feedback-textarea:focus {
+.feedback-input::placeholder,
+.feedback-textarea::placeholder {
+  color: var(--text-4);
+}
+
+.feedback-input:focus,
+.feedback-textarea:focus {
   outline: none;
   border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-glow);
 }
 
 .feedback-textarea {
@@ -346,26 +421,42 @@
 }
 
 .feedback-submit {
-  background: var(--text-1);
-  color: var(--bg-body);
+  background: var(--accent);
+  color: #ffffff;
   border: none;
   border-radius: var(--r-full);
-  padding: 12px 24px;
+  padding: 12px 28px;
+  font-family: var(--font, inherit);
   font-size: var(--fs-sm);
   font-weight: var(--fw-semibold);
   cursor: pointer;
   align-self: flex-start;
-  transition: transform var(--t-fast), opacity var(--t-fast);
+  transition:
+    transform var(--t-base) var(--spring),
+    opacity var(--t-fast),
+    box-shadow var(--t-base);
+  box-shadow:
+    0 1px 3px rgba(0,0,0,0.15),
+    0 4px 12px var(--accent-dim);
 }
 
 .feedback-submit:hover:not(:disabled) {
   transform: translateY(-1px);
-  opacity: 0.9;
+  opacity: 0.92;
+  box-shadow:
+    0 2px 6px rgba(0,0,0,0.18),
+    0 8px 20px var(--accent-dim);
+}
+
+.feedback-submit:active:not(:disabled) {
+  transform: scale(0.97);
+  transition-duration: 80ms;
 }
 
 .feedback-submit:disabled {
-  opacity: 0.5;
+  opacity: 0.4;
   cursor: not-allowed;
+  box-shadow: none;
 }
 
 .feedback-success {
@@ -375,13 +466,12 @@
 }
 
 .feedback-success-icon {
-  font-size: 48px;
   margin-bottom: var(--s-4);
   display: inline-block;
-  color: var(--accent);
+  color: var(--success, #34C759);
 }
 
-/* FAQS SECTION */
+/* ── FAQ Section ────────────────────────────────────────────────────────────── */
 .faqs-list {
   display: flex;
   flex-direction: column;
@@ -389,11 +479,15 @@
 }
 
 .faq-item {
-  background: var(--bg-elevated);
-  border: 1px solid var(--border-dim);
+  background: var(--bg-raised);
+  border: 1px solid var(--border-base);
   border-radius: var(--r-lg);
   overflow: hidden;
-  transition: background var(--t-fast);
+  transition: border-color var(--t-fast), background var(--t-fast);
+}
+
+.faq-item.is-open {
+  border-color: var(--border-bright);
 }
 
 .faq-question {
@@ -402,6 +496,7 @@
   background: transparent;
   border: none;
   padding: var(--s-4) var(--s-5);
+  font-family: var(--font, inherit);
   font-size: var(--fs-sm);
   font-weight: var(--fw-semibold);
   color: var(--text-1);
@@ -409,14 +504,23 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: var(--s-4);
+  transition: background var(--t-fast);
+}
+
+.faq-question:hover {
+  background: var(--bg-elevated);
 }
 
 .faq-icon {
-  transition: transform 0.3s ease;
+  flex-shrink: 0;
+  color: var(--text-3);
+  transition: transform 0.25s var(--spring, ease);
 }
 
 .faq-item.is-open .faq-icon {
   transform: rotate(180deg);
+  color: var(--accent);
 }
 
 .faq-answer {
@@ -426,11 +530,31 @@
   line-height: var(--lh-relaxed);
 }
 
+/* ── Footer ─────────────────────────────────────────────────────────────────── */
+.help-footer {
+  text-align: center;
+  padding: 40px 0;
+  color: var(--text-4);
+  font-size: var(--fs-xs);
+}
+
+/* ── Responsive ─────────────────────────────────────────────────────────────── */
 @media (max-width: 640px) {
   .help-hero-title {
     font-size: var(--fs-2xl);
   }
+
+  .help-main {
+    padding: var(--s-6) var(--s-4);
+    gap: var(--s-10);
+  }
+
   .feedback-card {
     padding: var(--s-5);
+  }
+
+  .tour-steps-container {
+    gap: var(--s-10);
+    margin-top: var(--s-6);
   }
 }

@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { MoreHorizontal, ExternalLink, MonitorUp, Sparkles } from 'lucide-react';
+import { MoreHorizontal, ExternalLink, MonitorUp, Settings } from 'lucide-react';
 import './ControllerLegacy.css';
 import { parseReference, getCanonicalBookName, fetchVerse, fetchAllYouVersionVersions, curatedVersions, type TriageCategory } from '../services/bibleService';
 import { useSyncPublisher, usePresence, useHeartbeat, useDiscovery } from '../hooks/useSync';
@@ -9,6 +10,7 @@ import WalkthroughOverlay from '../components/WalkthroughOverlay';
 import { CustomDropdown } from '../components/CustomDropdown';
 
 const ControllerPage: React.FC = () => {
+  const navigate = useNavigate();
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
   const [query, setQuery] = useState('');
   const [roomId, setRoomId] = useState<string>('');
@@ -18,10 +20,11 @@ const ControllerPage: React.FC = () => {
   const { devices, myId, hostStatus } = usePresence(roomId, false, remoteAccess);
   const wsConnected = hostStatus === 'online';
   
-  // Discovery & Heartbeat
-  // Room is always discoverable, regardless of Remote Access toggle
-  useHeartbeat(roomId, isHost, true);
+  // Room is discoverable based on gatekeep setting
+  const gatekeepDiscovery = localStorage.getItem('streambible-gatekeep-discovery') === 'true';
   const [discoveryEnabled, setDiscoveryEnabled] = useState(false);
+  const isDiscoverable = gatekeepDiscovery ? discoveryEnabled : true;
+  useHeartbeat(roomId, isHost, isDiscoverable);
   const { nearbySessions, refresh: refreshDiscovery, isDiscovering } = useDiscovery(discoveryEnabled);
   
   // Request State
@@ -29,6 +32,12 @@ const ControllerPage: React.FC = () => {
   const [incomingRequest, setIncomingRequest] = useState<{ roomId: string, deviceId: string, name: string } | null>(null);
   const [requestStatus, setRequestStatus] = useState<'idle' | 'pending' | 'accepted' | 'declined'>('idle');
   
+  // ── Settings (read from localStorage, written by SettingsPage) ────────────
+  const [debounceEnabled] = useState(() => localStorage.getItem('streambible-debounce-enabled') !== 'false');
+  const [pushConfirmEnabled] = useState(() => localStorage.getItem('streambible-push-confirm') === 'true');
+  const autoClearSeconds = parseInt(localStorage.getItem('streambible-auto-clear-seconds') || '0', 10);
+  const autoClearTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   const [primaryVersion, setPrimaryVersion] = useState(() => localStorage.getItem('streambible-primary-version') || '114');
   const [secondaryVersion, setSecondaryVersion] = useState(() => localStorage.getItem('streambible-secondary-version') || '1');
   const [showPrimary, setShowPrimary] = useState(() => localStorage.getItem('streambible-show-primary') !== 'false');
@@ -139,9 +148,8 @@ const ControllerPage: React.FC = () => {
 
   useEffect(() => {
     if (!query.trim()) return;
-    const timerId = setTimeout(() => {
-      handleSearch(query);
-    }, 900);
+    const delay = debounceEnabled ? 900 : 0;
+    const timerId = setTimeout(() => handleSearch(query), delay);
     return () => clearTimeout(timerId);
   }, [query, primaryVersion, secondaryVersion]);
 
@@ -164,9 +172,10 @@ const ControllerPage: React.FC = () => {
     try {
       let pText = 'Verse not found.';
       let sText = 'Verse not found.';
-      let isLocalFallback = false;
-      let pSource: 'youversion' | 'biblebrain' | 'local' = 'youversion';
-      let sSource: 'youversion' | 'biblebrain' | 'local' = 'youversion';
+      const LOCAL_NATIVE_IDS = new Set(['1', '2079', '2533']);
+      let isLocalSubstitute = false;
+      let pSource: 'youversion' | 'biblebrain' | 'local' = 'local';
+      let sSource: 'youversion' | 'biblebrain' | 'local' = 'local';
       let overallTriage: TriageCategory = null;
 
       try {
@@ -174,7 +183,8 @@ const ControllerPage: React.FC = () => {
          pText = pRes.text;
          pSource = pRes.source;
          if (pRes.triageReason) overallTriage = pRes.triageReason;
-         if (pSource === 'local') isLocalFallback = true;
+         // Only flag as substitute if local served a different translation than requested
+         if (pSource === 'local' && !LOCAL_NATIVE_IDS.has(primaryVersion)) isLocalSubstitute = true;
       } catch (e: any) {
          if (e.message === "Verse not found." || e.message === "Unable to parse reference.") {
             overallTriage = 'user_input';
@@ -183,20 +193,14 @@ const ControllerPage: React.FC = () => {
          }
       }
 
-      if (isLocalFallback) {
+      if (isLocalSubstitute) {
           setIsUsingFallback(true);
           setFallbackType('local');
           setTriageReason(overallTriage);
           setFallbackOriginalVersion(primaryVersion);
-          setPrimaryVersion('1');
-          setSecondaryVersion('2079');
           setShowFallbackToast(true);
           setTimeout(() => setShowFallbackToast(false), 5000);
-          
-          try { 
-            const pRes = await fetchVerse('1', searchQuery);
-            pText = pRes.text; pSource = pRes.source;
-          } catch(e){}
+          // pText is already KJV from Tier 1 — no need to re-fetch
           try { 
             const sRes = await fetchVerse('2079', searchQuery);
             sText = sRes.text; sSource = sRes.source;
@@ -208,23 +212,14 @@ const ControllerPage: React.FC = () => {
              sSource = sRes.source;
              if (sRes.triageReason && !overallTriage) overallTriage = sRes.triageReason;
              
-             if (sSource === 'local') {
+             if (sSource === 'local' && !LOCAL_NATIVE_IDS.has(secondaryVersion)) {
                  setIsUsingFallback(true);
                  setFallbackType('local');
                  setTriageReason(overallTriage);
                  setFallbackOriginalVersion(secondaryVersion);
-                 setPrimaryVersion('1');
-                 setSecondaryVersion('2079');
                  setShowFallbackToast(true);
                  setTimeout(() => setShowFallbackToast(false), 5000);
-                 try { 
-                   const pRes = await fetchVerse('1', searchQuery);
-                   pText = pRes.text; pSource = pRes.source;
-                 } catch(e){}
-                 try { 
-                   const ssRes = await fetchVerse('2079', searchQuery);
-                   sText = ssRes.text; sSource = ssRes.source;
-                 } catch(e){}
+                 // sText already has KJV from Tier 1, no need to re-fetch
              } else if (pSource === 'biblebrain' || sSource === 'biblebrain') {
                  setIsUsingFallback(true);
                  setFallbackType('biblebrain');
@@ -283,6 +278,9 @@ const ControllerPage: React.FC = () => {
   };
 
   const pushLive = () => {
+    if (pushConfirmEnabled) {
+      if (!window.confirm('Push this verse live to all overlays?')) return;
+    }
     const pVersionObj = curatedVersions.find(v => v.id === primaryVersion) || extraVersions.find(v => v.id.toString() === primaryVersion);
     const sVersionObj = curatedVersions.find(v => v.id === secondaryVersion) || extraVersions.find(v => v.id.toString() === secondaryVersion);
 
@@ -298,9 +296,23 @@ const ControllerPage: React.FC = () => {
     });
     setStatus('live');
     setStatusMsg('Live on stream');
+    scheduleAutoClear();
+  };
+
+  // Auto-clear timer: fires after pushLive if the setting is on
+  const scheduleAutoClear = () => {
+    if (autoClearSeconds <= 0) return;
+    if (autoClearTimerRef.current) clearTimeout(autoClearTimerRef.current);
+    autoClearTimerRef.current = setTimeout(() => {
+      broadcastClear();
+      setPrimaryText(''); setPrimaryRef('');
+      setSecondaryText(''); setSecondaryRef('');
+      setQuery(''); setStatus('default'); setStatusMsg('Ready');
+    }, autoClearSeconds * 1000);
   };
 
   const clearScreen = () => {
+    if (autoClearTimerRef.current) clearTimeout(autoClearTimerRef.current);
     broadcastClear();
     setPrimaryText(''); setPrimaryRef('');
     setSecondaryText(''); setSecondaryRef('');
@@ -370,6 +382,12 @@ const ControllerPage: React.FC = () => {
 
   const handleResponse = async (accepted: boolean) => {
     if (!incomingRequest) return;
+    
+    // If accepting while Remote Access is off, enable it first so the
+    // joining device isn't immediately shown an "Access Revoked" screen.
+    if (accepted && !remoteAccess) {
+      setRemoteAccess(true);
+    }
     
     const channel = supabase.channel(`streambible-sync-${roomId}`);
     await channel.send({
@@ -536,13 +554,7 @@ const ControllerPage: React.FC = () => {
             <span className="btn-label">Fullscreen</span>
           </button>
 
-          <button className="theme-toggle" onClick={() => setShowTour(true)} title="Restart Tour">
-            <span>
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
-            </span>
-          </button>
-
-          <button className="theme-toggle" onClick={toggleTheme}>
+          <button className="theme-toggle" onClick={toggleTheme} title="Toggle Theme">
             <span>
               {theme === 'dark' ? (
                 <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="8" cy="8" r="3"/><line x1="8" y1="1" x2="8" y2="2.5"/><line x1="8" y1="13.5" x2="8" y2="15"/><line x1="1" y1="8" x2="2.5" y2="8"/><line x1="13.5" y1="8" x2="15" y2="8"/><line x1="3.05" y1="3.05" x2="4.1" y2="4.1"/><line x1="11.9" y1="11.9" x2="12.95" y2="12.95"/><line x1="3.05" y1="12.95" x2="4.1" y2="11.9"/><line x1="11.9" y1="4.1" x2="12.95" y2="3.05"/></svg>
@@ -551,6 +563,26 @@ const ControllerPage: React.FC = () => {
               )}
             </span>
           </button>
+
+          {isHost ? (
+            <button
+              className="theme-toggle"
+              onClick={() => navigate(`/settings?room=${roomId}`)}
+              title="Session Settings"
+            >
+              <span><Settings size={16} /></span>
+            </button>
+          ) : (
+            <button
+              className="theme-toggle"
+              onClick={() => navigate('/help')}
+              title="Help"
+            >
+              <span>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+              </span>
+            </button>
+          )}
 
           <div className="ws-pill connected">
             <span className="ws-dot"></span>
@@ -704,6 +736,30 @@ const ControllerPage: React.FC = () => {
               <p className="modal-body-text">
                 <strong>{incomingRequest.name}</strong> is nearby and wants to join your session.
               </p>
+              {!remoteAccess && (
+                <div style={{
+                  marginTop: '8px',
+                  marginBottom: '4px',
+                  padding: '10px 12px',
+                  background: 'rgba(255, 170, 0, 0.12)',
+                  border: '1px solid rgba(255, 170, 0, 0.35)',
+                  borderRadius: '8px',
+                  fontSize: '12px',
+                  color: 'var(--warning, #e6a000)',
+                  textAlign: 'left',
+                  lineHeight: '1.5',
+                  display: 'flex',
+                  gap: '8px',
+                  alignItems: 'flex-start',
+                }}
+                role="alert"
+                >
+                  <span style={{ flexShrink: 0, fontSize: '14px' }}>⚠️</span>
+                  <span>
+                    <strong>Remote Access is off.</strong> Accepting will automatically enable it so this device can connect.
+                  </span>
+                </div>
+              )}
               <div className="modal-actions">
                 <button 
                   onClick={() => handleResponse(false)}
@@ -715,7 +771,7 @@ const ControllerPage: React.FC = () => {
                   onClick={() => handleResponse(true)}
                   className="modal-btn modal-btn-accept"
                 >
-                  Accept
+                  {!remoteAccess ? 'Accept & Enable Access' : 'Accept'}
                 </button>
               </div>
             </motion.div>
@@ -996,13 +1052,25 @@ const ControllerPage: React.FC = () => {
                   </div>
                 </button>
 
-                <button className="bottom-sheet-btn" onClick={() => { setShowTour(true); setIsMobileMenuOpen(false); }}>
-                  <div className="bottom-sheet-btn-icon"><Sparkles size={18} /></div>
-                  <div className="bottom-sheet-btn-text">
-                    <span>Restart Tour</span>
-                    <span className="sub">Replay the introductory walkthrough</span>
-                  </div>
-                </button>
+                {isHost ? (
+                  <button className="bottom-sheet-btn" onClick={() => { navigate(`/settings?room=${roomId}`); setIsMobileMenuOpen(false); }}>
+                    <div className="bottom-sheet-btn-icon"><Settings size={18} /></div>
+                    <div className="bottom-sheet-btn-text">
+                      <span>Session Settings</span>
+                      <span className="sub">Configure search, network, and broadcast options</span>
+                    </div>
+                  </button>
+                ) : (
+                  <button className="bottom-sheet-btn" onClick={() => { navigate('/help'); setIsMobileMenuOpen(false); }}>
+                    <div className="bottom-sheet-btn-icon">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" width="18" height="18"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                    </div>
+                    <div className="bottom-sheet-btn-text">
+                      <span>Help & Documentation</span>
+                      <span className="sub">Guides, FAQs, and getting started</span>
+                    </div>
+                  </button>
+                )}
               </div>
             </motion.div>
           </>

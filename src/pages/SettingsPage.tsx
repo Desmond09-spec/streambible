@@ -1,0 +1,409 @@
+import React, { useState, useRef, useEffect } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { motion, AnimatePresence } from 'framer-motion';
+import './SettingsPage.css';
+
+// ─── localStorage Keys ────────────────────────────────────────────────────────
+export const SETTINGS_KEYS = {
+  debounce:    'streambible-debounce-enabled',
+  gatekeep:    'streambible-gatekeep-discovery',
+  pushConfirm: 'streambible-push-confirm',
+  autoClear:   'streambible-auto-clear-seconds',
+  theme:       'streambible-theme',
+};
+
+// ─── Sub-components ───────────────────────────────────────────────────────────
+
+const IOSToggle: React.FC<{ checked: boolean; onChange: (v: boolean) => void; id: string }> = ({ checked, onChange, id }) => (
+  <label htmlFor={id} className="ios-toggle" aria-label="Toggle">
+    <input id={id} type="checkbox" checked={checked} onChange={e => onChange(e.target.checked)} />
+    <span className="ios-toggle-track">
+      <span className="ios-toggle-thumb" />
+    </span>
+  </label>
+);
+
+const ChevronRight: React.FC = () => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="14" height="14" style={{ flexShrink: 0, opacity: 0.35 }}>
+    <path d="M9 18l6-6-6-6" />
+  </svg>
+);
+
+interface SettingToggleRowProps {
+  label: string;
+  description?: string;
+  checked: boolean;
+  onChange: (v: boolean) => void;
+  id: string;
+  last?: boolean;
+}
+
+const SettingToggleRow: React.FC<SettingToggleRowProps> = ({ label, description, checked, onChange, id, last }) => (
+  <div className={`settings-row${last ? ' settings-row--last' : ''}`}>
+    <div className="settings-row-content">
+      <span className="settings-row-label">{label}</span>
+      {description && <span className="settings-row-desc">{description}</span>}
+    </div>
+    <IOSToggle checked={checked} onChange={onChange} id={id} />
+  </div>
+);
+
+// ── Lightweight Settings Dropdown ────────────────────────────────────────────
+interface SettingsDropdownOption { value: number; label: string; }
+
+const SettingsDropdown: React.FC<{
+  value: number;
+  options: SettingsDropdownOption[];
+  onChange: (v: number) => void;
+  id?: string;
+}> = ({ value, options, onChange, id }) => {
+  const [open, setOpen] = useState(false);
+  const [menuStyle, setMenuStyle] = useState<React.CSSProperties>({});
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const selectedLabel = options.find(o => o.value === value)?.label ?? String(value);
+
+  // Position the menu relative to the trigger
+  useEffect(() => {
+    if (!open || !triggerRef.current) return;
+    const rect = triggerRef.current.getBoundingClientRect();
+    const spaceBelow = window.innerHeight - rect.bottom;
+    const menuH = options.length * 44;
+    const above = spaceBelow < menuH + 16;
+    setMenuStyle({
+      position: 'fixed',
+      right: window.innerWidth - rect.right,
+      ...(above
+        ? { bottom: window.innerHeight - rect.top + 4 }
+        : { top: rect.bottom + 4 }),
+      minWidth: Math.max(rect.width, 160),
+      zIndex: 9000,
+    });
+  }, [open, options.length]);
+
+  // Close on outside click
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e: MouseEvent) => {
+      if (
+        triggerRef.current?.contains(e.target as Node) ||
+        menuRef.current?.contains(e.target as Node)
+      ) return;
+      setOpen(false);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [open]);
+
+  return (
+    <div className="sd-wrap">
+      <button
+        id={id}
+        ref={triggerRef}
+        className="sd-trigger"
+        onClick={() => setOpen(v => !v)}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+      >
+        <span className="sd-trigger-label">{selectedLabel}</span>
+        <svg className={`sd-chevron${open ? ' sd-chevron--open' : ''}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" width="12" height="12">
+          <polyline points="6 9 12 15 18 9" />
+        </svg>
+      </button>
+
+      <AnimatePresence>
+        {open && (
+          <motion.div
+            ref={menuRef}
+            className="sd-menu"
+            style={menuStyle}
+            initial={{ opacity: 0, scale: 0.95, y: -4 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.95, y: -4 }}
+            transition={{ type: 'spring', damping: 24, stiffness: 380 }}
+            role="listbox"
+          >
+            {options.map(opt => (
+              <button
+                key={opt.value}
+                role="option"
+                aria-selected={opt.value === value}
+                className={`sd-option${opt.value === value ? ' sd-option--selected' : ''}`}
+                onClick={() => { onChange(opt.value); setOpen(false); }}
+              >
+                {opt.label}
+                {opt.value === value && (
+                  <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" width="12" height="12">
+                    <polyline points="2.5 8.5 6 12 13.5 4" />
+                  </svg>
+                )}
+              </button>
+            ))}
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+};
+
+interface SettingSelectRowProps {
+  label: string;
+  description?: string;
+  value: number;
+  options: SettingsDropdownOption[];
+  onChange: (v: number) => void;
+  last?: boolean;
+}
+
+const SettingSelectRow: React.FC<SettingSelectRowProps> = ({ label, description, value, options, onChange, last }) => (
+  <div className={`settings-row${last ? ' settings-row--last' : ''}`}>
+    <div className="settings-row-content">
+      <span className="settings-row-label">{label}</span>
+      {description && <span className="settings-row-desc">{description}</span>}
+    </div>
+    <SettingsDropdown value={value} options={options} onChange={onChange} />
+  </div>
+);
+
+interface SettingLinkRowProps {
+  label: string;
+  description?: string;
+  onClick: () => void;
+  last?: boolean;
+  danger?: boolean;
+}
+
+const SettingLinkRow: React.FC<SettingLinkRowProps> = ({ label, description, onClick, last, danger }) => (
+  <button
+    className={`settings-row settings-row--btn${last ? ' settings-row--last' : ''}${danger ? ' settings-row--danger' : ''}`}
+    onClick={onClick}
+  >
+    <div className="settings-row-content">
+      <span className="settings-row-label">{label}</span>
+      {description && <span className="settings-row-desc">{description}</span>}
+    </div>
+    <ChevronRight />
+  </button>
+);
+
+interface SettingsSectionProps {
+  title: string;
+  footer?: string;
+  children: React.ReactNode;
+}
+
+const SettingsSection: React.FC<SettingsSectionProps> = ({ title, footer, children }) => (
+  <div className="settings-section">
+    <div className="settings-section-header">{title}</div>
+    <div className="settings-section-card">
+      {children}
+    </div>
+    {footer && <div className="settings-section-footer">{footer}</div>}
+  </div>
+);
+
+// ─── Main Page ────────────────────────────────────────────────────────────────
+const SettingsPage: React.FC = () => {
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const roomId = searchParams.get('room') || '';
+
+  const isHost = roomId
+    ? localStorage.getItem(`streambible-host-${roomId}`) === 'true'
+    : false;
+
+  const [theme] = useState<'light' | 'dark'>(() =>
+    (localStorage.getItem(SETTINGS_KEYS.theme) || 'light') as 'light' | 'dark'
+  );
+
+  // ── Settings state (saves on every change) ────────────────────────────────
+  const [debounceEnabled, setDebounceRaw] = useState(() =>
+    localStorage.getItem(SETTINGS_KEYS.debounce) !== 'false'
+  );
+  const [gatekeepDiscovery, setGatekeepRaw] = useState(() =>
+    localStorage.getItem(SETTINGS_KEYS.gatekeep) === 'true'
+  );
+  const [pushConfirm, setPushConfirmRaw] = useState(() =>
+    localStorage.getItem(SETTINGS_KEYS.pushConfirm) === 'true'
+  );
+  const [autoClearSeconds, setAutoClearRaw] = useState(() =>
+    parseInt(localStorage.getItem(SETTINGS_KEYS.autoClear) || '0', 10)
+  );
+  const [savedIndicator, setSavedIndicator] = useState(false);
+
+  const save = (key: string, val: string) => {
+    localStorage.setItem(key, val);
+    setSavedIndicator(true);
+    setTimeout(() => setSavedIndicator(false), 1800);
+  };
+
+  const setDebounce = (v: boolean) => { setDebounceRaw(v); save(SETTINGS_KEYS.debounce, String(v)); };
+  const setGatekeep = (v: boolean) => { setGatekeepRaw(v); save(SETTINGS_KEYS.gatekeep, String(v)); };
+  const setPushConfirm = (v: boolean) => { setPushConfirmRaw(v); save(SETTINGS_KEYS.pushConfirm, String(v)); };
+  const setAutoClear = (v: number) => { setAutoClearRaw(v); save(SETTINGS_KEYS.autoClear, String(v)); };
+
+  const goBack = () => navigate(roomId ? `/controller?room=${roomId}` : '/controller');
+
+  // ── Access denied ─────────────────────────────────────────────────────────
+  if (!isHost) {
+    return (
+      <div className={`settings-root theme-${theme}`}>
+        <motion.div
+          className="settings-denied"
+          initial={{ opacity: 0, scale: 0.96 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ type: 'spring', damping: 22, stiffness: 280 }}
+        >
+          <div className="settings-denied-icon">🔒</div>
+          <h2 className="settings-denied-title">Host Access Only</h2>
+          <p className="settings-denied-body">
+            Settings can only be changed by the session host.
+            Contact your media team operator if you need assistance.
+          </p>
+          <button className="settings-back-btn" onClick={goBack}>
+            Back to Controller
+          </button>
+        </motion.div>
+      </div>
+    );
+  }
+
+  // ── Full settings ─────────────────────────────────────────────────────────
+  return (
+    <div className={`settings-root theme-${theme}`}>
+
+      {/* ── Sticky Header ─────────────────────────────────────────────── */}
+      <header className="settings-header">
+        <button className="settings-nav-back" onClick={goBack}>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" width="18" height="18">
+            <path d="M15 18l-6-6 6-6" />
+          </svg>
+          <span>Controller</span>
+        </button>
+
+        <div className="settings-header-center">
+          <span className="settings-header-title">Settings</span>
+        </div>
+
+        <AnimatePresence>
+          {savedIndicator && (
+            <motion.div
+              className="settings-saved-badge"
+              initial={{ opacity: 0, scale: 0.8 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.8 }}
+              transition={{ type: 'spring', damping: 20, stiffness: 300 }}
+            >
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" width="12" height="12">
+                <polyline points="2.5 8.5 6 12 13.5 4" />
+              </svg>
+              Saved
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </header>
+
+      {/* ── Page title (below header) ──────────────────────────────────── */}
+      <div className="settings-page-title-wrap">
+        <h1 className="settings-page-title">Settings</h1>
+        {roomId && <span className="settings-room-badge">Room {roomId}</span>}
+      </div>
+
+      {/* ── Content ───────────────────────────────────────────────────── */}
+      <motion.div
+        className="settings-body"
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
+      >
+
+        {/* Search Behaviour */}
+        <SettingsSection
+          title="Search Behaviour"
+          footer="When disabled, verses only fetch when you press Enter or change the translation."
+        >
+          <SettingToggleRow
+            id="toggle-debounce"
+            label="Auto-search while typing"
+            description="Fetch results automatically after a short pause as you type."
+            checked={debounceEnabled}
+            onChange={setDebounce}
+            last
+          />
+        </SettingsSection>
+
+        {/* Network & Discovery */}
+        <SettingsSection
+          title="Network & Discovery"
+          footer="When gatekeeping is on, other devices will only see your room in discovery results while you also have 'Discover Nearby Sessions' enabled."
+        >
+          <SettingToggleRow
+            id="toggle-gatekeep"
+            label="Gatekeep room visibility"
+            description="Only advertise this session when discovery is actively on."
+            checked={gatekeepDiscovery}
+            onChange={setGatekeep}
+            last
+          />
+        </SettingsSection>
+
+        {/* Broadcast & Display */}
+        <SettingsSection
+          title="Broadcast & Display"
+          footer="Auto-clear removes verse text from all overlays and displays after the chosen duration."
+        >
+          <SettingToggleRow
+            id="toggle-push-confirm"
+            label="Confirm before pushing live"
+            description="Require a confirmation tap before broadcasting to prevent accidental pushes."
+            checked={pushConfirm}
+            onChange={setPushConfirm}
+          />
+          <SettingSelectRow
+            label="Auto-clear overlay"
+            description="Automatically clear the display after pushing a verse."
+            value={autoClearSeconds}
+            options={[
+              { value: 0,  label: 'Off' },
+              { value: 5,  label: '5 seconds' },
+              { value: 10, label: '10 seconds' },
+              { value: 20, label: '20 seconds' },
+              { value: 30, label: '30 seconds' },
+              { value: 60, label: '1 minute' },
+            ]}
+            onChange={setAutoClear}
+            last
+          />
+        </SettingsSection>
+
+        {/* Session */}
+        <SettingsSection title="Session">
+          <SettingLinkRow
+            label="Help & Documentation"
+            description="Guides, FAQs, and getting started with StreamBible."
+            onClick={() => navigate('/help')}
+          />
+          <SettingLinkRow
+            label="Reset Session"
+            description="Disconnect all remote devices and generate a new room ID."
+            onClick={() => {
+              if (window.confirm('This will disconnect all overlays and remote controllers. Continue?')) {
+                const newRoom = Math.random().toString(36).substring(2, 7).toUpperCase();
+                localStorage.setItem(`streambible-host-${newRoom}`, 'true');
+                navigate(`/controller?room=${newRoom}`);
+              }
+            }}
+            danger
+            last
+          />
+        </SettingsSection>
+
+        <p className="settings-footer-note">
+          StreamBible {roomId ? `· Room ${roomId}` : ''} · Host view
+        </p>
+      </motion.div>
+    </div>
+  );
+};
+
+export default SettingsPage;

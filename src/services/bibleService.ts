@@ -248,23 +248,10 @@ export const curatedVersions = [
   { id: '206', name: 'World English Bible', abbreviation: 'WEB', language: 'English', bibleBrainId: 'ENGWEBO2ET' },
 ];
 
-let circuitBreakerState: 'normal' | 'biblebrain_only' = 'normal';
-let circuitBreakerResetTimer: any = null;
-
 const BIBLE_BRAIN_KEY = 'fbc63a43-6c84-4861-b8d4-53106199480a';
 
-function tripCircuitBreaker() {
-  if (circuitBreakerState === 'biblebrain_only') return;
-  console.warn("⚠️ Circuit Breaker Tripped: Switching to Bible Brain exclusively for 15 minutes.");
-  circuitBreakerState = 'biblebrain_only';
-  
-  if (circuitBreakerResetTimer) clearTimeout(circuitBreakerResetTimer);
-  
-  circuitBreakerResetTimer = setTimeout(() => {
-    console.log("🔄 Circuit Breaker Reset: Attempting YouVersion again.");
-    circuitBreakerState = 'normal';
-  }, 15 * 60 * 1000); // 15 minutes
-}
+// IDs whose text is natively stored in the local Supabase DB
+const LOCAL_NATIVE_VERSION_IDS = new Set(['1', '2079', '2533']); // KJV, YCB, Bibeli Mimo
 
 /**
  * Utility to wrap promises with a timeout
@@ -278,8 +265,8 @@ async function fetchWithTimeout<T>(promise: Promise<T>, timeoutMs: number, error
 }
 
 /**
- * Secondary Fallback Mechanism (Tier 2)
- * Queries Faith Comes By Hearing's Bible Brain API.
+ * Tier 2: Faith Comes By Hearing's Bible Brain API.
+ * Used when local DB doesn't have the requested translation.
  */
 async function fetchBibleBrainFallback(versionId: string, reference: BibleReference): Promise<string> {
   const version = curatedVersions.find(v => v.id === versionId);
@@ -316,8 +303,9 @@ async function fetchBibleBrainFallback(versionId: string, reference: BibleRefere
 }
 
 /**
- * Tertiary Fallback Mechanism (Tier 3)
- * Queries the static Supabase `verses` table (KJV & Yoruba).
+ * Tier 1 (Primary): Supabase `verses` table.
+ * Always serves KJV for English requests, YCB for Yoruba requests.
+ * Zero external dependencies — works offline.
  */
 async function fetchLocalFallback(versionId: string, reference: BibleReference): Promise<string> {
   const isYoruba = ['2079', '2533'].includes(versionId.toString());
@@ -348,82 +336,69 @@ export async function fetchVerse(versionId: string, query: string): Promise<{ te
   if (!reference) throw new Error("Unable to parse reference.");
 
   const yvRef = formatYouVersionReference(reference);
-  const cacheKey = `yv_${versionId}_${yvRef}`;
+  const cacheKey = `sb_${versionId}_${yvRef}`;
 
-  // 1. Check Local Cache
+  // Check cache
   const cached = localStorage.getItem(cacheKey);
   if (cached) {
     try {
-       const parsed = JSON.parse(cached);
-       if (parsed.text && parsed.source) {
-          console.log(`[Tier 1] Serving from local cache: ${yvRef} (${versionId})`);
-          return parsed;
-       }
-    } catch(e) {
-       // Legacy cache was just string, ignore and refetch
-    }
+      const parsed = JSON.parse(cached);
+      if (parsed.text && parsed.source) {
+        console.log(`[Cache] Serving: ${yvRef} (${versionId})`);
+        return parsed;
+      }
+    } catch(e) { /* stale cache, refetch */ }
   }
 
-  // 2. Multi-Tier Waterfall Query
   let verseText = "";
-  let currentSource: 'youversion' | 'biblebrain' | 'local' = 'youversion';
+  let currentSource: 'youversion' | 'biblebrain' | 'local' = 'local';
   let currentTriage: TriageCategory = null;
+  const isNativeLocal = LOCAL_NATIVE_VERSION_IDS.has(versionId.toString());
 
+  // ── Tier 1: Supabase Local DB (KJV / YCB — always available) ──────────────
   try {
-    if (circuitBreakerState === 'biblebrain_only') {
-       currentTriage = 'third_party_outage';
-       throw new Error("Circuit breaker is tripped. Forcing fallback to Bible Brain.");
-    }
+    console.log(`[Tier 1] Local DB: ${yvRef} (${versionId})`);
+    verseText = await fetchLocalFallback(versionId, reference);
+    currentSource = 'local';
+    // Flag if we served a substitute (e.g. KJV for an NIV request)
+    if (!isNativeLocal) currentTriage = 'third_party_outage';
+  } catch (localErr) {
 
-    console.log(`[Tier 1] Fetching from Edge Function (YouVersion): ${yvRef} (${versionId})`);
-    
-    const invokePromise = supabase.functions.invoke('fetch-verse', {
-      body: { action: 'fetch_verse', reference: yvRef, versionId: versionId }
-    });
-
-    // 6-second timeout for the primary fetch
-    const { data, error } = await fetchWithTimeout(invokePromise, 6000, 'Failed to fetch (timeout)');
-
-    if (error || data?.error) {
-       // Check if it's a network connection issue vs an API outage
-       if (error && error.message && error.message.toLowerCase().includes('failed to fetch')) {
-          currentTriage = 'client_network';
-       } else {
-          currentTriage = 'third_party_outage';
-          tripCircuitBreaker();
-       }
-       throw new Error("YouVersion fetch failed");
-    }
-    
-    verseText = data.text;
-    if (!verseText || verseText === "Text not found") {
-        currentTriage = 'user_input';
-        throw new Error("Verse not found.");
-    }
-    
-    currentSource = 'youversion';
-  } catch (err: any) {
-    if (err.message && err.message.toLowerCase().includes('failed to fetch')) {
-       currentTriage = 'client_network';
-    }
-    if (!currentTriage) currentTriage = 'internal_error';
-
-    console.warn(`[Tier 2 Fallback] Attempting Bible Brain for ${yvRef} (${versionId})...`);
+    // ── Tier 2: Bible Brain API ────────────────────────────────────────────────
+    console.warn(`[Tier 2] Bible Brain: ${yvRef} (${versionId})`);
     try {
       verseText = await fetchBibleBrainFallback(versionId, reference);
       currentSource = 'biblebrain';
+      currentTriage = null;
     } catch (bbErr: any) {
-      if (bbErr.message && bbErr.message.toLowerCase().includes('failed to fetch')) {
-         currentTriage = 'client_network';
-      }
+      if (bbErr.message?.toLowerCase().includes('failed to fetch')) currentTriage = 'client_network';
+      else currentTriage = 'third_party_outage';
 
-      console.warn(`[Tier 3 Fallback] Bible Brain unavailable. Querying Local DB for ${yvRef} (${versionId})...`);
+      // ── Tier 3: YouVersion via Supabase Edge Function ────────────────────────
+      console.warn(`[Tier 3] YouVersion: ${yvRef} (${versionId})`);
       try {
-        verseText = await fetchLocalFallback(versionId, reference);
-        currentSource = 'local';
-      } catch (localErr) {
-        currentTriage = 'internal_error';
-        throw localErr;
+        const invokePromise = supabase.functions.invoke('fetch-verse', {
+          body: { action: 'fetch_verse', reference: yvRef, versionId: versionId }
+        });
+        const { data, error } = await fetchWithTimeout(invokePromise, 6000, 'Failed to fetch (timeout)');
+
+        if (error || data?.error) {
+          if (error?.message?.toLowerCase().includes('failed to fetch')) currentTriage = 'client_network';
+          else currentTriage = 'third_party_outage';
+          throw new Error("YouVersion fetch failed");
+        }
+
+        verseText = data.text;
+        if (!verseText || verseText === "Text not found") {
+          currentTriage = 'user_input';
+          throw new Error("Verse not found.");
+        }
+        currentSource = 'youversion';
+        currentTriage = null;
+      } catch (yvErr: any) {
+        if (yvErr.message?.toLowerCase().includes('failed to fetch')) currentTriage = 'client_network';
+        else if (!currentTriage) currentTriage = 'internal_error';
+        throw yvErr;
       }
     }
   }

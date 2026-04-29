@@ -206,24 +206,24 @@ const HelpPage: React.FC = () => {
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -10 }}
                 >
-                  <div style={{ display: 'flex', gap: '16px', marginBottom: '8px' }}>
-                    <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+                  <div className="feedback-radio-group">
+                    <label className="feedback-radio-label">
                       <input 
                         type="radio" 
                         name="type" 
                         checked={feedbackType === 'feature'} 
                         onChange={() => setFeedbackType('feature')} 
                       />
-                      <span style={{ fontSize: '14px', fontWeight: '500' }}>Feature Request</span>
+                      <span>Feature Request</span>
                     </label>
-                    <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+                    <label className="feedback-radio-label">
                       <input 
                         type="radio" 
                         name="type" 
                         checked={feedbackType === 'review'} 
                         onChange={() => setFeedbackType('review')} 
                       />
-                      <span style={{ fontSize: '14px', fontWeight: '500' }}>Submit Review</span>
+                      <span>Submit Review</span>
                     </label>
                   </div>
                   
@@ -295,7 +295,7 @@ const HelpPage: React.FC = () => {
           </div>
         </section>
         
-        <footer style={{ textAlign: 'center', padding: '40px 0', color: 'var(--text-3)', fontSize: '12px' }}>
+        <footer className="help-footer">
           StreamBible &copy; {new Date().getFullYear()}
         </footer>
       </main>

@@ -39,6 +39,7 @@ export const CustomDropdown: React.FC<CustomDropdownProps> = ({
   const [listMaxHeight, setListMaxHeight] = useState(300);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
 
   // Track theme changes
   useEffect(() => {
@@ -123,7 +124,10 @@ export const CustomDropdown: React.FC<CustomDropdownProps> = ({
   // Close on outside click
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+      const target = event.target as Node;
+      const insideTrigger = dropdownRef.current?.contains(target);
+      const insideMenu = menuRef.current?.contains(target);
+      if (!insideTrigger && !insideMenu) {
         setIsOpen(false);
       }
     };
@@ -230,7 +234,7 @@ export const CustomDropdown: React.FC<CustomDropdownProps> = ({
 
       {/* Dropdown Menu Portal */}
       {isOpen && createPortal(
-        <div className={isDark ? 'theme-dark' : 'theme-light'} style={{ position: 'fixed', top: 0, left: 0, zIndex: 99999 }}>
+        <div ref={menuRef} className={isDark ? 'theme-dark' : 'theme-light'} style={{ position: 'fixed', top: 0, left: 0, zIndex: 99999 }}>
           <AnimatePresence>
             <motion.div
               className="dropdown-menu-wrapper"
