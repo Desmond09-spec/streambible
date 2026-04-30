@@ -6,6 +6,7 @@ import './ControllerLegacy.css';
 import { parseReference, getCanonicalBookName, fetchVerse, fetchAllYouVersionVersions, curatedVersions, type TriageCategory } from '../services/bibleService';
 import WalkthroughOverlay from '../components/WalkthroughOverlay';
 import { CustomDropdown } from '../components/CustomDropdown';
+import { ConfirmModal } from '../components/ConfirmModal';
 import { useSettings } from '../context/SettingsContext';
 import { useSession } from '../context/SessionContext';
 
@@ -21,6 +22,9 @@ const ControllerPage: React.FC = () => {
     requestStatus, setRequestStatus, nearbySessions, refreshDiscovery, isDiscovering, 
     regenerateRoom, handleJoinRequest, handleResponse
   } = useSession();
+
+  const [showPushConfirm, setShowPushConfirm] = useState(false);
+  const [pendingPush, setPendingPush] = useState<(() => void) | null>(null);
 
   const { debounceEnabled, pushConfirmEnabled, autoClearSeconds } = useSettings();
   
@@ -262,26 +266,30 @@ const ControllerPage: React.FC = () => {
   };
 
   const pushLive = () => {
+    const doPush = () => {
+      const pVersionObj = curatedVersions.find(v => v.id === primaryVersion) || extraVersions.find(v => v.id.toString() === primaryVersion);
+      const sVersionObj = curatedVersions.find(v => v.id === secondaryVersion) || extraVersions.find(v => v.id.toString() === secondaryVersion);
+      pushVerse({
+        ref: primaryRef,
+        primaryText: primaryText,
+        primaryVersion: pVersionObj ? (pVersionObj.abbreviation || pVersionObj.local_abbreviation) : '',
+        secondaryText: secondaryText,
+        secondaryVersion: sVersionObj ? (sVersionObj.abbreviation || sVersionObj.local_abbreviation) : '',
+        showPrimary: showPrimary,
+        showSecondary: showSecondary,
+        source: fallbackType || 'youversion'
+      });
+    };
     if (pushConfirmEnabled) {
-      if (!window.confirm('Push this verse live to all overlays?')) return;
+      setPendingPush(() => doPush);
+      setShowPushConfirm(true);
+    } else {
+      doPush();
     }
-    const pVersionObj = curatedVersions.find(v => v.id === primaryVersion) || extraVersions.find(v => v.id.toString() === primaryVersion);
-    const sVersionObj = curatedVersions.find(v => v.id === secondaryVersion) || extraVersions.find(v => v.id.toString() === secondaryVersion);
-
-    pushVerse({
-      ref: primaryRef,
-      primaryText: primaryText,
-      primaryVersion: pVersionObj ? (pVersionObj.abbreviation || pVersionObj.local_abbreviation) : '',
-      secondaryText: secondaryText,
-      secondaryVersion: sVersionObj ? (sVersionObj.abbreviation || sVersionObj.local_abbreviation) : '',
-      showPrimary: showPrimary,
-      showSecondary: showSecondary,
-      source: fallbackType || 'youversion'
-    });
-    setStatus('live');
-    setStatusMsg('Live on stream');
-    scheduleAutoClear();
-  };
+      setStatus('live');
+      setStatusMsg('Live on stream');
+      scheduleAutoClear();
+    };
 
   // Auto-clear timer: fires after pushLive if the setting is on
   const scheduleAutoClear = () => {
@@ -1044,6 +1052,19 @@ const ControllerPage: React.FC = () => {
           </motion.div>
         </div>
       )}
+      {/* Push-live confirmation modal */}
+      <ConfirmModal
+        isVisible={showPushConfirm}
+        title="Push Verse Live?"
+        message="This will immediately update the verse displayed on all connected overlays."
+        confirmLabel="Push Live"
+        cancelLabel="Cancel"
+        onConfirm={() => {
+          setShowPushConfirm(false);
+          if (pendingPush) { pendingPush(); setPendingPush(null); }
+        }}
+        onCancel={() => { setShowPushConfirm(false); setPendingPush(null); }}
+      />
     </div>
   );
 };

@@ -5,6 +5,7 @@ import { usePresence, useHeartbeat, useSyncPublisher, useDiscovery } from '../ho
 import { useSettings } from './SettingsContext';
 import { supabase } from '../lib/supabase';
 import { SwitchingOverlay } from '../components/SwitchingOverlay';
+import { ConfirmModal } from '../components/ConfirmModal';
 
 export interface SessionContextType {
   roomId: string;
@@ -29,6 +30,9 @@ export interface SessionContextType {
   refreshDiscovery: any;
   isDiscovering: boolean;
   regenerateRoom: () => void;
+  pendingReset: boolean;
+  confirmRegenerate: () => void;
+  cancelRegenerate: () => void;
   handleJoinRequest: (targetRoomId: string) => Promise<void>;
   handleResponse: (accepted: boolean) => Promise<void>;
 }
@@ -106,16 +110,25 @@ export const SessionProvider: React.FC<{ children?: ReactNode }> = ({ children }
   const [incomingRequest, setIncomingRequest] = useState<{ roomId: string, deviceId: string, name: string } | null>(null);
   const [requestStatus, setRequestStatus] = useState<'idle' | 'pending' | 'accepted' | 'declined'>('idle');
 
+  const [pendingReset, setPendingReset] = useState(false);
+
   const regenerateRoom = () => {
-    if (confirm("This will disconnect all currently connected overlays and controllers. Continue?")) {
-      broadcastClear();
-      setIsSwitching(true);
-      switchStartTime.current = Date.now();
-      setSwitchError(null);
-      const newRoom = Math.random().toString(36).substring(2, 7).toUpperCase();
-      localStorage.setItem(`streambible-host-${newRoom}`, 'true');
-      navigate(`/controller?room=${newRoom}`);
-    }
+    setPendingReset(true);
+  };
+
+  const confirmRegenerate = () => {
+    setPendingReset(false);
+    broadcastClear();
+    setIsSwitching(true);
+    switchStartTime.current = Date.now();
+    setSwitchError(null);
+    const newRoom = Math.random().toString(36).substring(2, 7).toUpperCase();
+    localStorage.setItem(`streambible-host-${newRoom}`, 'true');
+    navigate(`/controller?room=${newRoom}`);
+  };
+
+  const cancelRegenerate = () => {
+    setPendingReset(false);
   };
 
   const getFriendlyDeviceName = () => {
@@ -211,9 +224,19 @@ export const SessionProvider: React.FC<{ children?: ReactNode }> = ({ children }
       devices, myId, hostStatus, wsConnected, pushVerse, broadcastClear,
       joinRequest, setJoinRequest, incomingRequest, setIncomingRequest,
       requestStatus, setRequestStatus, nearbySessions, refreshDiscovery, isDiscovering,
-      regenerateRoom, handleJoinRequest, handleResponse
+      regenerateRoom, pendingReset, confirmRegenerate, cancelRegenerate, handleJoinRequest, handleResponse
     }}>
       <SwitchingOverlay isVisible={isSwitching} error={switchError} />
+      <ConfirmModal
+        isVisible={pendingReset}
+        title="Reset Session?"
+        message="This will disconnect all currently connected overlays and remote controllers."
+        confirmLabel="Reset"
+        cancelLabel="Cancel"
+        destructive
+        onConfirm={confirmRegenerate}
+        onCancel={cancelRegenerate}
+      />
       {children || <Outlet />}
     </SessionContext.Provider>
   );

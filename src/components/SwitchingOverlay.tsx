@@ -31,7 +31,7 @@ export const SwitchingOverlay: React.FC<SwitchingOverlayProps> = ({ isVisible, e
             flexDirection: 'column',
             alignItems: 'center',
             justifyContent: 'center',
-            color: 'var(--color-text-base)'
+            color: theme === 'dark' ? '#ffffff' : '#111111'
           }}
         >
           {error ? (
@@ -72,7 +72,7 @@ export const SwitchingOverlay: React.FC<SwitchingOverlayProps> = ({ isVisible, e
                   height: '36px',
                   borderRadius: '50%',
                   border: '3px solid transparent',
-                  borderTopColor: 'var(--color-accent-primary)',
+                  borderTopColor: '#0A84FF',
                   borderRightColor: theme === 'dark' ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.1)',
                   borderBottomColor: theme === 'dark' ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.1)',
                   borderLeftColor: theme === 'dark' ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.1)',
@@ -83,7 +83,7 @@ export const SwitchingOverlay: React.FC<SwitchingOverlayProps> = ({ isVisible, e
                 fontSize: '17px', 
                 fontWeight: 500, 
                 letterSpacing: '-0.02em',
-                color: 'var(--color-text-base)' 
+                color: theme === 'dark' ? '#ffffff' : '#111111' 
               }}>
                 Switching rooms...
               </h3>
