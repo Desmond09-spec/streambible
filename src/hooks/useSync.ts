@@ -128,6 +128,7 @@ export function useSyncSubscriber(
 export function usePresence(roomId: string, isOverlay: boolean = false, remoteAccess: boolean = true) {
   const [devices, setDevices] = useState<DevicePresence[]>([]);
   const [hostStatus, setHostStatus] = useState<'online' | 'offline' | 'denied'>('online');
+  const [isReady, setIsReady] = useState(false);
   const channelRef = useRef<any>(null);
   const remoteAccessRef = useRef(remoteAccess);
   const myId = getDeviceId();
@@ -137,6 +138,7 @@ export function usePresence(roomId: string, isOverlay: boolean = false, remoteAc
   }, [remoteAccess]);
 
   useEffect(() => {
+    setIsReady(false);
     if (!roomId) return;
     const channelName = `streambible-presence-${roomId}`;
     const isHost = localStorage.getItem(`streambible-host-${roomId}`) === 'true';
@@ -199,6 +201,7 @@ export function usePresence(roomId: string, isOverlay: boolean = false, remoteAc
       })
       .subscribe(async (status) => {
         if (status === 'SUBSCRIBED') {
+          setIsReady(true);
           await channel.track({
             name: getFriendlyDeviceName(),
             isHost,
@@ -230,7 +233,7 @@ export function usePresence(roomId: string, isOverlay: boolean = false, remoteAc
     }
   }, [remoteAccess, roomId, isOverlay]);
 
-  return { devices, myId, hostStatus };
+  return { devices, myId, hostStatus, isReady };
 }
 
 /**

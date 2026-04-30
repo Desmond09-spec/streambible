@@ -1,9 +1,10 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import type { ReactNode } from 'react';
 import { useSearchParams, Outlet, useNavigate } from 'react-router-dom';
 import { usePresence, useHeartbeat, useSyncPublisher, useDiscovery } from '../hooks/useSync';
 import { useSettings } from './SettingsContext';
 import { supabase } from '../lib/supabase';
+import { SwitchingOverlay } from '../components/SwitchingOverlay';
 
 export interface SessionContextType {
   roomId: string;
@@ -45,6 +46,11 @@ export const SessionProvider: React.FC<{ children?: ReactNode }> = ({ children }
   const navigate = useNavigate();
   const roomId = searchParams.get('room') || '';
 
+  const [isSwitching, setIsSwitching] = useState(false);
+  const [switchError, setSwitchError] = useState<string | null>(null);
+  const switchStartTime = useRef(0);
+  const switchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   // Ensure every host session gets a Room ID
   useEffect(() => {
     if (!roomId) {
@@ -63,8 +69,33 @@ export const SessionProvider: React.FC<{ children?: ReactNode }> = ({ children }
   const [discoveryEnabled, setDiscoveryEnabled] = useState(false);
 
   const { pushVerse, clearScreen: broadcastClear } = useSyncPublisher(roomId);
-  const { devices, myId, hostStatus } = usePresence(roomId, false, remoteAccess);
+  const { devices, myId, hostStatus, isReady } = usePresence(roomId, false, remoteAccess);
   const wsConnected = hostStatus === 'online';
+
+  useEffect(() => {
+    if (!isSwitching) return;
+
+    if (isReady) {
+      if (switchTimeoutRef.current) clearTimeout(switchTimeoutRef.current);
+      
+      const elapsed = Date.now() - switchStartTime.current;
+      const remaining = Math.max(0, 1200 - elapsed);
+      
+      if (remaining > 0) {
+        setTimeout(() => setIsSwitching(false), remaining);
+      } else {
+        setIsSwitching(false);
+      }
+    } else {
+      switchTimeoutRef.current = setTimeout(() => {
+        setSwitchError('Connection timed out. Please check your network.');
+      }, 8000);
+    }
+
+    return () => {
+      if (switchTimeoutRef.current) clearTimeout(switchTimeoutRef.current);
+    };
+  }, [isSwitching, isReady]);
 
   const { gatekeepDiscovery } = useSettings();
   const isDiscoverable = gatekeepDiscovery ? discoveryEnabled : true;
@@ -78,6 +109,9 @@ export const SessionProvider: React.FC<{ children?: ReactNode }> = ({ children }
   const regenerateRoom = () => {
     if (confirm("This will disconnect all currently connected overlays and controllers. Continue?")) {
       broadcastClear();
+      setIsSwitching(true);
+      switchStartTime.current = Date.now();
+      setSwitchError(null);
       const newRoom = Math.random().toString(36).substring(2, 7).toUpperCase();
       localStorage.setItem(`streambible-host-${newRoom}`, 'true');
       navigate(`/controller?room=${newRoom}`);
@@ -114,8 +148,10 @@ export const SessionProvider: React.FC<{ children?: ReactNode }> = ({ children }
        if (payload.targetDeviceId === myId) {
           if (payload.accepted) {
             setRequestStatus('accepted');
-            const newUrl = `${window.location.pathname}?room=${payload.newRoomId}`;
-            window.location.href = newUrl;
+            setIsSwitching(true);
+            switchStartTime.current = Date.now();
+            setSwitchError(null);
+            navigate(`/controller?room=${payload.newRoomId}`);
           } else {
             setRequestStatus('declined');
             setJoinRequest(null);
@@ -177,6 +213,7 @@ export const SessionProvider: React.FC<{ children?: ReactNode }> = ({ children }
       requestStatus, setRequestStatus, nearbySessions, refreshDiscovery, isDiscovering,
       regenerateRoom, handleJoinRequest, handleResponse
     }}>
+      <SwitchingOverlay isVisible={isSwitching} error={switchError} />
       {children || <Outlet />}
     </SessionContext.Provider>
   );
