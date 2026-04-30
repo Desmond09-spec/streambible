@@ -128,7 +128,13 @@ export function useSyncSubscriber(
 export function usePresence(roomId: string, isOverlay: boolean = false, remoteAccess: boolean = true) {
   const [devices, setDevices] = useState<DevicePresence[]>([]);
   const [hostStatus, setHostStatus] = useState<'online' | 'offline' | 'denied'>('online');
+  const channelRef = useRef<any>(null);
+  const remoteAccessRef = useRef(remoteAccess);
   const myId = getDeviceId();
+
+  useEffect(() => {
+    remoteAccessRef.current = remoteAccess;
+  }, [remoteAccess]);
 
   useEffect(() => {
     if (!roomId) return;
@@ -142,29 +148,37 @@ export function usePresence(roomId: string, isOverlay: boolean = false, remoteAc
         },
       },
     });
+    
+    channelRef.current = channel;
 
     channel
       .on('presence', { event: 'sync' }, () => {
         const state = channel.presenceState();
         const connectedDevices: DevicePresence[] = [];
         let hostFound = false;
-        let accessGranted = true;
+        let accessGranted = false;
+        let latestHostUpdate = 0;
         
         for (const [key, presences] of Object.entries(state)) {
-           if (presences.length > 0) {
-              const p = presences[0] as any;
+           for (const p of presences as any[]) {
               const device = {
                  id: key,
                  name: p.name || 'Unknown Device',
                  isHost: p.isHost || false,
                  isOverlay: p.isOverlay || false
               };
-              connectedDevices.push(device);
+              
+              if (!connectedDevices.find(d => d.id === key)) {
+                connectedDevices.push(device);
+              }
 
               if (device.isHost) {
                 hostFound = true;
-                if (p.remoteAccess === false) {
-                  accessGranted = false;
+                // Use the most recently updated host presence to determine access (ignores stale ghost connections)
+                const updateTime = p.updatedAt || 0;
+                if (updateTime >= latestHostUpdate) {
+                  latestHostUpdate = updateTime;
+                  accessGranted = p.remoteAccess !== false;
                 }
               }
            }
@@ -189,15 +203,32 @@ export function usePresence(roomId: string, isOverlay: boolean = false, remoteAc
             name: getFriendlyDeviceName(),
             isHost,
             isOverlay,
-            remoteAccess: isHost ? remoteAccess : true // Only the host's remoteAccess value matters
+            remoteAccess: isHost ? remoteAccessRef.current : true,
+            updatedAt: Date.now()
           });
         }
       });
 
     return () => {
       channel.unsubscribe();
+      channelRef.current = null;
     };
-  }, [roomId, isOverlay, remoteAccess]);
+  }, [roomId, isOverlay]);
+
+  // Update presence dynamically without dropping the connection
+  useEffect(() => {
+    if (channelRef.current) {
+      const isHost = localStorage.getItem(`streambible-host-${roomId}`) === 'true';
+      // channel.track automatically broadcasts the updated state to clients
+      channelRef.current.track({
+        name: getFriendlyDeviceName(),
+        isHost,
+        isOverlay,
+        remoteAccess: isHost ? remoteAccess : true,
+        updatedAt: Date.now()
+      }).catch((e: any) => console.log('Track update failed, might not be subscribed yet', e));
+    }
+  }, [remoteAccess, roomId, isOverlay]);
 
   return { devices, myId, hostStatus };
 }

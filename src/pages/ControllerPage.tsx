@@ -4,41 +4,30 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { MoreHorizontal, ExternalLink, MonitorUp, Settings } from 'lucide-react';
 import './ControllerLegacy.css';
 import { parseReference, getCanonicalBookName, fetchVerse, fetchAllYouVersionVersions, curatedVersions, type TriageCategory } from '../services/bibleService';
-import { useSyncPublisher, usePresence, useHeartbeat, useDiscovery } from '../hooks/useSync';
-import { supabase } from '../lib/supabase';
 import WalkthroughOverlay from '../components/WalkthroughOverlay';
 import { CustomDropdown } from '../components/CustomDropdown';
+import { useSettings } from '../context/SettingsContext';
+import { useSession } from '../context/SessionContext';
 
 const ControllerPage: React.FC = () => {
   const navigate = useNavigate();
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
   const [query, setQuery] = useState('');
-  const [roomId, setRoomId] = useState<string>('');
-  const [remoteAccess, setRemoteAccess] = useState(false);
-  const isHost = localStorage.getItem(`streambible-host-${roomId}`) === 'true';
-  const { pushVerse, clearScreen: broadcastClear } = useSyncPublisher(roomId);
-  const { devices, myId, hostStatus } = usePresence(roomId, false, remoteAccess);
-  const wsConnected = hostStatus === 'online';
   
-  // Room is discoverable based on gatekeep setting
-  const gatekeepDiscovery = localStorage.getItem('streambible-gatekeep-discovery') === 'true';
-  const [discoveryEnabled, setDiscoveryEnabled] = useState(false);
-  const isDiscoverable = gatekeepDiscovery ? discoveryEnabled : true;
-  useHeartbeat(roomId, isHost, isDiscoverable);
-  const { nearbySessions, refresh: refreshDiscovery, isDiscovering } = useDiscovery(discoveryEnabled);
+  const { 
+    roomId, isHost, remoteAccess, setRemoteAccess, discoveryEnabled, setDiscoveryEnabled,
+    devices, myId, hostStatus, wsConnected, pushVerse, broadcastClear,
+    joinRequest, incomingRequest,
+    requestStatus, setRequestStatus, nearbySessions, refreshDiscovery, isDiscovering, 
+    regenerateRoom, handleJoinRequest, handleResponse
+  } = useSession();
+
+  const { debounceEnabled, pushConfirmEnabled, autoClearSeconds } = useSettings();
   
-  // Request State
-  const [joinRequest, setJoinRequest] = useState<{ roomId: string, deviceId: string, name: string } | null>(null);
-  const [incomingRequest, setIncomingRequest] = useState<{ roomId: string, deviceId: string, name: string } | null>(null);
-  const [requestStatus, setRequestStatus] = useState<'idle' | 'pending' | 'accepted' | 'declined'>('idle');
-  
-  // ── Settings (read from localStorage, written by SettingsPage) ────────────
-  const [debounceEnabled] = useState(() => localStorage.getItem('streambible-debounce-enabled') !== 'false');
-  const [pushConfirmEnabled] = useState(() => localStorage.getItem('streambible-push-confirm') === 'true');
-  const autoClearSeconds = parseInt(localStorage.getItem('streambible-auto-clear-seconds') || '0', 10);
+  // ── Settings (read from context) ────────────
   const autoClearTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const [primaryVersion, setPrimaryVersion] = useState(() => localStorage.getItem('streambible-primary-version') || '114');
+  const [primaryVersion, setPrimaryVersion] = useState(() => localStorage.getItem('streambible-primary-version') || '1');
   const [secondaryVersion, setSecondaryVersion] = useState(() => localStorage.getItem('streambible-secondary-version') || '1');
   const [showPrimary, setShowPrimary] = useState(() => localStorage.getItem('streambible-show-primary') !== 'false');
   const [showSecondary, setShowSecondary] = useState(() => localStorage.getItem('streambible-show-secondary') !== 'false');
@@ -103,7 +92,7 @@ const ControllerPage: React.FC = () => {
     {
       id: 'search',
       title: 'Search in Milliseconds',
-      text: 'Type a reference like "John 3:16" in the search bar. StreamBible will instantly fetch it from YouVersion’s library of over 3,000 translations.'
+      text: 'Type a reference like "John 3:16" in the search bar. StreamBible will instantly fetch it from our curated library of reliable translations.'
     },
     {
       id: 'preview',
@@ -122,20 +111,15 @@ const ControllerPage: React.FC = () => {
     setTheme(saved as 'light' | 'dark');
 
     const hasSeenTour = localStorage.getItem('streambible-tour-seen');
-    if (!hasSeenTour) {
+    const urlParams = new URLSearchParams(window.location.search);
+    if (!hasSeenTour || urlParams.get('tour') === 'true') {
       setTimeout(() => setShowTour(true), 1000); // Small delay to let UI load
+      if (urlParams.get('tour') === 'true') {
+        urlParams.delete('tour');
+        const newUrl = urlParams.toString() ? `${window.location.pathname}?${urlParams.toString()}` : window.location.pathname;
+        window.history.replaceState({}, '', newUrl);
+      }
     }
-
-    // Room ID Setup
-    const params = new URLSearchParams(window.location.search);
-    let currentRoom = params.get('room');
-    if (!currentRoom) {
-      currentRoom = Math.random().toString(36).substring(2, 7).toUpperCase();
-      const newUrl = `${window.location.pathname}?room=${currentRoom}`;
-      window.history.replaceState({}, '', newUrl);
-      localStorage.setItem(`streambible-host-${currentRoom}`, 'true');
-    }
-    setRoomId(currentRoom);
   }, []);
 
   const toggleTheme = () => {
@@ -321,93 +305,6 @@ const ControllerPage: React.FC = () => {
     setStatusMsg('Ready');
   };
 
-  useEffect(() => {
-    if (!roomId || !isHost) return;
-    const channel = supabase.channel(`streambible-sync-${roomId}`);
-    
-    channel.on('broadcast', { event: 'JOIN_REQUEST' }, ({ payload }) => {
-       if (payload.deviceId !== myId) {
-         setIncomingRequest({
-           roomId: payload.fromRoom,
-           deviceId: payload.deviceId,
-           name: payload.name
-         });
-       }
-    }).subscribe();
-
-    return () => { channel.unsubscribe(); };
-  }, [roomId, isHost, myId]);
-
-  useEffect(() => {
-    if (requestStatus !== 'pending' || !joinRequest) return;
-    
-    const channel = supabase.channel(`streambible-sync-${joinRequest.roomId}`);
-    channel.on('broadcast', { event: 'JOIN_RESPONSE' }, ({ payload }) => {
-       if (payload.targetDeviceId === myId) {
-          if (payload.accepted) {
-            setRequestStatus('accepted');
-            const newUrl = `${window.location.pathname}?room=${payload.newRoomId}`;
-            window.location.href = newUrl;
-          } else {
-            setRequestStatus('declined');
-            setJoinRequest(null);
-            setTimeout(() => setRequestStatus('idle'), 4000);
-          }
-       }
-    }).subscribe();
-
-    return () => { channel.unsubscribe(); };
-  }, [isHost, requestStatus, myId, joinRequest]);
-
-  const handleJoinRequest = async (targetRoomId: string) => {
-    if (targetRoomId === roomId) return;
-    setRequestStatus('pending');
-    setJoinRequest({ roomId: targetRoomId, deviceId: '', name: 'Target Room' });
-
-    const channel = supabase.channel(`streambible-sync-${targetRoomId}`);
-    await channel.subscribe(async (status) => {
-      if (status === 'SUBSCRIBED') {
-        await channel.send({
-          type: 'broadcast',
-          event: 'JOIN_REQUEST',
-          payload: {
-            fromRoom: roomId,
-            deviceId: myId,
-            name: getFriendlyDeviceName()
-          }
-        });
-      }
-    });
-  };
-
-  const handleResponse = async (accepted: boolean) => {
-    if (!incomingRequest) return;
-    
-    // If accepting while Remote Access is off, enable it first so the
-    // joining device isn't immediately shown an "Access Revoked" screen.
-    if (accepted && !remoteAccess) {
-      setRemoteAccess(true);
-    }
-    
-    const channel = supabase.channel(`streambible-sync-${roomId}`);
-    await channel.send({
-      type: 'broadcast',
-      event: 'JOIN_RESPONSE',
-      payload: {
-        targetDeviceId: incomingRequest.deviceId,
-        accepted,
-        newRoomId: roomId
-      }
-    });
-    
-    setIncomingRequest(null);
-  };
-
-  const getFriendlyDeviceName = () => {
-     const dev = devices.find(d => d.id === myId);
-     return dev ? dev.name : 'Unknown Device';
-  };
-
   const copyUrl = (url: string, type: 'overlay' | 'fullscreen' | 'controller') => {
     navigator.clipboard.writeText(url);
     setCopiedType(type);
@@ -417,17 +314,6 @@ const ControllerPage: React.FC = () => {
   const finishTour = () => {
     setShowTour(false);
     localStorage.setItem('streambible-tour-seen', 'true');
-  };
-
-  const regenerateRoom = () => {
-    if (confirm("This will disconnect all currently connected overlays and controllers. Continue?")) {
-      broadcastClear();
-      const newRoom = Math.random().toString(36).substring(2, 7).toUpperCase();
-      const newUrl = `${window.location.pathname}?room=${newRoom}`;
-      window.history.replaceState({}, '', newUrl);
-      localStorage.setItem(`streambible-host-${newRoom}`, 'true');
-      setRoomId(newRoom);
-    }
   };
 
   const SkeletonLoader = () => (
@@ -502,14 +388,14 @@ const ControllerPage: React.FC = () => {
                  triageReason === 'internal_error' ? 'Critical System Error' : 
                  triageReason === 'user_input' ? 'Verse Not Found' :
                  triageReason === 'third_party_outage' && fallbackType === 'biblebrain' ? 'Primary Unreachable' :
-                 triageReason === 'third_party_outage' && fallbackType === 'local' ? 'API Outage' : 'System Alert'}
+                 triageReason === 'third_party_outage' && fallbackType === 'local' ? 'Translation Unavailable' : 'System Alert'}
               </span>
               <span className="copy-toast-sub">
                 {triageReason === 'client_network' ? 'You appear to be offline. Defaulting to local database.' : 
                  triageReason === 'internal_error' ? 'Local database unavailable. Please refresh.' : 
                  triageReason === 'user_input' ? 'Please check the reference and try again.' :
                  triageReason === 'third_party_outage' && fallbackType === 'biblebrain' ? 'YouVersion is unreachable. Defaulting to Bible Brain API.' :
-                 triageReason === 'third_party_outage' && fallbackType === 'local' ? 'Primary sources unreachable. Defaulting to local database.' :
+                 triageReason === 'third_party_outage' && fallbackType === 'local' ? 'Selected version isn\'t available right now. Showing KJV instead.' :
                  'An unknown error occurred.'}
                  {fallbackOriginalVersion && fallbackOriginalVersion !== '1' && fallbackType === 'local' && (
                     <span style={{ display: 'block', marginTop: '4px', fontSize: '11px', opacity: 0.8, fontWeight: 500 }}>

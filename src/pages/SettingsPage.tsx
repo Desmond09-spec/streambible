@@ -1,6 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useSettings } from '../context/SettingsContext';
+import { useSession } from '../context/SessionContext';
 import './SettingsPage.css';
 
 // ─── localStorage Keys ────────────────────────────────────────────────────────
@@ -205,42 +207,30 @@ const SettingsSection: React.FC<SettingsSectionProps> = ({ title, footer, childr
 // ─── Main Page ────────────────────────────────────────────────────────────────
 const SettingsPage: React.FC = () => {
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
-  const roomId = searchParams.get('room') || '';
-
-  const isHost = roomId
-    ? localStorage.getItem(`streambible-host-${roomId}`) === 'true'
-    : false;
+  const { roomId, isHost, regenerateRoom } = useSession();
 
   const [theme] = useState<'light' | 'dark'>(() =>
     (localStorage.getItem(SETTINGS_KEYS.theme) || 'light') as 'light' | 'dark'
   );
 
   // ── Settings state (saves on every change) ────────────────────────────────
-  const [debounceEnabled, setDebounceRaw] = useState(() =>
-    localStorage.getItem(SETTINGS_KEYS.debounce) !== 'false'
-  );
-  const [gatekeepDiscovery, setGatekeepRaw] = useState(() =>
-    localStorage.getItem(SETTINGS_KEYS.gatekeep) === 'true'
-  );
-  const [pushConfirm, setPushConfirmRaw] = useState(() =>
-    localStorage.getItem(SETTINGS_KEYS.pushConfirm) === 'true'
-  );
-  const [autoClearSeconds, setAutoClearRaw] = useState(() =>
-    parseInt(localStorage.getItem(SETTINGS_KEYS.autoClear) || '0', 10)
-  );
+  const {
+    debounceEnabled, setDebounceEnabled,
+    gatekeepDiscovery, setGatekeepDiscovery,
+    pushConfirmEnabled, setPushConfirmEnabled,
+    autoClearSeconds, setAutoClearSeconds
+  } = useSettings();
   const [savedIndicator, setSavedIndicator] = useState(false);
 
-  const save = (key: string, val: string) => {
-    localStorage.setItem(key, val);
+  const save = () => {
     setSavedIndicator(true);
     setTimeout(() => setSavedIndicator(false), 1800);
   };
 
-  const setDebounce = (v: boolean) => { setDebounceRaw(v); save(SETTINGS_KEYS.debounce, String(v)); };
-  const setGatekeep = (v: boolean) => { setGatekeepRaw(v); save(SETTINGS_KEYS.gatekeep, String(v)); };
-  const setPushConfirm = (v: boolean) => { setPushConfirmRaw(v); save(SETTINGS_KEYS.pushConfirm, String(v)); };
-  const setAutoClear = (v: number) => { setAutoClearRaw(v); save(SETTINGS_KEYS.autoClear, String(v)); };
+  const setDebounce = (v: boolean) => { setDebounceEnabled(v); save(); };
+  const setGatekeep = (v: boolean) => { setGatekeepDiscovery(v); save(); };
+  const setPushConfirm = (v: boolean) => { setPushConfirmEnabled(v); save(); };
+  const setAutoClear = (v: number) => { setAutoClearSeconds(v); save(); };
 
   const goBack = () => navigate(roomId ? `/controller?room=${roomId}` : '/controller');
 
@@ -356,7 +346,7 @@ const SettingsPage: React.FC = () => {
             id="toggle-push-confirm"
             label="Confirm before pushing live"
             description="Require a confirmation tap before broadcasting to prevent accidental pushes."
-            checked={pushConfirm}
+            checked={pushConfirmEnabled}
             onChange={setPushConfirm}
           />
           <SettingSelectRow
@@ -384,15 +374,14 @@ const SettingsPage: React.FC = () => {
             onClick={() => navigate('/help')}
           />
           <SettingLinkRow
+            label="Restart Walkthrough"
+            description="Replay the initial guided tour of the controller interface."
+            onClick={() => navigate('/controller?tour=true')}
+          />
+          <SettingLinkRow
             label="Reset Session"
             description="Disconnect all remote devices and generate a new room ID."
-            onClick={() => {
-              if (window.confirm('This will disconnect all overlays and remote controllers. Continue?')) {
-                const newRoom = Math.random().toString(36).substring(2, 7).toUpperCase();
-                localStorage.setItem(`streambible-host-${newRoom}`, 'true');
-                navigate(`/controller?room=${newRoom}`);
-              }
-            }}
+            onClick={regenerateRoom}
             danger
             last
           />

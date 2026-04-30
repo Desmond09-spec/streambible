@@ -237,18 +237,13 @@ import { supabase } from '../lib/supabase';
 
 export const curatedVersions = [
   { id: '1', name: 'King James Version', abbreviation: 'KJV', language: 'English', bibleBrainId: 'ENGKJVO2ET' },
-  { id: '111', name: 'New International Version', abbreviation: 'NIV', language: 'English' }, // Exclusive to YV
-  { id: '114', name: 'New King James Version', abbreviation: 'NKJV', language: 'English' }, // Exclusive to YV
-  { id: '116', name: 'New Living Translation', abbreviation: 'NLT', language: 'English' }, // Exclusive to YV
   { id: '59', name: 'English Standard Version', abbreviation: 'ESV', language: 'English', bibleBrainId: 'ENGESVO2ET' },
-  { id: '8', name: 'Amplified Bible', abbreviation: 'AMP', language: 'English' }, // Exclusive to YV
-  { id: '97', name: 'The Message', abbreviation: 'MSG', language: 'English' }, // Exclusive to YV
   { id: '2079', name: 'Yoruba Contemporary Bible', abbreviation: 'YCB', language: 'Yoruba', bibleBrainId: 'YORBMZN2ET' },
   { id: '2533', name: 'Bibeli Mimo', abbreviation: 'BM', language: 'Yoruba', bibleBrainId: 'YORCBV' },
   { id: '206', name: 'World English Bible', abbreviation: 'WEB', language: 'English', bibleBrainId: 'ENGWEBO2ET' },
 ];
 
-const BIBLE_BRAIN_KEY = 'fbc63a43-6c84-4861-b8d4-53106199480a';
+const BIBLE_BRAIN_KEY = import.meta.env.VITE_BIBLE_BRAIN_KEY;
 
 // IDs whose text is natively stored in the local Supabase DB
 const LOCAL_NATIVE_VERSION_IDS = new Set(['1', '2079', '2533']); // KJV, YCB, Bibeli Mimo

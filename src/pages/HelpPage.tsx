@@ -48,7 +48,7 @@ const HelpPage: React.FC = () => {
     },
     {
       question: "What translation does it use?",
-      answer: "StreamBible is powered by the YouVersion Platform, giving you instant access to over 3,000+ Bible translations across 2,000 languages, including KJV, NIV, NLT, and regional translations like Yoruba."
+      answer: "StreamBible gives you instant access to our curated library of reliable translations, including KJV, ESV, and regional translations like Yoruba."
     }
   ];
 
@@ -137,7 +137,7 @@ const HelpPage: React.FC = () => {
               <div className="tour-text-col">
                 <div className="tour-step-badge">Step 1</div>
                 <h3 className="tour-step-title">Search in Milliseconds</h3>
-                <p className="walkthrough-text">Type any reference—like "Romans 8:28" or "Gen 1:1"—into the search bar and press Enter. StreamBible immediately fetches the text from our library of over 3,000 translations.</p>
+                <p className="walkthrough-text">Type any reference—like "Romans 8:28" or "Gen 1:1"—into the search bar and press Enter. StreamBible immediately fetches the text from our curated library of reliable translations.</p>
               </div>
             </div>
 
