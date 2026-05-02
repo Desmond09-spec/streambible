@@ -596,13 +596,14 @@
         gap: var(--s-4);
       }
 
-      @media (max-width: 680px) {
+      @media (max-width: 900px) {
         .previews { grid-template-columns: 1fr; }
       }
 
       .preview-card {
         background: var(--bg-raised);
         border-radius: var(--r-xl);
+        min-width: 0;
         /* Depth is carried entirely by shadow — no borders needed */
         box-shadow: var(--shadow-md);
         padding: var(--s-6);
