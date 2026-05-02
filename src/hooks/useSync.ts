@@ -129,7 +129,7 @@ export function usePresence(roomId: string, isOverlay: boolean = false, remoteAc
   const [devices, setDevices] = useState<DevicePresence[]>([]);
   const [hostStatus, setHostStatus] = useState<'online' | 'offline' | 'denied'>('online');
   const [isReady, setIsReady] = useState(false);
-  const channelRef = useRef<unknown>(null);
+  const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
   const remoteAccessRef = useRef(remoteAccess);
   const myId = getDeviceId();
 
@@ -162,7 +162,7 @@ export function usePresence(roomId: string, isOverlay: boolean = false, remoteAc
         let latestHostUpdate = 0;
         
         for (const [key, presences] of Object.entries(state)) {
-           for (const p of presences as Record<string, unknown>[]) {
+           for (const p of presences as { name?: string; isHost?: boolean; isOverlay?: boolean; updatedAt?: number; remoteAccess?: boolean }[]) {
               const device = {
                  id: key,
                  name: p.name || 'Unknown Device',
