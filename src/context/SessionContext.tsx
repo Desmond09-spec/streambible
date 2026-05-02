@@ -92,7 +92,7 @@ export const SessionProvider: React.FC<{ children?: ReactNode }> = ({ children }
   const [remoteAccess, setRemoteAccess] = useState(false);
   const [discoveryEnabled, setDiscoveryEnabled] = useState(false);
 
-  const { pushVerse, clearScreen: broadcastClear } = useSyncPublisher(roomId);
+  const { pushVerse, clearScreen: broadcastClear, broadcastReset } = useSyncPublisher(roomId);
   const { devices, myId, hostStatus, isReady } = usePresence(roomId, false, remoteAccess);
   const wsConnected = hostStatus === 'online';
 
@@ -134,12 +134,15 @@ export const SessionProvider: React.FC<{ children?: ReactNode }> = ({ children }
     setPendingReset(true);
   };
 
-  const confirmRegenerate = () => {
+  const confirmRegenerate = async () => {
     setPendingReset(false);
     broadcastClear();
     setIsSwitching(true);
     switchStartTime.current = Date.now();
     setSwitchError(null);
+
+    broadcastReset();
+
     const newRoom = generateRoomId();
     localStorage.setItem(`streambible-host-${newRoom}`, 'true');
     localStorage.setItem(LS_ROOM_KEY, newRoom);
@@ -158,19 +161,29 @@ export const SessionProvider: React.FC<{ children?: ReactNode }> = ({ children }
   };
 
   useEffect(() => {
-    if (!roomId || !isHost) return;
+    if (!roomId) return;
     const channel = supabase.channel(`streambible-sync-${roomId}`);
     
-    channel.on('broadcast', { event: 'JOIN_REQUEST' }, ({ payload }) => {
-       if (payload.deviceId !== myId) {
-         setIncomingRequest({
-           roomId: payload.fromRoom,
-           deviceId: payload.deviceId,
-           name: payload.name
-         });
-       }
-    }).subscribe();
+    if (isHost) {
+      channel.on('broadcast', { event: 'JOIN_REQUEST' }, ({ payload }) => {
+         if (payload.deviceId !== myId) {
+           setIncomingRequest({
+             roomId: payload.fromRoom,
+             deviceId: payload.deviceId,
+             name: payload.name
+           });
+         }
+      });
+    }
 
+    channel.on('broadcast', { event: 'ROOM_RESET' }, () => {
+       if (!isHost) {
+          localStorage.removeItem(LS_ROOM_KEY);
+          window.location.reload();
+       }
+    });
+
+    channel.subscribe();
     return () => { channel.unsubscribe(); };
   }, [roomId, isHost, myId]);
 

@@ -92,7 +92,15 @@ export function useSyncPublisher(roomId: string) {
     });
   }, []);
 
-  return { pushVerse, clearScreen };
+  const broadcastReset = useCallback(() => {
+    channelRef.current?.send({
+      type: 'broadcast',
+      event: 'ROOM_RESET',
+      payload: {},
+    });
+  }, []);
+
+  return { pushVerse, clearScreen, broadcastReset };
 }
 
 /**
@@ -113,6 +121,9 @@ export function useSyncSubscriber(
       })
       .on('broadcast', { event: 'CLEAR_SCREEN' }, () => {
         onClear();
+      })
+      .on('broadcast', { event: 'ROOM_RESET' }, () => {
+        window.location.reload();
       })
       .subscribe();
 
