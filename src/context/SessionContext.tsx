@@ -129,6 +129,7 @@ export const SessionProvider: React.FC<{ children?: ReactNode }> = ({ children }
   const [requestStatus, setRequestStatus] = useState<'idle' | 'pending' | 'accepted' | 'declined'>('idle');
 
   const [pendingReset, setPendingReset] = useState(false);
+  const [sessionTerminated, setSessionTerminated] = useState(false);
 
   const regenerateRoom = () => {
     setPendingReset(true);
@@ -179,7 +180,7 @@ export const SessionProvider: React.FC<{ children?: ReactNode }> = ({ children }
     channel.on('broadcast', { event: 'ROOM_RESET' }, () => {
        if (!isHost) {
           localStorage.removeItem(LS_ROOM_KEY);
-          window.location.reload();
+          setSessionTerminated(true);
        }
     });
 
@@ -274,6 +275,20 @@ export const SessionProvider: React.FC<{ children?: ReactNode }> = ({ children }
         destructive
         onConfirm={confirmRegenerate}
         onCancel={cancelRegenerate}
+      />
+      <ConfirmModal
+        isVisible={sessionTerminated}
+        title="Session Ended"
+        message="The host has closed this room. You have been disconnected."
+        confirmLabel="Create New Room"
+        cancelLabel="Dismiss"
+        onConfirm={() => {
+          setSessionTerminated(false);
+          window.location.reload();
+        }}
+        onCancel={() => {
+          setSessionTerminated(false);
+        }}
       />
       {children || <Outlet />}
     </SessionContext.Provider>
