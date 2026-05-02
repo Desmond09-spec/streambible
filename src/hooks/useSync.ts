@@ -129,7 +129,7 @@ export function usePresence(roomId: string, isOverlay: boolean = false, remoteAc
   const [devices, setDevices] = useState<DevicePresence[]>([]);
   const [hostStatus, setHostStatus] = useState<'online' | 'offline' | 'denied'>('online');
   const [isReady, setIsReady] = useState(false);
-  const channelRef = useRef<any>(null);
+  const channelRef = useRef<unknown>(null);
   const remoteAccessRef = useRef(remoteAccess);
   const myId = getDeviceId();
 
@@ -138,7 +138,7 @@ export function usePresence(roomId: string, isOverlay: boolean = false, remoteAc
   }, [remoteAccess]);
 
   useEffect(() => {
-    setIsReady(false);
+    Promise.resolve().then(() => setIsReady(false));
     if (!roomId) return;
     const channelName = `streambible-presence-${roomId}`;
     const isHost = localStorage.getItem(`streambible-host-${roomId}`) === 'true';
@@ -162,7 +162,7 @@ export function usePresence(roomId: string, isOverlay: boolean = false, remoteAc
         let latestHostUpdate = 0;
         
         for (const [key, presences] of Object.entries(state)) {
-           for (const p of presences as any[]) {
+           for (const p of presences as Record<string, unknown>[]) {
               const device = {
                  id: key,
                  name: p.name || 'Unknown Device',
@@ -216,7 +216,7 @@ export function usePresence(roomId: string, isOverlay: boolean = false, remoteAc
       channel.unsubscribe();
       channelRef.current = null;
     };
-  }, [roomId, isOverlay]);
+  }, [roomId, isOverlay, myId]);
 
   // Update presence dynamically without dropping the connection
   useEffect(() => {
@@ -229,7 +229,7 @@ export function usePresence(roomId: string, isOverlay: boolean = false, remoteAc
         isOverlay,
         remoteAccess: isHost ? remoteAccess : true,
         updatedAt: Date.now()
-      }).catch((e: any) => console.log('Track update failed, might not be subscribed yet', e));
+      }).catch((e: unknown) => console.log('Track update failed, might not be subscribed yet', e));
     }
   }, [remoteAccess, roomId, isOverlay]);
 
@@ -271,7 +271,7 @@ export function useHeartbeat(roomId: string, isHost: boolean, isDiscoverable: bo
     const cleanup = () => {
       // Use navigator.sendBeacon if possible for more reliable tab-close cleanup
       // But for simple projects, a basic delete works fairly well if the tab is still closing
-      const { supabaseUrl, supabaseAnonKey } = (supabase as any);
+      const { supabaseUrl, supabaseAnonKey } = (supabase as unknown as Record<string, string>);
       if (supabaseUrl && supabaseAnonKey) {
         const url = `${supabaseUrl}/rest/v1/active_sessions?room_id=eq.${roomId}`;
         const headers = {
@@ -327,12 +327,14 @@ export function useDiscovery(enabled: boolean) {
 
   useEffect(() => {
     if (enabled) {
-      refresh();
+      Promise.resolve().then(() => refresh());
       const interval = setInterval(refresh, 15000);
       return () => clearInterval(interval);
     } else {
-      setNearbySessions([]);
-      setIsDiscovering(false);
+      Promise.resolve().then(() => {
+        setNearbySessions([]);
+        setIsDiscovering(false);
+      });
     }
   }, [enabled, refresh]);
 

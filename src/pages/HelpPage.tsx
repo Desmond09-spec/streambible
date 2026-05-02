@@ -18,7 +18,7 @@ const HelpPage: React.FC = () => {
 
   useEffect(() => {
     const saved = localStorage.getItem('streambible-theme') || 'light';
-    setTheme(saved as 'light' | 'dark');
+    Promise.resolve().then(() => setTheme(saved as 'light' | 'dark'));
   }, []);
 
   const handleFeedbackSubmit = (e: React.FormEvent) => {

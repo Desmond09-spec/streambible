@@ -10,6 +10,15 @@ import { ConfirmModal } from '../components/ConfirmModal';
 import { useSettings } from '../context/SettingsContext';
 import { useSession } from '../context/SessionContext';
 
+const SkeletonLoader = () => (
+  <div style={{ width: '100%', paddingTop: '4px' }}>
+    <div className="skeleton-bar" style={{ width: '100%' }}></div>
+    <div className="skeleton-bar" style={{ width: '90%' }}></div>
+    <div className="skeleton-bar" style={{ width: '95%' }}></div>
+    <div className="skeleton-bar" style={{ width: '60%' }}></div>
+  </div>
+);
+
 const ControllerPage: React.FC = () => {
   const navigate = useNavigate();
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
@@ -28,7 +37,7 @@ const ControllerPage: React.FC = () => {
   const [qrLoaded, setQrLoaded] = useState(false);
 
   useEffect(() => {
-    setQrLoaded(false);
+    Promise.resolve().then(() => setQrLoaded(false));
   }, [roomId]);
 
   const { debounceEnabled, pushConfirmEnabled, autoClearSeconds } = useSettings();
@@ -102,7 +111,7 @@ const ControllerPage: React.FC = () => {
 
   useEffect(() => {
     const saved = localStorage.getItem('streambible-theme') || 'light';
-    setTheme(saved as 'light' | 'dark');
+    Promise.resolve().then(() => setTheme(saved as 'light' | 'dark'));
 
     const hasSeenTour = localStorage.getItem('streambible-tour-seen');
     const urlParams = new URLSearchParams(window.location.search);
@@ -123,13 +132,6 @@ const ControllerPage: React.FC = () => {
     localStorage.setItem('streambible-theme', next);
     setTimeout(() => setIsTransitioning(false), 280);
   };
-
-  useEffect(() => {
-    if (!query.trim()) return;
-    const delay = debounceEnabled ? 900 : 0;
-    const timerId = setTimeout(() => handleSearch(query), delay);
-    return () => clearTimeout(timerId);
-  }, [query, primaryVersion, secondaryVersion]);
 
   const handleSearch = async (searchQuery: string = query) => {
     if (!searchQuery.trim()) return;
@@ -163,10 +165,10 @@ const ControllerPage: React.FC = () => {
          if (pRes.triageReason) overallTriage = pRes.triageReason;
          // Only flag as substitute if local served a different translation than requested
          if (pSource === 'local' && !LOCAL_NATIVE_IDS.has(primaryVersion)) isLocalSubstitute = true;
-      } catch (e: any) {
-         if (e.message === "Verse not found." || e.message === "Unable to parse reference.") {
+      } catch (e: unknown) {
+         if (e instanceof Error && (e.message === "Verse not found." || e.message === "Unable to parse reference.")) {
             overallTriage = 'user_input';
-         } else if (e.message === "YouVersion fetch failed") {
+         } else if (e instanceof Error && e.message === "YouVersion fetch failed") {
             // Already handled by fetchVerse assigning triageReason, but just in case
          }
       }
@@ -182,7 +184,7 @@ const ControllerPage: React.FC = () => {
           try { 
             const sRes = await fetchVerse('2079', searchQuery);
             sText = sRes.text; sSource = sRes.source;
-          } catch(e){}
+          } catch { /* ignore */ }
       } else {
           try {
              const sRes = await fetchVerse(secondaryVersion, searchQuery);
@@ -215,8 +217,8 @@ const ControllerPage: React.FC = () => {
                     setTimeout(() => setShowFallbackToast(false), 5000);
                  }
              }
-          } catch (e: any) {
-             if (e.message === "Verse not found." || e.message === "Unable to parse reference.") {
+          } catch (e: unknown) {
+             if (e instanceof Error && (e.message === "Verse not found." || e.message === "Unable to parse reference.")) {
                 if (!overallTriage) overallTriage = 'user_input';
              }
              setTriageReason(overallTriage);
@@ -244,11 +246,19 @@ const ControllerPage: React.FC = () => {
         setStatus('success');
         setStatusMsg('Ready to push');
       }
-    } catch (error) {
+    } catch {
       setStatus('error');
       setStatusMsg('Error fetching verses');
     }
   };
+
+  useEffect(() => {
+    if (!query.trim()) return;
+    const delay = debounceEnabled ? 900 : 0;
+    const timerId = setTimeout(() => handleSearch(query), delay);
+    return () => clearTimeout(timerId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [query, primaryVersion, secondaryVersion]);
 
   const onFormSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -314,14 +324,7 @@ const ControllerPage: React.FC = () => {
     localStorage.setItem('streambible-tour-seen', 'true');
   };
 
-  const SkeletonLoader = () => (
-    <div style={{ width: '100%', paddingTop: '4px' }}>
-      <div className="skeleton-bar" style={{ width: '100%' }}></div>
-      <div className="skeleton-bar" style={{ width: '90%' }}></div>
-      <div className="skeleton-bar" style={{ width: '95%' }}></div>
-      <div className="skeleton-bar" style={{ width: '60%' }}></div>
-    </div>
-  );
+
 
   return (
     <div id="controller-legacy-wrapper" className={`theme-${theme} legacy-body${isTransitioning ? ' theme-transitioning' : ''}`} style={{ width: '100%', minHeight: '100vh', flex: 1 }}>

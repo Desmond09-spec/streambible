@@ -6,6 +6,7 @@ import { useSession } from '../context/SessionContext';
 import './SettingsPage.css';
 
 // ─── localStorage Keys ────────────────────────────────────────────────────────
+// eslint-disable-next-line react-refresh/only-export-components
 export const SETTINGS_KEYS = {
   debounce:    'streambible-debounce-enabled',
   gatekeep:    'streambible-gatekeep-discovery',

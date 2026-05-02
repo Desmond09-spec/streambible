@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 
 interface AutoFitFontProps {
   children: React.ReactNode;
-  dependencies: any[];
+  dependencies: unknown[];
 }
 
 export const AutoFitFont: React.FC<AutoFitFontProps> = ({ children, dependencies }) => {
@@ -58,6 +58,7 @@ export const AutoFitFont: React.FC<AutoFitFontProps> = ({ children, dependencies
     observer.observe(wrapper);
     
     return () => observer.disconnect();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, dependencies); // Re-run when dependencies (like verse content) change
 
   return (

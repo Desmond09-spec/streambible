@@ -14,20 +14,20 @@ export interface SessionContextType {
   setRemoteAccess: (val: boolean) => void;
   discoveryEnabled: boolean;
   setDiscoveryEnabled: (val: boolean) => void;
-  devices: any[];
+  devices: unknown[];
   myId: string;
   hostStatus: string;
   wsConnected: boolean;
-  pushVerse: any;
+  pushVerse: unknown;
   broadcastClear: () => void;
-  joinRequest: any;
-  setJoinRequest: any;
-  incomingRequest: any;
-  setIncomingRequest: any;
+  joinRequest: unknown;
+  setJoinRequest: unknown;
+  incomingRequest: unknown;
+  setIncomingRequest: unknown;
   requestStatus: 'idle' | 'pending' | 'accepted' | 'declined';
-  setRequestStatus: any;
-  nearbySessions: any[];
-  refreshDiscovery: any;
+  setRequestStatus: unknown;
+  nearbySessions: unknown[];
+  refreshDiscovery: unknown;
   isDiscovering: boolean;
   regenerateRoom: () => void;
   pendingReset: boolean;
@@ -39,6 +39,7 @@ export interface SessionContextType {
 
 const SessionContext = createContext<SessionContextType | null>(null);
 
+// eslint-disable-next-line react-refresh/only-export-components
 export const useSession = () => {
   const ctx = useContext(SessionContext);
   if (!ctx) throw new Error("useSession must be used within SessionProvider");
@@ -202,7 +203,7 @@ export const SessionProvider: React.FC<{ children?: ReactNode }> = ({ children }
     }).subscribe();
 
     return () => { channel.unsubscribe(); };
-  }, [isHost, requestStatus, myId, joinRequest]);
+  }, [isHost, requestStatus, myId, joinRequest, navigate]);
 
   const handleJoinRequest = async (targetRoomId: string) => {
     if (targetRoomId === roomId) return;

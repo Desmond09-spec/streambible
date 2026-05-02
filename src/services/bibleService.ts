@@ -179,7 +179,7 @@ export function parseReference(query: string): BibleReference | null {
   const normalizedQuery = query.trim().replace(/\s+/g, " ");
   
   // Matches book name (letters, optional leading 1/2/3) and trailing numbers/colons/hyphens
-  const match = normalizedQuery.match(/^([123]?\s*[a-zA-Z\s]+?)\s*(\d[\d\s:\-]*?)?$/i);
+  const match = normalizedQuery.match(/^([123]?\s*[a-zA-Z\s]+?)\s*(\d[\d\s:-]*?)?$/i);
   if (!match) return null;
 
   const bookName = match[1].trim();
@@ -250,7 +250,7 @@ const LOCAL_NATIVE_VERSION_IDS = new Set(['1', '2079', '2533']); // KJV, YCB, Bi
  * Utility to wrap promises with a timeout
  */
 async function fetchWithTimeout<T>(promise: Promise<T>, timeoutMs: number, errorMessage: string = 'Request timed out'): Promise<T> {
-  let timerId: any;
+  let timerId: ReturnType<typeof setTimeout>;
   const timeoutPromise = new Promise<never>((_, reject) => {
     timerId = setTimeout(() => reject(new Error(errorMessage)), timeoutMs);
   });
@@ -276,8 +276,8 @@ async function fetchBibleBrainFallback(versionId: string, reference: BibleRefere
   let res;
   try {
     res = await fetch(url, { signal: controller.signal });
-  } catch (e: any) {
-    if (e.name === 'AbortError') throw new Error('Failed to fetch (timeout)');
+  } catch (e: unknown) {
+    if (e instanceof Error && e.name === 'AbortError') throw new Error('Failed to fetch (timeout)');
     throw e;
   } finally {
     clearTimeout(timeoutId);
@@ -292,7 +292,7 @@ async function fetchBibleBrainFallback(versionId: string, reference: BibleRefere
     throw new Error("Bible Brain returned empty data");
   }
   
-  return data.data.map((v: any) => v.verse_text).join(' ').trim();
+  return data.data.map((v: { verse_text: string }) => v.verse_text).join(' ').trim();
 }
 
 /**
@@ -340,7 +340,7 @@ export async function fetchVerse(versionId: string, query: string): Promise<{ te
         console.log(`[Cache] Serving: ${yvRef} (${versionId})`);
         return parsed;
       }
-    } catch(e) { /* stale cache, refetch */ }
+    } catch { /* stale cache, refetch */ }
   }
 
   let verseText = "";
@@ -355,7 +355,7 @@ export async function fetchVerse(versionId: string, query: string): Promise<{ te
     currentSource = 'local';
     // Flag if we served a substitute (e.g. KJV for an NIV request)
     if (!isNativeLocal) currentTriage = 'third_party_outage';
-  } catch (localErr) {
+  } catch {
 
     // ── Tier 2: Bible Brain API ────────────────────────────────────────────────
     console.warn(`[Tier 2] Bible Brain: ${yvRef} (${versionId})`);
@@ -363,8 +363,8 @@ export async function fetchVerse(versionId: string, query: string): Promise<{ te
       verseText = await fetchBibleBrainFallback(versionId, reference);
       currentSource = 'biblebrain';
       currentTriage = null;
-    } catch (bbErr: any) {
-      if (bbErr.message?.toLowerCase().includes('failed to fetch')) currentTriage = 'client_network';
+    } catch (bbErr: unknown) {
+      if (bbErr instanceof Error && bbErr.message?.toLowerCase().includes('failed to fetch')) currentTriage = 'client_network';
       else currentTriage = 'third_party_outage';
 
       // ── Tier 3: YouVersion via Supabase Edge Function ────────────────────────
@@ -388,8 +388,8 @@ export async function fetchVerse(versionId: string, query: string): Promise<{ te
         }
         currentSource = 'youversion';
         currentTriage = null;
-      } catch (yvErr: any) {
-        if (yvErr.message?.toLowerCase().includes('failed to fetch')) currentTriage = 'client_network';
+      } catch (yvErr: unknown) {
+        if (yvErr instanceof Error && yvErr.message?.toLowerCase().includes('failed to fetch')) currentTriage = 'client_network';
         else if (!currentTriage) currentTriage = 'internal_error';
         throw yvErr;
       }

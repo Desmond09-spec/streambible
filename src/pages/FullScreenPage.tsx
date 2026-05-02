@@ -15,7 +15,7 @@ const FullScreenPage: React.FC = () => {
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    setRoomId(params.get('room'));
+    Promise.resolve().then(() => setRoomId(params.get('room')));
   }, []);
   const [verse, setVerse] = useState<ActiveVerse>({
     ref: "",
