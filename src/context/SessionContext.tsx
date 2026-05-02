@@ -45,30 +45,52 @@ export const useSession = () => {
   return ctx;
 };
 
+const LS_ROOM_KEY = 'streambible-active-room';
+
+const generateRoomId = () =>
+  Math.random().toString(36).substring(2, 7).toUpperCase();
+
 export const SessionProvider: React.FC<{ children?: ReactNode }> = ({ children }) => {
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
-  const roomId = searchParams.get('room') || '';
+
+  // ── Room ID lifted out of URL ─────────────────────────────────────────────
+  // Priority: URL param → localStorage → generate new
+  const [roomId, setRoomId] = useState<string>(() => {
+    const fromUrl = searchParams.get('room');
+    if (fromUrl) return fromUrl;
+    const fromStorage = localStorage.getItem(LS_ROOM_KEY);
+    if (fromStorage) return fromStorage;
+    return generateRoomId();
+  });
+
+  // On mount: clean the URL if it had a ?room= param, persist room to storage
+  useEffect(() => {
+    const fromUrl = searchParams.get('room');
+    if (fromUrl) {
+      // Save host status before we lose the param
+      localStorage.setItem(`streambible-host-${fromUrl}`, 'true');
+      // Strip room from URL, keep any other params
+      setSearchParams(prev => {
+        prev.delete('room');
+        return prev;
+      }, { replace: true });
+    }
+    localStorage.setItem(LS_ROOM_KEY, roomId);
+    // Mark this device as host for this room if not already flagged
+    if (!localStorage.getItem(`streambible-host-${roomId}`)) {
+      localStorage.setItem(`streambible-host-${roomId}`, 'true');
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // run once on mount
+
+  const isHost = localStorage.getItem(`streambible-host-${roomId}`) === 'true';
 
   const [isSwitching, setIsSwitching] = useState(false);
   const [switchError, setSwitchError] = useState<string | null>(null);
   const switchStartTime = useRef(0);
   const switchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Ensure every host session gets a Room ID
-  useEffect(() => {
-    if (!roomId) {
-      const newRoom = Math.random().toString(36).substring(2, 7).toUpperCase();
-      setSearchParams(prev => {
-        prev.set('room', newRoom);
-        return prev;
-      }, { replace: true });
-      localStorage.setItem(`streambible-host-${newRoom}`, 'true');
-    }
-  }, [roomId, setSearchParams]);
-
-  const isHost = roomId ? localStorage.getItem(`streambible-host-${roomId}`) === 'true' : false;
-  
   const [remoteAccess, setRemoteAccess] = useState(false);
   const [discoveryEnabled, setDiscoveryEnabled] = useState(false);
 
@@ -81,10 +103,8 @@ export const SessionProvider: React.FC<{ children?: ReactNode }> = ({ children }
 
     if (isReady) {
       if (switchTimeoutRef.current) clearTimeout(switchTimeoutRef.current);
-      
       const elapsed = Date.now() - switchStartTime.current;
       const remaining = Math.max(0, 1200 - elapsed);
-      
       if (remaining > 0) {
         setTimeout(() => setIsSwitching(false), remaining);
       } else {
@@ -122,9 +142,12 @@ export const SessionProvider: React.FC<{ children?: ReactNode }> = ({ children }
     setIsSwitching(true);
     switchStartTime.current = Date.now();
     setSwitchError(null);
-    const newRoom = Math.random().toString(36).substring(2, 7).toUpperCase();
+    const newRoom = generateRoomId();
     localStorage.setItem(`streambible-host-${newRoom}`, 'true');
-    navigate(`/controller?room=${newRoom}`);
+    localStorage.setItem(LS_ROOM_KEY, newRoom);
+    setRoomId(newRoom);
+    // Navigate to clear the page state without a URL room param
+    navigate('/controller', { replace: true });
   };
 
   const cancelRegenerate = () => {
@@ -164,7 +187,12 @@ export const SessionProvider: React.FC<{ children?: ReactNode }> = ({ children }
             setIsSwitching(true);
             switchStartTime.current = Date.now();
             setSwitchError(null);
-            navigate(`/controller?room=${payload.newRoomId}`);
+            // Switch room in context, not in URL
+            const newRoom = payload.newRoomId;
+            localStorage.setItem(`streambible-host-${newRoom}`, 'true');
+            localStorage.setItem(LS_ROOM_KEY, newRoom);
+            setRoomId(newRoom);
+            navigate('/controller', { replace: true });
           } else {
             setRequestStatus('declined');
             setJoinRequest(null);
@@ -241,3 +269,5 @@ export const SessionProvider: React.FC<{ children?: ReactNode }> = ({ children }
     </SessionContext.Provider>
   );
 };
+
+

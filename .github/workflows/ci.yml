@@ -1,0 +1,39 @@
+name: Production Quality Check
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# This cancels previous runs if you push a new commit quickly
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 📥 Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: ⚙️ Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm" # Automatically caches node_modules for speed
+
+      - name: 📦 Install Dependencies
+        # npm ci is strictly for automated environments (faster and more reliable than npm install)
+        run: npm ci
+
+      - name: 🧹 Run Linter (Syntax Check)
+        run: npm run lint --if-present
+
+      - name: 🧪 Run Automated Tests
+        run: npm run test --if-present
+
+      - name: 🏗️ Build Application
+        run: npm run build

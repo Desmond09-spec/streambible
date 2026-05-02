@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ChevronDown, Search, Loader2, Database } from 'lucide-react';
+import { ChevronDown, Search, Database } from 'lucide-react';
 
 export interface Version {
   id: string;
@@ -14,22 +14,14 @@ export interface Version {
 interface CustomDropdownProps {
   value: string;
   onChange: (val: string) => void;
-  onLoadMore: () => void;
   curatedVersions: Version[];
-  extraVersions: Version[];
-  showExtraVersions: boolean;
-  fetchingExtra: boolean;
   isFallbackActive?: boolean;
 }
 
 export const CustomDropdown: React.FC<CustomDropdownProps> = ({
   value,
   onChange,
-  onLoadMore,
   curatedVersions,
-  extraVersions,
-  showExtraVersions,
-  fetchingExtra,
   isFallbackActive
 }) => {
   const [isOpen, setIsOpen] = useState(false);
@@ -159,23 +151,9 @@ export const CustomDropdown: React.FC<CustomDropdownProps> = ({
     isCurated: true
   })), [curatedVersions]);
 
-  const normalizedExtra = useMemo(() => extraVersions.map(v => ({
-    id: v.id,
-    name: v.title || v.name || '',
-    abbreviation: v.abbreviation,
-    language: typeof v.language === 'string' ? v.language : (v.language?.name || 'Unknown'),
-    isCurated: false
-  })), [extraVersions]);
-
-  const selectedItem = [...normalizedCurated, ...normalizedExtra].find(v => v.id.toString() === value.toString()) || normalizedCurated[0];
+  const selectedItem = normalizedCurated.find(v => v.id.toString() === value.toString()) || normalizedCurated[0];
 
   const filteredCurated = normalizedCurated.filter(v =>
-    v.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    v.abbreviation.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    v.language.toLowerCase().includes(searchQuery.toLowerCase())
-  );
-
-  const filteredExtra = normalizedExtra.filter(v =>
     v.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     v.abbreviation.toLowerCase().includes(searchQuery.toLowerCase()) ||
     v.language.toLowerCase().includes(searchQuery.toLowerCase())
@@ -316,82 +294,10 @@ export const CustomDropdown: React.FC<CustomDropdownProps> = ({
                   </div>
                 )}
 
-                {/* All Versions Group */}
-                {showExtraVersions && filteredExtra.length > 0 && (
-                  <div>
-                    <div style={{ fontSize: '11px', color: 'var(--text-3)', textTransform: 'uppercase', padding: '4px 8px', letterSpacing: '0.5px', marginTop: '8px' }}>
-                      All Versions
-                    </div>
-                    {filteredExtra.map(v => (
-                      <button
-                        key={v.id}
-                        onClick={() => handleSelect(v.id)}
-                        style={{
-                          width: '100%',
-                          textAlign: 'left',
-                          padding: '10px 8px',
-                          background: value.toString() === v.id.toString() ? t.rowSelected : 'transparent',
-                          border: 'none',
-                          borderRadius: '6px',
-                          color: 'var(--text-1)',
-                          cursor: 'pointer',
-                          display: 'flex',
-                          justifyContent: 'space-between',
-                          alignItems: 'center',
-                          transition: 'background 0.1s ease'
-                        }}
-                        onMouseEnter={(e) => e.currentTarget.style.background = t.rowHover}
-                        onMouseLeave={(e) => e.currentTarget.style.background = value.toString() === v.id.toString() ? t.rowSelected : 'transparent'}
-                      >
-                        <span style={{ fontSize: '14px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                          <span style={{ color: 'var(--text-2)', marginRight: '6px', fontSize: '11px' }}>{v.language}</span>
-                          <span style={{ fontWeight: 500 }}>{v.abbreviation}</span> - {v.name}
-                        </span>
-                      </button>
-                    ))}
-                  </div>
-                )}
-
-                {/* Load More Button */}
-                {!showExtraVersions && searchQuery === '' && (
-                  <button
-                    onClick={(e) => { e.preventDefault(); onLoadMore(); }}
-                    disabled={fetchingExtra}
-                    style={{
-                      width: '100%',
-                      padding: '12px 8px',
-                      background: 'transparent',
-                      border: `1px dashed ${t.loadMoreBorder}`,
-                      borderRadius: '6px',
-                      color: 'var(--text-2)',
-                      fontSize: '13px',
-                      cursor: fetchingExtra ? 'not-allowed' : 'pointer',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      gap: '8px',
-                      marginTop: '8px',
-                      transition: 'all 0.2s'
-                    }}
-                    onMouseEnter={(e) => { if (!fetchingExtra) { e.currentTarget.style.background = t.rowHover; e.currentTarget.style.color = 'var(--text-1)'; } }}
-                    onMouseLeave={(e) => { if (!fetchingExtra) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-2)'; } }}
-                  >
-                    {fetchingExtra ? (
-                      <>
-                        <Loader2 size={16} className="spin" />
-                        Loading 3000+ versions...
-                      </>
-                    ) : (
-                      'Load 3000+ more versions...'
-                    )}
-                  </button>
-                )}
-
                 {/* No Results State */}
-                {filteredCurated.length === 0 && filteredExtra.length === 0 && (
+                {filteredCurated.length === 0 && (
                   <div style={{ padding: '24px 12px', textAlign: 'center', color: 'var(--text-3)', fontSize: '13px' }}>
                     No translations found for "{searchQuery}"
-                    {!showExtraVersions && <div style={{ marginTop: '8px', color: 'var(--color-accent-primary)', cursor: 'pointer' }} onClick={onLoadMore}>Load all versions to search globally</div>}
                   </div>
                 )}
               </div>

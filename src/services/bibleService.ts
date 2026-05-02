@@ -237,10 +237,8 @@ import { supabase } from '../lib/supabase';
 
 export const curatedVersions = [
   { id: '1', name: 'King James Version', abbreviation: 'KJV', language: 'English', bibleBrainId: 'ENGKJVO2ET' },
-  { id: '59', name: 'English Standard Version', abbreviation: 'ESV', language: 'English', bibleBrainId: 'ENGESVO2ET' },
   { id: '2079', name: 'Yoruba Contemporary Bible', abbreviation: 'YCB', language: 'Yoruba', bibleBrainId: 'YORBMZN2ET' },
   { id: '2533', name: 'Bibeli Mimo', abbreviation: 'BM', language: 'Yoruba', bibleBrainId: 'YORCBV' },
-  { id: '206', name: 'World English Bible', abbreviation: 'WEB', language: 'English', bibleBrainId: 'ENGWEBO2ET' },
 ];
 
 const BIBLE_BRAIN_KEY = import.meta.env.VITE_BIBLE_BRAIN_KEY;
@@ -403,21 +401,4 @@ export async function fetchVerse(versionId: string, query: string): Promise<{ te
   return result;
 }
 
-export async function fetchAllYouVersionVersions() {
-  const { data, error } = await supabase.functions.invoke('fetch-verse', {
-    body: { action: 'fetch_versions' }
-  });
-  
-  if (error || data?.error || data?.fault) {
-    console.error("YouVersion API Error:", error || data);
-    throw new Error("Failed to fetch extra versions. Check API Key permissions.");
-  }
-  
-  // Ensure we return an array, handling various possible JSON structures
-  let list = [];
-  if (Array.isArray(data)) list = data;
-  else if (data?.data && Array.isArray(data.data)) list = data.data;
-  else if (data?.response?.data && Array.isArray(data.response.data)) list = data.response.data;
-  
-  return list;
-}
+

@@ -48,74 +48,72 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
           }}
         >
           <motion.div
-            initial={{ scale: 0.92, opacity: 0, y: 8 }}
-            animate={{ scale: 1, opacity: 1, y: 0 }}
-            exit={{ scale: 0.92, opacity: 0, y: 8 }}
-            transition={{ type: 'spring', damping: 28, stiffness: 380 }}
+            initial={{ scale: 1.05, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            exit={{ scale: 1.05, opacity: 0 }}
+            transition={{ type: 'spring', damping: 25, stiffness: 350 }}
             onClick={(e) => e.stopPropagation()}
             style={{
-              background: isDark ? 'rgba(30, 30, 33, 0.95)' : 'rgba(255, 255, 255, 0.97)',
-              backdropFilter: 'blur(20px)',
-              WebkitBackdropFilter: 'blur(20px)',
-              borderRadius: '20px',
-              padding: '28px',
-              maxWidth: '360px',
-              width: '100%',
-              boxShadow: isDark
-                ? '0 32px 64px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.06)'
-                : '0 32px 64px rgba(0,0,0,0.14), 0 0 0 1px rgba(0,0,0,0.07)',
+              background: isDark ? 'rgba(30, 30, 32, 0.75)' : 'rgba(255, 255, 255, 0.85)',
+              backdropFilter: 'blur(24px) saturate(180%)',
+              WebkitBackdropFilter: 'blur(24px) saturate(180%)',
+              borderRadius: '14px',
+              width: '270px',
               display: 'flex',
               flexDirection: 'column',
-              gap: '20px',
+              boxShadow: isDark
+                ? '0 16px 40px rgba(0,0,0,0.4), 0 0 0 1px rgba(255,255,255,0.06)'
+                : '0 16px 40px rgba(0,0,0,0.1), 0 0 0 1px rgba(0,0,0,0.05)',
+              overflow: 'hidden',
             }}
           >
-            {/* Header */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            {/* Header / Content */}
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '20px 16px', gap: '6px', textAlign: 'center' }}>
               <h2 style={{
                 margin: 0,
                 fontSize: '17px',
                 fontWeight: 600,
                 letterSpacing: '-0.02em',
-                color: isDark ? '#ffffff' : '#111111',
+                color: isDark ? '#ffffff' : '#000000',
               }}>
                 {title}
               </h2>
               <p style={{
                 margin: 0,
-                fontSize: '14px',
-                lineHeight: 1.55,
-                color: isDark ? 'rgba(255,255,255,0.55)' : 'rgba(0,0,0,0.5)',
+                fontSize: '13px',
+                lineHeight: 1.35,
+                letterSpacing: '-0.01em',
+                color: isDark ? 'rgba(255,255,255,0.7)' : 'rgba(0,0,0,0.6)',
               }}>
                 {message}
               </p>
             </div>
 
-            {/* Divider */}
+            {/* Horizontal Divider */}
             <div style={{
               height: '1px',
-              background: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.07)',
-              marginLeft: '-28px',
-              marginRight: '-28px',
+              width: '100%',
+              background: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)',
             }} />
 
             {/* Actions */}
-            <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+            <div style={{ display: 'flex', width: '100%', height: '44px' }}>
               <button
                 onClick={onCancel}
                 style={{
-                  padding: '10px 18px',
-                  borderRadius: '10px',
-                  border: `1px solid ${isDark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.1)'}`,
+                  flex: 1,
                   background: 'transparent',
-                  color: isDark ? 'rgba(255,255,255,0.75)' : 'rgba(0,0,0,0.6)',
-                  fontSize: '14px',
-                  fontWeight: 500,
+                  border: 'none',
+                  borderRight: `1px solid ${isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)'}`,
+                  color: '#0A84FF',
+                  fontSize: '17px',
+                  fontWeight: 400,
                   cursor: 'pointer',
-                  letterSpacing: '-0.01em',
+                  letterSpacing: '-0.02em',
                   transition: 'background 0.15s',
                 }}
                 onMouseEnter={(e) => {
-                  (e.target as HTMLButtonElement).style.background = isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.04)';
+                  (e.target as HTMLButtonElement).style.background = isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)';
                 }}
                 onMouseLeave={(e) => {
                   (e.target as HTMLButtonElement).style.background = 'transparent';
@@ -126,15 +124,21 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
               <button
                 onClick={onConfirm}
                 style={{
-                  padding: '10px 18px',
-                  borderRadius: '10px',
+                  flex: 1,
+                  background: 'transparent',
                   border: 'none',
-                  background: destructive ? '#FF453A' : '#0A84FF',
-                  color: '#ffffff',
-                  fontSize: '14px',
+                  color: destructive ? '#FF453A' : '#0A84FF',
+                  fontSize: '17px',
                   fontWeight: 600,
                   cursor: 'pointer',
-                  letterSpacing: '-0.01em',
+                  letterSpacing: '-0.02em',
+                  transition: 'background 0.15s',
+                }}
+                onMouseEnter={(e) => {
+                  (e.target as HTMLButtonElement).style.background = isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)';
+                }}
+                onMouseLeave={(e) => {
+                  (e.target as HTMLButtonElement).style.background = 'transparent';
                 }}
               >
                 {confirmLabel}

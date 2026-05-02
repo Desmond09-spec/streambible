@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { MoreHorizontal, ExternalLink, MonitorUp, Settings } from 'lucide-react';
 import './ControllerLegacy.css';
-import { parseReference, getCanonicalBookName, fetchVerse, fetchAllYouVersionVersions, curatedVersions, type TriageCategory } from '../services/bibleService';
+import { parseReference, getCanonicalBookName, fetchVerse, curatedVersions, type TriageCategory } from '../services/bibleService';
 import WalkthroughOverlay from '../components/WalkthroughOverlay';
 import { CustomDropdown } from '../components/CustomDropdown';
 import { ConfirmModal } from '../components/ConfirmModal';
@@ -25,6 +25,11 @@ const ControllerPage: React.FC = () => {
 
   const [showPushConfirm, setShowPushConfirm] = useState(false);
   const [pendingPush, setPendingPush] = useState<(() => void) | null>(null);
+  const [qrLoaded, setQrLoaded] = useState(false);
+
+  useEffect(() => {
+    setQrLoaded(false);
+  }, [roomId]);
 
   const { debounceEnabled, pushConfirmEnabled, autoClearSeconds } = useSettings();
   
@@ -44,9 +49,7 @@ const ControllerPage: React.FC = () => {
   const [secondaryRef, setSecondaryRef] = useState('');
   const [secondaryExpanded, setSecondaryExpanded] = useState(false);
 
-  const [extraVersions, setExtraVersions] = useState<any[]>([]);
-  const [fetchingExtra, setFetchingExtra] = useState(false);
-  const [showExtraVersions, setShowExtraVersions] = useState(false);
+
 
   const [status, setStatus] = useState<'default' | 'fetching' | 'success' | 'live' | 'error'>('default');
   const [statusMsg, setStatusMsg] = useState('Ready');
@@ -58,20 +61,7 @@ const ControllerPage: React.FC = () => {
     localStorage.setItem('streambible-show-secondary', showSecondary.toString());
   }, [primaryVersion, secondaryVersion, showPrimary, showSecondary]);
 
-  const loadExtraVersions = async () => {
-    if (fetchingExtra || extraVersions.length > 0) return;
-    setFetchingExtra(true);
-    try {
-      const data = await fetchAllYouVersionVersions();
-      setExtraVersions(data);
-      setShowExtraVersions(true);
-    } catch (e) {
-      console.error(e);
-      alert('Failed to load extra versions.');
-    } finally {
-      setFetchingExtra(false);
-    }
-  };
+
 
   const [isNetworkExpanded, setIsNetworkExpanded] = useState(false);
   
@@ -267,14 +257,14 @@ const ControllerPage: React.FC = () => {
 
   const pushLive = () => {
     const doPush = () => {
-      const pVersionObj = curatedVersions.find(v => v.id === primaryVersion) || extraVersions.find(v => v.id.toString() === primaryVersion);
-      const sVersionObj = curatedVersions.find(v => v.id === secondaryVersion) || extraVersions.find(v => v.id.toString() === secondaryVersion);
+      const pVersionObj = curatedVersions.find(v => v.id === primaryVersion);
+      const sVersionObj = curatedVersions.find(v => v.id === secondaryVersion);
       pushVerse({
         ref: primaryRef,
         primaryText: primaryText,
-        primaryVersion: pVersionObj ? (pVersionObj.abbreviation || pVersionObj.local_abbreviation) : '',
+        primaryVersion: pVersionObj ? pVersionObj.abbreviation : '',
         secondaryText: secondaryText,
-        secondaryVersion: sVersionObj ? (sVersionObj.abbreviation || sVersionObj.local_abbreviation) : '',
+        secondaryVersion: sVersionObj ? sVersionObj.abbreviation : '',
         showPrimary: showPrimary,
         showSecondary: showSecondary,
         source: fallbackType || 'youversion'
@@ -540,15 +530,49 @@ const ControllerPage: React.FC = () => {
                 className="network-expanded visible"
                 style={{ overflow: 'hidden' }}
               >
-                <div className="qr-container" style={{ padding: '16px', background: 'white', borderRadius: '12px', display: 'inline-block' }}>
+                <div className="qr-container" style={{ padding: '16px', background: 'white', borderRadius: '12px', display: 'inline-block', position: 'relative', width: '172px', height: '172px' }}>
                    {roomId && (
-                     <img 
-                       src={`https://api.qrserver.com/v1/create-qr-code/?size=140x140&data=${encodeURIComponent(`${window.location.origin}/controller?room=${roomId}`)}`} 
-                       alt="Scan to control session"
-                       width={140}
-                       height={140}
-                       style={{ display: 'block' }}
-                     />
+                     <>
+                       <AnimatePresence>
+                         {!qrLoaded && (
+                           <motion.div
+                             initial={{ opacity: 0 }}
+                             animate={{ opacity: 1 }}
+                             exit={{ opacity: 0 }}
+                             transition={{ duration: 0.2 }}
+                             style={{
+                               position: 'absolute',
+                               inset: '16px',
+                               display: 'flex',
+                               alignItems: 'center',
+                               justifyContent: 'center',
+                               background: 'rgba(0,0,0,0.02)',
+                               borderRadius: '8px'
+                             }}
+                           >
+                             <motion.div
+                               animate={{ rotate: 360 }}
+                               transition={{ repeat: Infinity, duration: 1, ease: "linear" }}
+                               style={{
+                                 width: '24px',
+                                 height: '24px',
+                                 borderRadius: '50%',
+                                 border: '2px solid rgba(0,0,0,0.1)',
+                                 borderTopColor: '#0A84FF',
+                               }}
+                             />
+                           </motion.div>
+                         )}
+                       </AnimatePresence>
+                       <img 
+                         src={`https://api.qrserver.com/v1/create-qr-code/?size=140x140&data=${encodeURIComponent(`${window.location.origin}/controller?room=${roomId}`)}`} 
+                         alt="Scan to control session"
+                         width={140}
+                         height={140}
+                         onLoad={() => setQrLoaded(true)}
+                         style={{ display: 'block', opacity: qrLoaded ? 1 : 0, transition: 'opacity 0.4s ease' }}
+                       />
+                     </>
                    )}
                 </div>
                 <div className="network-url-box" style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
@@ -826,11 +850,7 @@ const ControllerPage: React.FC = () => {
                 <CustomDropdown
                   value={primaryVersion}
                   onChange={setPrimaryVersion}
-                  onLoadMore={loadExtraVersions}
                   curatedVersions={curatedVersions}
-                  extraVersions={extraVersions}
-                  showExtraVersions={showExtraVersions}
-                  fetchingExtra={fetchingExtra}
                   isFallbackActive={isUsingFallback}
                 />
               </div>
@@ -862,11 +882,7 @@ const ControllerPage: React.FC = () => {
                 <CustomDropdown
                   value={secondaryVersion}
                   onChange={setSecondaryVersion}
-                  onLoadMore={loadExtraVersions}
                   curatedVersions={curatedVersions}
-                  extraVersions={extraVersions}
-                  showExtraVersions={showExtraVersions}
-                  fetchingExtra={fetchingExtra}
                   isFallbackActive={isUsingFallback}
                 />
               </div>
