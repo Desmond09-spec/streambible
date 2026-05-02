@@ -55,22 +55,23 @@ export const SessionProvider: React.FC<{ children?: ReactNode }> = ({ children }
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
 
-  // ── Room ID lifted out of URL ─────────────────────────────────────────────
   // Priority: URL param → localStorage → generate new
   const [roomId, setRoomId] = useState<string>(() => {
     const fromUrl = searchParams.get('room');
     if (fromUrl) return fromUrl;
+    
     const fromStorage = localStorage.getItem(LS_ROOM_KEY);
     if (fromStorage) return fromStorage;
-    return generateRoomId();
+    
+    const newRoom = generateRoomId();
+    localStorage.setItem(`streambible-host-${newRoom}`, 'true');
+    return newRoom;
   });
 
   // On mount: clean the URL if it had a ?room= param, persist room to storage
   useEffect(() => {
     const fromUrl = searchParams.get('room');
     if (fromUrl) {
-      // Save host status before we lose the param
-      localStorage.setItem(`streambible-host-${fromUrl}`, 'true');
       // Strip room from URL, keep any other params
       setSearchParams(prev => {
         prev.delete('room');
@@ -78,10 +79,6 @@ export const SessionProvider: React.FC<{ children?: ReactNode }> = ({ children }
       }, { replace: true });
     }
     localStorage.setItem(LS_ROOM_KEY, roomId);
-    // Mark this device as host for this room if not already flagged
-    if (!localStorage.getItem(`streambible-host-${roomId}`)) {
-      localStorage.setItem(`streambible-host-${roomId}`, 'true');
-    }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // run once on mount
 
