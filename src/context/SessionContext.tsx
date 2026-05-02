@@ -187,7 +187,6 @@ export const SessionProvider: React.FC<{ children?: ReactNode }> = ({ children }
             setSwitchError(null);
             // Switch room in context, not in URL
             const newRoom = payload.newRoomId;
-            localStorage.setItem(`streambible-host-${newRoom}`, 'true');
             localStorage.setItem(LS_ROOM_KEY, newRoom);
             setRoomId(newRoom);
             navigate('/controller', { replace: true });
