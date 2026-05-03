@@ -9,7 +9,8 @@ export interface VersePayload {
   secondaryVersion: string;
   showPrimary: boolean;
   showSecondary: boolean;
-  source: 'api.bible' | 'local';
+  primarySource: 'api.bible' | 'local' | 'nlt';
+  secondarySource: 'api.bible' | 'local' | 'nlt';
 }
 
 export interface DevicePresence {

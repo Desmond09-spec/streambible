@@ -78,6 +78,8 @@ const ControllerPage: React.FC = () => {
   const [showFallbackToast, setShowFallbackToast] = useState(false);
   const [isUsingFallback, setIsUsingFallback] = useState(false);
   const [fallbackType, setFallbackType] = useState<'api.bible' | 'local' | null>(null);
+  const [primarySource, setPrimarySource] = useState<'api.bible' | 'local' | 'nlt'>('local');
+  const [secondarySource, setSecondarySource] = useState<'api.bible' | 'local' | 'nlt'>('local');
   const [triageReason, setTriageReason] = useState<TriageCategory>(null);
   const [fallbackOriginalVersion, setFallbackOriginalVersion] = useState<string | null>(null);
   const [isTransitioning, setIsTransitioning] = useState(false);
@@ -154,8 +156,8 @@ const ControllerPage: React.FC = () => {
       let sText = 'Verse not found.';
       const LOCAL_NATIVE_IDS = new Set(['1', '2079', '2533']);
       let isLocalSubstitute = false;
-      let pSource: 'api.bible' | 'local' = 'local';
-      let sSource: 'api.bible' | 'local' = 'local';
+      let pSource: 'api.bible' | 'local' | 'nlt' = 'local';
+      let sSource: 'api.bible' | 'local' | 'nlt' = 'local';
       let overallTriage: TriageCategory = null;
 
       try {
@@ -176,6 +178,8 @@ const ControllerPage: React.FC = () => {
       if (isLocalSubstitute) {
           setIsUsingFallback(true);
           setFallbackType('local');
+          setPrimarySource('local');
+          setSecondarySource('local');
           setTriageReason(overallTriage);
           setFallbackOriginalVersion(primaryVersion);
           setShowFallbackToast(true);
@@ -195,21 +199,18 @@ const ControllerPage: React.FC = () => {
              if (sSource === 'local' && !LOCAL_NATIVE_IDS.has(secondaryVersion)) {
                  setIsUsingFallback(true);
                  setFallbackType('local');
+                 setPrimarySource(pSource);
+                 setSecondarySource('local');
                  setTriageReason(overallTriage);
                  setFallbackOriginalVersion(secondaryVersion);
                  setShowFallbackToast(true);
                  setTimeout(() => setShowFallbackToast(false), 5000);
                  // sText already has KJV from Tier 1, no need to re-fetch
-             } else if (pSource === 'api.bible' || sSource === 'api.bible') {
-                 setIsUsingFallback(true);
-                 setFallbackType('api.bible');
-                 setTriageReason(overallTriage);
-                 setFallbackOriginalVersion(null);
-                 setShowFallbackToast(true);
-                 setTimeout(() => setShowFallbackToast(false), 5000);
              } else {
                  setIsUsingFallback(false);
                  setFallbackType(null);
+                 setPrimarySource(pSource);
+                 setSecondarySource(sSource);
                  setTriageReason(overallTriage);
                  setFallbackOriginalVersion(null);
                  if (overallTriage) {
@@ -277,7 +278,8 @@ const ControllerPage: React.FC = () => {
         secondaryVersion: sVersionObj ? sVersionObj.abbreviation : '',
         showPrimary: showPrimary,
         showSecondary: showSecondary,
-        source: fallbackType || 'api.bible'
+        primarySource: primarySource,
+        secondarySource: secondarySource
       });
     };
     if (pushConfirmEnabled) {
@@ -990,13 +992,18 @@ const ControllerPage: React.FC = () => {
         )}
       </AnimatePresence>
 
-      <div style={{ textAlign: 'center', marginTop: '10px', marginBottom: '10px', display: 'flex', justifyContent: 'center', minHeight: '28px', alignItems: 'center' }}>
-        {(!isUsingFallback || fallbackType === null || fallbackType === 'api.bible') && (
+      <div style={{ textAlign: 'center', marginTop: '10px', marginBottom: '10px', display: 'flex', flexDirection: 'column', gap: '4px', minHeight: '28px', alignItems: 'center' }}>
+        {(primarySource === 'api.bible' || secondarySource === 'api.bible') && (
           <span style={{ fontSize: '12px', fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase', opacity: 0.45, color: 'var(--text-1)' }}>
             Powered by API.Bible
           </span>
         )}
-        {isUsingFallback && fallbackType === 'local' && (
+        {(primarySource === 'nlt' || secondarySource === 'nlt') && (
+          <span style={{ fontSize: '10px', fontWeight: 500, opacity: 0.45, color: 'var(--text-1)', maxWidth: '400px', lineHeight: 1.4 }}>
+            Scripture quotations marked (NLT) are taken from the Holy Bible, New Living Translation, copyright ©1996, 2004, 2015 by Tyndale House Foundation. Used by permission of Tyndale House Publishers. All rights reserved.
+          </span>
+        )}
+        {primarySource === 'local' && secondarySource === 'local' && (
           <span style={{ fontSize: '12px', fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase', opacity: 0.45, color: 'var(--text-1)' }}>
             StreamBible Local Data
           </span>

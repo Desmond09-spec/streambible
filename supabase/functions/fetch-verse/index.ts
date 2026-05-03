@@ -13,7 +13,7 @@ serve(async (req) => {
   }
 
   try {
-    const { action, reference, versionId } = await req.json();
+    const { action, reference, versionId, nltRef } = await req.json();
 
     const API_BIBLE_KEY = Deno.env.get('API_BIBLE_KEY');
     if (!API_BIBLE_KEY) {
@@ -65,25 +65,54 @@ serve(async (req) => {
         }
       }
 
-      // 2. Fetch from API.Bible
-      console.log(`[Cache Miss] Fetching ${reference} (${versionId}) from API.Bible...`);
-      const apiRes = await fetch(`https://api.scripture.api.bible/v1/bibles/${versionId}/passages/${reference}?content-type=text&include-verse-numbers=false`, {
-        headers: { "api-key": API_BIBLE_KEY, "Accept": "application/json" }
-      });
-
-      if (!apiRes.ok) {
-        const errText = await apiRes.text();
-        console.error("API.Bible Error:", apiRes.status, errText);
-        throw new Error(`API.Bible returned ${apiRes.status}: ${errText}`);
-      }
-
-      const apiData = await apiRes.json();
-      
+      // 2. Fetch from External API
       let verseText = "Text not found";
-      if (apiData.data && apiData.data.content) {
-         verseText = apiData.data.content;
+
+      if (versionId === 'nlt') {
+        const NLT_API_KEY = Deno.env.get('NLT_API_KEY');
+        if (!NLT_API_KEY) throw new Error('NLT_API_KEY environment variable is not set');
+
+        const fetchRef = nltRef ? encodeURIComponent(nltRef) : reference;
+        console.log(`[Cache Miss] Fetching ${fetchRef} from NLT.to...`);
+        const apiRes = await fetch(`https://api.nlt.to/api/passages?ref=${fetchRef}&version=NLT&key=${NLT_API_KEY}`);
+        
+        if (!apiRes.ok) {
+          const errText = await apiRes.text();
+          console.error("NLT API Error:", apiRes.status, errText);
+          throw new Error(`NLT API returned ${apiRes.status}: ${errText}`);
+        }
+
+        verseText = await apiRes.text(); // returns HTML
+        
+        // Remove structural elements and their contents
+        verseText = verseText.replace(/<head>[\s\S]*?<\/head>/gi, '');
+        verseText = verseText.replace(/<h2[^>]*>[\s\S]*?<\/h2>/gi, '');
+        
+        // Remove verse numbers and footnote markers specifically for NLT before stripping all HTML
+        verseText = verseText.replace(/<span class="vn">[\s\S]*?<\/span>/gi, '');
+        verseText = verseText.replace(/<span class="v(?:erse_number)?">[\s\S]*?<\/span>/gi, '');
+        verseText = verseText.replace(/<a class="a-tn">[\s\S]*?<\/a>/gi, '');
+        verseText = verseText.replace(/<span class="tn">[\s\S]*?<\/span>/gi, '');
+        verseText = verseText.replace(/<sup[^>]*>[\s\S]*?<\/sup>/gi, '');
       } else {
-         verseText = JSON.stringify(apiData);
+        console.log(`[Cache Miss] Fetching ${reference} (${versionId}) from API.Bible...`);
+        const apiRes = await fetch(`https://rest.api.bible/v1/bibles/${versionId}/passages/${reference}?content-type=text&include-verse-numbers=false`, {
+          headers: { "api-key": API_BIBLE_KEY, "Accept": "application/json" }
+        });
+
+        if (!apiRes.ok) {
+          const errText = await apiRes.text();
+          console.error("API.Bible Error:", apiRes.status, errText);
+          throw new Error(`API.Bible returned ${apiRes.status}: ${errText}`);
+        }
+
+        const apiData = await apiRes.json();
+        
+        if (apiData.data && apiData.data.content) {
+           verseText = apiData.data.content;
+        } else {
+           verseText = JSON.stringify(apiData);
+        }
       }
 
       // Clean brackets or stray HTML tags just in case

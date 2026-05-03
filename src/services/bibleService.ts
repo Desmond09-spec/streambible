@@ -236,15 +236,19 @@ export function formatYouVersionReference(reference: BibleReference): string {
 import { supabase } from '../lib/supabase';
 
 export const curatedVersions = [
+  { id: 'nlt', name: 'New Living Translation', abbreviation: 'NLT', language: 'English' },
   { id: '63097d2a0a2f7db3-01', name: 'New King James Version', abbreviation: 'NKJV', language: 'English' },
   { id: '78a9f6124f344018-01', name: 'New International Version', abbreviation: 'NIV', language: 'English' },
   { id: 'a81b73293d3080c9-01', name: 'Amplified Bible', abbreviation: 'AMP', language: 'English' },
+  { id: 'bsb', name: 'Berean Standard Bible', abbreviation: 'BSB', language: 'English' },
+  { id: 'web', name: 'World English Bible', abbreviation: 'WEB', language: 'English' },
+  { id: 'asv', name: 'American Standard Version', abbreviation: 'ASV', language: 'English' },
   { id: '1', name: 'King James Version', abbreviation: 'KJV', language: 'English' },
   { id: '2533', name: 'Bibeli Mimo', abbreviation: 'BM', language: 'Yoruba' },
 ];
 
 // IDs whose text is natively stored in the local Supabase DB
-const LOCAL_NATIVE_VERSION_IDS = new Set(['1', '2533']); // KJV, Bibeli Mimo
+const LOCAL_NATIVE_VERSION_IDS = new Set(['1', '2533', 'asv', 'bsb', 'web']); // KJV, Bibeli Mimo, ASV, BSB, WEB
 
 /**
  * Utility to wrap promises with a timeout
@@ -264,8 +268,11 @@ async function fetchWithTimeout<T>(promise: Promise<T>, timeoutMs: number, error
  * Zero external dependencies — works offline.
  */
 async function fetchLocalFallback(versionId: string, reference: BibleReference): Promise<string> {
-  const isYoruba = versionId.toString() === '2533';
-  const translationCode = isYoruba ? 'yor' : 'kjv';
+  let translationCode = 'kjv';
+  if (versionId === '2533') translationCode = 'yor';
+  else if (versionId === 'asv') translationCode = 'asv';
+  else if (versionId === 'bsb') translationCode = 'bsb';
+  else if (versionId === 'web') translationCode = 'web';
   
   const verseEnd = reference.verseEnd ?? reference.verseStart;
 
@@ -287,28 +294,39 @@ async function fetchLocalFallback(versionId: string, reference: BibleReference):
 
 export type TriageCategory = 'client_network' | 'third_party_outage' | 'internal_error' | 'user_input' | null;
 
-export async function fetchVerse(versionId: string, query: string): Promise<{ text: string, source: 'api.bible' | 'local', triageReason: TriageCategory }> {
+export async function fetchVerse(versionId: string, query: string): Promise<{ text: string, source: 'api.bible' | 'local' | 'nlt', triageReason: TriageCategory }> {
   const reference = parseReference(query);
   if (!reference) throw new Error("Unable to parse reference.");
 
   // For API.Bible, the format is usually BOOK.CHAPTER.VERSE, identical to YouVersion.
   const formattedRef = formatYouVersionReference(reference);
   const cacheKey = `sb_${versionId}_${formattedRef}`;
+  
+  const canonicalBook = getCanonicalBookName(reference.bookCode);
+  let nltRef = `${canonicalBook}.${reference.chapter}.${reference.verseStart}`;
+  if (reference.verseEnd && reference.verseEnd !== reference.verseStart) {
+    nltRef += `-${canonicalBook}.${reference.chapter}.${reference.verseEnd}`;
+  }
 
   // Check client-side cache
   const cached = localStorage.getItem(cacheKey);
   if (cached) {
     try {
       const parsed = JSON.parse(cached);
-      if (parsed.text && parsed.source) {
+      // Reject stale error entries (e.g. from previous broken NLT fetches)
+      const isValidText = parsed.text && parsed.text !== "Text not found" && parsed.text !== "Verse not found.";
+      if (isValidText && parsed.source) {
         console.log(`[Cache] Serving: ${formattedRef} (${versionId})`);
         return parsed;
+      } else {
+        // Evict invalid cache entry so we retry the network
+        localStorage.removeItem(cacheKey);
       }
     } catch { /* stale cache, refetch */ }
   }
 
   let verseText = "";
-  let currentSource: 'api.bible' | 'local' = 'local';
+  let currentSource: 'api.bible' | 'local' | 'nlt' = 'local';
   let currentTriage: TriageCategory = null;
   const isNativeLocal = LOCAL_NATIVE_VERSION_IDS.has(versionId.toString());
 
@@ -328,7 +346,7 @@ export async function fetchVerse(versionId: string, query: string): Promise<{ te
     console.warn(`[Tier 2] API.Bible: ${formattedRef} (${versionId})`);
     try {
       const invokePromise = supabase.functions.invoke('fetch-verse', {
-        body: { action: 'fetch_verse', reference: formattedRef, versionId: versionId }
+        body: { action: 'fetch_verse', reference: formattedRef, versionId: versionId, nltRef: nltRef }
       });
       const { data, error } = await fetchWithTimeout(invokePromise, 6000, 'Failed to fetch (timeout)');
 
@@ -343,7 +361,7 @@ export async function fetchVerse(versionId: string, query: string): Promise<{ te
         currentTriage = 'user_input';
         throw new Error("Verse not found.");
       }
-      currentSource = 'api.bible';
+      currentSource = versionId === 'nlt' ? 'nlt' : 'api.bible';
       currentTriage = null;
     } catch (apiErr: unknown) {
       if (apiErr instanceof Error && apiErr.message?.toLowerCase().includes('failed to fetch')) currentTriage = 'client_network';
@@ -353,6 +371,9 @@ export async function fetchVerse(versionId: string, query: string): Promise<{ te
   }
 
   const result = { text: verseText, source: currentSource, triageReason: currentTriage };
-  localStorage.setItem(cacheKey, JSON.stringify(result));
+  // Only cache a genuine successful response — never cache errors or empty text
+  if (verseText && verseText !== "Text not found" && verseText !== "Verse not found.") {
+    localStorage.setItem(cacheKey, JSON.stringify(result));
+  }
   return result;
 }

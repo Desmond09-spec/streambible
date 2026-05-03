@@ -25,7 +25,8 @@ const FullScreenPage: React.FC = () => {
     secondaryVersion: "",
     showPrimary: true,
     showSecondary: true,
-    source: 'api.bible',
+    primarySource: 'api.bible',
+    secondarySource: 'api.bible',
     isVisible: false
   });
 
@@ -153,16 +154,19 @@ const FullScreenPage: React.FC = () => {
             </AutoFitFont>
 
             {/* ATTRIBUTION */}
-            {verse.source === 'api.bible' && (
-              <div style={{ position: 'absolute', bottom: '24px', right: '40px', opacity: 0.35 }}>
+            <div style={{ position: 'absolute', bottom: '24px', right: '40px', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px', opacity: 0.35 }}>
+              {(verse.primarySource === 'api.bible' || verse.secondarySource === 'api.bible') && (
                 <span style={{ color: '#fff', fontSize: '14px', fontWeight: 'bold', letterSpacing: '0.05em', textTransform: 'uppercase' }}>Powered by API.Bible</span>
-              </div>
-            )}
-            {verse.source === 'local' && (
-              <div style={{ position: 'absolute', bottom: '24px', right: '40px', opacity: 0.35 }}>
+              )}
+              {(verse.primarySource === 'nlt' || verse.secondarySource === 'nlt') && (
+                <span style={{ color: '#fff', fontSize: '11px', fontWeight: 'bold', textAlign: 'right', maxWidth: '500px', lineHeight: 1.4 }}>
+                  Scripture quotations marked (NLT) are taken from the Holy Bible, New Living Translation, copyright ©1996, 2004, 2015 by Tyndale House Foundation. Used by permission of Tyndale House Publishers. All rights reserved.
+                </span>
+              )}
+              {verse.primarySource === 'local' && verse.secondarySource === 'local' && (
                 <span style={{ color: '#fff', fontSize: '14px', fontWeight: 'bold', letterSpacing: '0.05em', textTransform: 'uppercase' }}>StreamBible Local Data</span>
-              </div>
-            )}
+              )}
+            </div>
           </motion.div>
         )}
       </AnimatePresence>
