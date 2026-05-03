@@ -25,7 +25,7 @@ const FullScreenPage: React.FC = () => {
     secondaryVersion: "",
     showPrimary: true,
     showSecondary: true,
-    source: 'youversion',
+    source: 'api.bible',
     isVisible: false
   });
 
@@ -153,14 +153,9 @@ const FullScreenPage: React.FC = () => {
             </AutoFitFont>
 
             {/* ATTRIBUTION */}
-            {verse.source === 'youversion' && (
-              <div style={{ position: 'absolute', bottom: '24px', right: '40px', opacity: 0.25 }}>
-                <img src="/youversion-logo.svg" alt="Provided by YouVersion" style={{ width: '120px' }} />
-              </div>
-            )}
-            {verse.source === 'biblebrain' && (
+            {verse.source === 'api.bible' && (
               <div style={{ position: 'absolute', bottom: '24px', right: '40px', opacity: 0.35 }}>
-                <span style={{ color: '#fff', fontSize: '14px', fontWeight: 'bold', letterSpacing: '0.05em', textTransform: 'uppercase' }}>Powered by Bible Brain</span>
+                <span style={{ color: '#fff', fontSize: '14px', fontWeight: 'bold', letterSpacing: '0.05em', textTransform: 'uppercase' }}>Powered by API.Bible</span>
               </div>
             )}
             {verse.source === 'local' && (

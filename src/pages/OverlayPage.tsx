@@ -25,7 +25,7 @@ const OverlayPage: React.FC = () => {
     secondaryVersion: "",
     showPrimary: true,
     showSecondary: true,
-    source: 'youversion',
+    source: 'api.bible',
     isVisible: false
   });
 
@@ -167,14 +167,9 @@ const OverlayPage: React.FC = () => {
               </div>
               
               {/* ATTRIBUTION */}
-              {verse.source === 'youversion' && (
-                <div style={{ position: 'absolute', bottom: '12px', right: '20px', opacity: 0.35 }}>
-                  <img src="/youversion-logo.svg" alt="Provided by YouVersion" style={{ width: '100px' }} />
-                </div>
-              )}
-              {verse.source === 'biblebrain' && (
+              {verse.source === 'api.bible' && (
                 <div style={{ position: 'absolute', bottom: '12px', right: '20px', opacity: 0.5 }}>
-                  <span style={{ color: '#fff', fontSize: '12px', fontWeight: 'bold', letterSpacing: '0.05em', textTransform: 'uppercase' }}>Powered by Bible Brain</span>
+                  <span style={{ color: '#fff', fontSize: '12px', fontWeight: 'bold', letterSpacing: '0.05em', textTransform: 'uppercase' }}>Powered by API.Bible</span>
                 </div>
               )}
               {verse.source === 'local' && (

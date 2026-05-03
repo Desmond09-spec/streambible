@@ -77,7 +77,7 @@ const ControllerPage: React.FC = () => {
   const [copiedType, setCopiedType] = useState<'overlay' | 'fullscreen' | 'controller' | null>(null);
   const [showFallbackToast, setShowFallbackToast] = useState(false);
   const [isUsingFallback, setIsUsingFallback] = useState(false);
-  const [fallbackType, setFallbackType] = useState<'biblebrain' | 'local' | null>(null);
+  const [fallbackType, setFallbackType] = useState<'api.bible' | 'local' | null>(null);
   const [triageReason, setTriageReason] = useState<TriageCategory>(null);
   const [fallbackOriginalVersion, setFallbackOriginalVersion] = useState<string | null>(null);
   const [isTransitioning, setIsTransitioning] = useState(false);
@@ -154,8 +154,8 @@ const ControllerPage: React.FC = () => {
       let sText = 'Verse not found.';
       const LOCAL_NATIVE_IDS = new Set(['1', '2079', '2533']);
       let isLocalSubstitute = false;
-      let pSource: 'youversion' | 'biblebrain' | 'local' = 'local';
-      let sSource: 'youversion' | 'biblebrain' | 'local' = 'local';
+      let pSource: 'api.bible' | 'local' = 'local';
+      let sSource: 'api.bible' | 'local' = 'local';
       let overallTriage: TriageCategory = null;
 
       try {
@@ -200,9 +200,9 @@ const ControllerPage: React.FC = () => {
                  setShowFallbackToast(true);
                  setTimeout(() => setShowFallbackToast(false), 5000);
                  // sText already has KJV from Tier 1, no need to re-fetch
-             } else if (pSource === 'biblebrain' || sSource === 'biblebrain') {
+             } else if (pSource === 'api.bible' || sSource === 'api.bible') {
                  setIsUsingFallback(true);
-                 setFallbackType('biblebrain');
+                 setFallbackType('api.bible');
                  setTriageReason(overallTriage);
                  setFallbackOriginalVersion(null);
                  setShowFallbackToast(true);
@@ -277,7 +277,7 @@ const ControllerPage: React.FC = () => {
         secondaryVersion: sVersionObj ? sVersionObj.abbreviation : '',
         showPrimary: showPrimary,
         showSecondary: showSecondary,
-        source: fallbackType || 'youversion'
+        source: fallbackType || 'api.bible'
       });
     };
     if (pushConfirmEnabled) {
@@ -388,14 +388,14 @@ const ControllerPage: React.FC = () => {
                 {triageReason === 'client_network' ? 'Network Error' : 
                  triageReason === 'internal_error' ? 'Critical System Error' : 
                  triageReason === 'user_input' ? 'Verse Not Found' :
-                 triageReason === 'third_party_outage' && fallbackType === 'biblebrain' ? 'Primary Unreachable' :
+                 triageReason === 'third_party_outage' && fallbackType === 'api.bible' ? 'Primary Unreachable' :
                  triageReason === 'third_party_outage' && fallbackType === 'local' ? 'Translation Unavailable' : 'System Alert'}
               </span>
               <span className="copy-toast-sub">
                 {triageReason === 'client_network' ? 'You appear to be offline. Defaulting to local database.' : 
                  triageReason === 'internal_error' ? 'Local database unavailable. Please refresh.' : 
                  triageReason === 'user_input' ? 'Please check the reference and try again.' :
-                 triageReason === 'third_party_outage' && fallbackType === 'biblebrain' ? 'YouVersion is unreachable. Defaulting to Bible Brain API.' :
+                 triageReason === 'third_party_outage' && fallbackType === 'api.bible' ? 'API is unreachable. Reverting to fallback.' :
                  triageReason === 'third_party_outage' && fallbackType === 'local' ? 'Selected version isn\'t available right now. Showing KJV instead.' :
                  'An unknown error occurred.'}
                  {fallbackOriginalVersion && fallbackOriginalVersion !== '1' && fallbackType === 'local' && (
@@ -991,12 +991,9 @@ const ControllerPage: React.FC = () => {
       </AnimatePresence>
 
       <div style={{ textAlign: 'center', marginTop: '10px', marginBottom: '10px', display: 'flex', justifyContent: 'center', minHeight: '28px', alignItems: 'center' }}>
-        {(!isUsingFallback || fallbackType === null) && (
-          <img src="/youversion-logo.svg" alt="Provided by YouVersion" style={{ width: '140px', opacity: 0.5, filter: theme === 'dark' ? 'invert(1)' : 'none' }} />
-        )}
-        {isUsingFallback && fallbackType === 'biblebrain' && (
+        {(!isUsingFallback || fallbackType === null || fallbackType === 'api.bible') && (
           <span style={{ fontSize: '12px', fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase', opacity: 0.45, color: 'var(--text-1)' }}>
-            Powered by Bible Brain
+            Powered by API.Bible
           </span>
         )}
         {isUsingFallback && fallbackType === 'local' && (
