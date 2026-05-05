@@ -7,6 +7,7 @@ import { parseReference, getCanonicalBookName, fetchVerse, curatedVersions, type
 import WalkthroughOverlay from '../components/WalkthroughOverlay';
 import { CustomDropdown } from '../components/CustomDropdown';
 import { ConfirmModal } from '../components/ConfirmModal';
+import { VerseText } from '../components/VerseText';
 import { useSettings } from '../context/SettingsContext';
 import { useSession } from '../context/SessionContext';
 
@@ -40,7 +41,7 @@ const ControllerPage: React.FC = () => {
     Promise.resolve().then(() => setQrLoaded(false));
   }, [roomId]);
 
-  const { debounceEnabled, pushConfirmEnabled, autoClearSeconds } = useSettings();
+  const { debounceEnabled, pushConfirmEnabled, autoClearSeconds, showVerseNumbers } = useSettings();
   
   // ── Settings (read from context) ────────────
   const autoClearTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -279,7 +280,8 @@ const ControllerPage: React.FC = () => {
         showPrimary: showPrimary,
         showSecondary: showSecondary,
         primarySource: primarySource,
-        secondarySource: secondarySource
+        secondarySource: secondarySource,
+        showVerseNumbers: showVerseNumbers
       });
     };
     if (pushConfirmEnabled) {
@@ -865,7 +867,7 @@ const ControllerPage: React.FC = () => {
               </label>
             </div>
             <div className={`preview-text ${primaryText && status !== 'fetching' ? 'has-content' : ''} ${primaryExpanded ? 'expanded' : ''}`}>
-              {status === 'fetching' ? <SkeletonLoader /> : (primaryText || 'Waiting for a verse…')}
+              {status === 'fetching' ? <SkeletonLoader /> : primaryText ? <VerseText text={primaryText} showVerseNumbers={showVerseNumbers} isMultiVerse={primaryRef.includes('-')} /> : 'Waiting for a verse…'}
             </div>
             <div className="card-footer">
               <span className={`card-ref ${primaryRef && status !== 'fetching' ? 'visible' : ''}`}>{primaryRef}</span>
@@ -897,7 +899,7 @@ const ControllerPage: React.FC = () => {
               </label>
             </div>
             <div className={`preview-text ${secondaryText && status !== 'fetching' ? 'has-content' : ''} ${secondaryExpanded ? 'expanded' : ''}`}>
-               {status === 'fetching' ? <SkeletonLoader /> : (secondaryText || 'Nduro fun ẹsẹ kan…')}
+               {status === 'fetching' ? <SkeletonLoader /> : secondaryText ? <VerseText text={secondaryText} showVerseNumbers={showVerseNumbers} isMultiVerse={secondaryRef.includes('-')} /> : 'Nduro fun ẹsẹ kan…'}
             </div>
             <div className="card-footer">
               <span className={`card-ref ${secondaryRef && status !== 'fetching' ? 'visible' : ''}`}>{secondaryRef}</span>
@@ -1058,7 +1060,10 @@ const ControllerPage: React.FC = () => {
                 : "The primary controller has gone offline or the session has been reset."}
             </p>
             <button 
-              onClick={() => window.location.href = window.location.pathname}
+              onClick={() => {
+                localStorage.removeItem('streambible-active-room');
+                window.location.href = window.location.pathname;
+              }}
               style={{
                 marginTop: '30px',
                 padding: '12px 24px',

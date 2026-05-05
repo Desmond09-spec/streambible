@@ -88,15 +88,15 @@ serve(async (req) => {
         verseText = verseText.replace(/<head>[\s\S]*?<\/head>/gi, '');
         verseText = verseText.replace(/<h2[^>]*>[\s\S]*?<\/h2>/gi, '');
         
-        // Remove verse numbers and footnote markers specifically for NLT before stripping all HTML
-        verseText = verseText.replace(/<span class="vn">[\s\S]*?<\/span>/gi, '');
-        verseText = verseText.replace(/<span class="v(?:erse_number)?">[\s\S]*?<\/span>/gi, '');
+        // Retain verse numbers securely encoded
+        verseText = verseText.replace(/<span class="vn">([\d\w]+)<\/span>/gi, '{{v:$1}} ');
+        verseText = verseText.replace(/<span class="v(?:erse_number)?">([\d\w]+)<\/span>/gi, '{{v:$1}} ');
         verseText = verseText.replace(/<a class="a-tn">[\s\S]*?<\/a>/gi, '');
         verseText = verseText.replace(/<span class="tn">[\s\S]*?<\/span>/gi, '');
         verseText = verseText.replace(/<sup[^>]*>[\s\S]*?<\/sup>/gi, '');
       } else {
         console.log(`[Cache Miss] Fetching ${reference} (${versionId}) from API.Bible...`);
-        const apiRes = await fetch(`https://rest.api.bible/v1/bibles/${versionId}/passages/${reference}?content-type=text&include-verse-numbers=false`, {
+        const apiRes = await fetch(`https://rest.api.bible/v1/bibles/${versionId}/passages/${reference}?content-type=text&include-verse-numbers=true`, {
           headers: { "api-key": API_BIBLE_KEY, "Accept": "application/json" }
         });
 
@@ -117,6 +117,10 @@ serve(async (req) => {
 
       // Clean brackets or stray HTML tags just in case
       let cleanText = verseText.replace(/<[^>]*>?/gm, '').trim();
+      
+      // API.Bible returns verse numbers in brackets like [1]. Convert to secure format
+      cleanText = cleanText.replace(/\[(\d+)\]\s?/g, '{{v:$1}} ');
+      
       // Remove multiple spaces left behind
       cleanText = cleanText.replace(/\s{2,}/g, ' ');
 

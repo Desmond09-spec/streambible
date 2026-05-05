@@ -289,7 +289,7 @@ async function fetchLocalFallback(versionId: string, reference: BibleReference):
   if (error) throw new Error("Fallback failed: " + error.message);
   if (!data || data.length === 0) throw new Error("Verse not found in local fallback database.");
 
-  return data.map((row: { verse: number; text: string }) => row.text.trim()).join(' ');
+  return data.map((row: { verse: number; text: string }) => `{{v:${row.verse}}} ${row.text.trim()}`).join(' ');
 }
 
 export type TriageCategory = 'client_network' | 'third_party_outage' | 'internal_error' | 'user_input' | null;

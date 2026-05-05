@@ -1,60 +1,91 @@
 # StreamBible Dual — App Audit & Project State
-*Generated 2026-05-02*
+*Updated: 2026-05-04*
 
 ---
 
-## Overall Rating: **Production-Ready & Premium**
+## Overall Rating: ✅ Production-Ready
 
-The application has matured significantly from its initial functional prototype state into a highly polished, robust, and premium web application. The core synchronization engine is stable, edge cases have been systematically eliminated, and the UI/UX has been successfully overhauled to reflect an authentic, Apple-inspired design language. 
-
-The application is largely ready for production use by end-users in church/live-streaming environments.
+StreamBible is a complete, polished, church-environment web application. The core sync engine, Bible data layer, and UI design system are all stable. The app is ready for deployment and active use in live-streaming / church presentation environments.
 
 ---
 
-## ✅ What's Working Exceptionally Well
+## Architecture
 
-### 1. The Real-Time Engine (Supabase)
-*   **"Ghost Connection" Bug Eliminated:** Hot Module Replacement (HMR) and erratic browser reloads no longer cause phantom sessions. The system strictly adheres to `updatedAt` timestamps to track the most recently active session instance.
-*   **Seamless Room Switching:** Room switching is now a true SPA transition using React Router. It gracefully handles the WebSocket teardown/rebuild without full page reloads, accompanied by a premium Loading Overlay.
-*   **Auto-Remote Access:** When a user requests to join, and the host approves, the host is automatically granted Remote Access if they didn't have it already.
+```
+streambible-dual/
+├── src/
+│   ├── pages/        → Controller, Overlay, FullScreen, Settings, Help
+│   ├── components/   → AutoFitFont, ConfirmModal, CustomDropdown,
+│   │                    SwitchingOverlay, WalkthroughOverlay
+│   ├── hooks/        → useSync.ts (Publisher, Subscriber, Presence,
+│   │                    Heartbeat, Discovery)
+│   ├── services/     → bibleService.ts (parse + 2-tier fetch)
+│   └── context/      → SessionContext, SettingsContext
+└── supabase/
+    └── functions/fetch-verse/  → Deno Edge Function (API.Bible + NLT gateway)
+```
 
-### 2. Premium Design Language
-*   **Aesthetics:** The entire app correctly adheres to the iOS/macOS aesthetic blueprint. The Custom Select dropdowns, Help Page, Settings Page, and Controller Page are perfectly aligned with consistent `Inter` typography, exact color tokens, and spring-based interactions.
-*   **System Alerts:** Native browser `window.confirm()` dialogs have been entirely eradicated. The new `ConfirmModal` is a 1:1 replica of the iOS System Alert, complete with frosted glass (`blur(24px) saturate(180%)`), precise hairline dividers, and iOS typography standards.
-*   **Loading States:** The QR code and room-switching logic now feature premium UI feedback (ring spinners, ease-out fades) instead of jarring pops or blank spaces.
-
-### 3. Data & Fallback Triage
-*   The Bible Service correctly processes the 3-tier waterfall logic (Local → Bible Brain → YouVersion). 
-*   Toast notifications are correctly formatted and styled to provide user-friendly (not overly-technical) context when a fallback occurs.
-
----
-
-## 🟡 Minor Gaps & Future Considerations (Non-Critical)
-
-### 1. Translation Defaults & Pending APIs
-*   `primaryVersion` currently defaults to NKJV/NIV in some environments. Since YouVersion is pending approval, these silently fall back to KJV. 
-*   **Recommendation:** Until YouVersion API access is officially granted, consider adding a visual indicator (like a small lock icon or "Pending" badge) next to YouVersion-exclusive translations in the dropdown, or hide them entirely.
-
-### 2. Context Isolation vs. URL State
-*   Right now, the session is tied tightly to the `?room=` search parameter. This is great for direct links. However, if a user navigates to `/settings` or `/help`, the room parameter is sometimes dropped, relying heavily on `localStorage` host status to resume correctly. 
-*   **Status:** This is currently stable and working correctly, but as the app scales (e.g., adding user accounts), consider lifting the Session Identifier out of the URL into a top-level Zustand store or Context provider.
-
-### 3. Offline Capabilities (PWA)
-*   The app has an excellent local DB fallback for KJV/YCB. 
-*   **Recommendation:** To truly dominate the church-tech space, the app should be converted into a Progressive Web App (PWA). Adding a Service Worker to cache the React bundle would allow the app to be installed on an iPad and run *completely offline* using the Local DB.
+**Stack:** Vite 8 · React 19 · TypeScript 6 · Supabase · Framer Motion · React Router 7
 
 ---
 
-## 🟢 Security & Housekeeping Check
+## ✅ What's Complete & Working
 
-| Area | Status | Notes |
+### Real-Time Sync Engine
+- Supabase Broadcast channels with clean Publisher/Subscriber hook split
+- Ghost-connection bug fully resolved via `updatedAt` timestamp arbitration
+- Remote access (grant/deny) updates propagate instantly without reconnection
+- Room switching is a seamless SPA transition with a premium loading overlay
+
+### Presence & Discovery
+- Per-room device tracking (host / overlay / guest roles)
+- IP-based LAN session discovery via `active_sessions` table
+- 20-second host heartbeat with graceful `beforeunload` cleanup
+
+### Bible Data Layer
+| Tier | Source | Translations |
 |---|---|---|
-| **API Keys** | ✅ Secure | Keys are correctly managed via environment variables (`.env.local`), preventing source-code leaks. |
-| **Dead Code** | ✅ Clean | Previously unused scratch files (`rewrite-controller.js`) and dangling imports (`Loader2`) have been removed. |
-| **Build Status** | ✅ Passing | Zero TypeScript errors. Vite production build completes successfully without missing dependencies. |
-| **Host Auth** | ⚠️ Trust-based | Currently uses `localStorage`. Sufficient for LAN church environments, but long-term public SAAS deployment will require true Supabase Auth. |
+| **Tier 1 (Local)** | Supabase `verses` table | KJV, Yoruba (BM), ASV, BSB, WEB |
+| **Tier 2 (Edge Function)** | API.Bible | NKJV, NIV, AMP |
+| **Tier 2 (Edge Function)** | NLT.to official API | NLT |
+
+- Client-side `localStorage` cache (fast path) backed by a Supabase `bible_cache` table (30-day TTL)
+- Stale/broken cache entries are automatically evicted on read
+- `fetchWithTimeout` (6s) prevents hanging on slow networks
+- Triage error categories (`client_network`, `third_party_outage`, `user_input`, `internal_error`) power user-friendly toast messages
+
+### Design System
+- Full iOS/macOS aesthetic: Inter typography, spring-based motion, glassmorphism
+- `ConfirmModal` — native browser `alert()` fully replaced with an iOS System Alert replica
+- `CustomDropdown` — pixel-accurate custom select for all form controls
+- `AutoFitFont` — dynamic font scaling for the overlay/fullscreen display
+- 5-route SPA: `/controller`, `/overlay`, `/fullscreen`, `/settings`, `/help`
+- Interactive 7-step onboarding walkthrough (react-joyride)
+- Full Help page with FAQ and feedback section
+
+### Security & Housekeeping
+| Area | Status |
+|---|---|
+| API Keys | ✅ `.env.local` only — never in source |
+| Host Auth | ✅ `localStorage` — correct for LAN church use |
+| Build | ✅ Zero TypeScript errors, clean Vite production build |
+| Dead code | ✅ No dangling imports or unused components |
+| Old `yv_` cache keys | ✅ Auto-purged on app init (`App.tsx` cleanup effect) |
+
+---
+
+## 🟡 Post-Production Roadmap (Deferred by Design)
+
+These items are deliberately deferred and not considered blockers:
+
+| Item | Plan |
+|---|---|
+| **Unit tests** | To be added post-production (`vitest` already installed) |
+| **PWA / Offline mode** | To be added post-production (Local DB fallback already provides partial offline support) |
+| **NLT markup changes** | Handled by active maintenance — no automated guard needed |
 
 ---
 
 ## Conclusion
-The project has successfully crossed the threshold from "functional" to "premium". The remaining tasks are primarily business-oriented (API approvals) and long-term scaling considerations (Auth, PWA), rather than immediate bug fixes.
+
+The application has crossed from prototype to production. All core features — real-time sync, multi-translation Bible fetching, premium UI, LAN discovery, and onboarding — are complete and stable. No critical issues remain. Remaining roadmap items (tests, PWA) are scheduled post-launch improvements, not launch blockers.

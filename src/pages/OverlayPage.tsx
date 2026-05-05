@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { AutoFitFont } from '../components/AutoFitFont';
+import { VerseText } from '../components/VerseText';
 
 import { useSyncSubscriber, usePresence } from '../hooks/useSync';
 import type { VersePayload } from '../hooks/useSync';
@@ -145,10 +146,12 @@ const OverlayPage: React.FC = () => {
                       fontWeight: 'var(--font-weight-semibold)',
                       lineHeight: 1.3,
                       textShadow: '0 2px 10px rgba(0,0,0,0.5)',
-                      marginBottom: (verse.showSecondary && verse.secondaryText) ? 'calc(var(--space-3) * var(--font-scale))' : 0
+                      marginBottom: (verse.showSecondary && verse.secondaryText) ? 'calc(var(--space-3) * var(--font-scale))' : 0,
+                      textAlign: 'center'
                     }}
                   >
-                    {verse.primaryText}
+                    <VerseText text={verse.primaryText} showVerseNumbers={verse.showVerseNumbers ?? false} isMultiVerse={verse.ref.includes('-')} />&nbsp;&nbsp;&nbsp;
+                    <span style={{ display: 'inline-block', whiteSpace: 'nowrap', fontSize: '0.65em', opacity: 0.5, fontWeight: 'var(--font-weight-medium)', letterSpacing: '0.05em', marginTop: '0.1em' }}>[{verse.primaryVersion}]</span>
                   </p>
                 )}
 
@@ -159,28 +162,17 @@ const OverlayPage: React.FC = () => {
                       fontSize: 'calc(var(--font-size-3xl) * var(--font-scale))', 
                       fontWeight: 'var(--font-weight-medium)',
                       lineHeight: 1.3,
-                      fontStyle: 'italic'
+                      fontStyle: 'italic',
+                      textAlign: 'center'
                     }}
                   >
-                    {verse.secondaryText}
+                    <VerseText text={verse.secondaryText} showVerseNumbers={verse.showVerseNumbers ?? false} isMultiVerse={verse.ref.includes('-')} />&nbsp;&nbsp;&nbsp;
+                    <span style={{ display: 'inline-block', whiteSpace: 'nowrap', fontSize: '0.65em', opacity: 0.5, fontStyle: 'normal', letterSpacing: '0.05em', marginTop: '0.1em' }}>[{verse.secondaryVersion}]</span>
                   </p>
                 )}
               </div>
               
-              {/* ATTRIBUTION */}
-              <div style={{ position: 'absolute', bottom: '12px', right: '20px', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px', opacity: 0.5 }}>
-                {(verse.primarySource === 'api.bible' || verse.secondarySource === 'api.bible') && (
-                  <span style={{ color: '#fff', fontSize: '12px', fontWeight: 'bold', letterSpacing: '0.05em', textTransform: 'uppercase' }}>Powered by API.Bible</span>
-                )}
-                {(verse.primarySource === 'nlt' || verse.secondarySource === 'nlt') && (
-                  <span style={{ color: '#fff', fontSize: '9px', fontWeight: 'bold', textAlign: 'right', maxWidth: '400px', lineHeight: 1.4 }}>
-                    Scripture quotations marked (NLT) are taken from the Holy Bible, New Living Translation, copyright ©1996, 2004, 2015 by Tyndale House Foundation. Used by permission of Tyndale House Publishers. All rights reserved.
-                  </span>
-                )}
-                {verse.primarySource === 'local' && verse.secondarySource === 'local' && (
-                  <span style={{ color: '#fff', fontSize: '12px', fontWeight: 'bold', letterSpacing: '0.05em', textTransform: 'uppercase' }}>StreamBible Local Data</span>
-                )}
-              </div>
+
               </AutoFitFont>
             </div>
           </motion.div>

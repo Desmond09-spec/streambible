@@ -11,6 +11,7 @@ export interface VersePayload {
   showSecondary: boolean;
   primarySource: 'api.bible' | 'local' | 'nlt';
   secondarySource: 'api.bible' | 'local' | 'nlt';
+  showVerseNumbers?: boolean;
 }
 
 export interface DevicePresence {

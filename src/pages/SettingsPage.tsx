@@ -13,6 +13,7 @@ export const SETTINGS_KEYS = {
   pushConfirm: 'streambible-push-confirm',
   autoClear:   'streambible-auto-clear-seconds',
   theme:       'streambible-theme',
+  verseNumbers:'streambible-verse-numbers',
 };
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
@@ -219,7 +220,8 @@ const SettingsPage: React.FC = () => {
     debounceEnabled, setDebounceEnabled,
     gatekeepDiscovery, setGatekeepDiscovery,
     pushConfirmEnabled, setPushConfirmEnabled,
-    autoClearSeconds, setAutoClearSeconds
+    autoClearSeconds, setAutoClearSeconds,
+    showVerseNumbers, setShowVerseNumbers
   } = useSettings();
   const [savedIndicator, setSavedIndicator] = useState(false);
 
@@ -232,6 +234,7 @@ const SettingsPage: React.FC = () => {
   const setGatekeep = (v: boolean) => { setGatekeepDiscovery(v); save(); };
   const setPushConfirm = (v: boolean) => { setPushConfirmEnabled(v); save(); };
   const setAutoClear = (v: number) => { setAutoClearSeconds(v); save(); };
+  const setVerseNumbers = (v: boolean) => { setShowVerseNumbers(v); save(); };
 
   const goBack = () => navigate(roomId ? `/controller?room=${roomId}` : '/controller');
 
@@ -349,6 +352,13 @@ const SettingsPage: React.FC = () => {
             description="Require a confirmation tap before broadcasting to prevent accidental pushes."
             checked={pushConfirmEnabled}
             onChange={setPushConfirm}
+          />
+          <SettingToggleRow
+            id="toggle-verse-numbers"
+            label="Show verse numbers"
+            description="Display verse numbers when showing multiple verses on screens."
+            checked={showVerseNumbers}
+            onChange={setVerseNumbers}
           />
           <SettingSelectRow
             label="Auto-clear overlay"

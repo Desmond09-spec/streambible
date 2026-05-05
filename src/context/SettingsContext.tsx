@@ -11,6 +11,8 @@ interface SettingsContextType {
   setPushConfirmEnabled: (val: boolean) => void;
   autoClearSeconds: number;
   setAutoClearSeconds: (val: number) => void;
+  showVerseNumbers: boolean;
+  setShowVerseNumbers: (val: boolean) => void;
 }
 
 const defaultSettings: SettingsContextType = {
@@ -22,6 +24,8 @@ const defaultSettings: SettingsContextType = {
   setPushConfirmEnabled: () => {},
   autoClearSeconds: 0,
   setAutoClearSeconds: () => {},
+  showVerseNumbers: false,
+  setShowVerseNumbers: () => {},
 };
 
 const SettingsContext = createContext<SettingsContextType>(defaultSettings);
@@ -41,6 +45,9 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
   );
   const [autoClearSeconds, setAutoClearSecondsState] = useState(() =>
     parseInt(localStorage.getItem(SETTINGS_KEYS.autoClear) || '0', 10)
+  );
+  const [showVerseNumbers, setShowVerseNumbersState] = useState(() =>
+    localStorage.getItem(SETTINGS_KEYS.verseNumbers) === 'true'
   );
 
   const setDebounceEnabled = (val: boolean) => {
@@ -63,6 +70,11 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
     localStorage.setItem(SETTINGS_KEYS.autoClear, String(val));
   };
 
+  const setShowVerseNumbers = (val: boolean) => {
+    setShowVerseNumbersState(val);
+    localStorage.setItem(SETTINGS_KEYS.verseNumbers, String(val));
+  };
+
   return (
     <SettingsContext.Provider
       value={{
@@ -74,6 +86,8 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
         setPushConfirmEnabled,
         autoClearSeconds,
         setAutoClearSeconds,
+        showVerseNumbers,
+        setShowVerseNumbers,
       }}
     >
       {children}

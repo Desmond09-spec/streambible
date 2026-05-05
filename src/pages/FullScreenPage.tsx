@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { AutoFitFont } from '../components/AutoFitFont';
+import { VerseText } from '../components/VerseText';
 
 import { useSyncSubscriber, usePresence } from '../hooks/useSync';
 import type { VersePayload } from '../hooks/useSync';
@@ -74,8 +75,8 @@ const FullScreenPage: React.FC = () => {
           top: '50%',
           left: '50%',
           transform: 'translate(-50%, -50%)',
-          width: '80vw',
-          height: '80vh',
+          width: '100vw',
+          height: '100vh',
           background: 'radial-gradient(circle, rgba(10,132,255,0.15) 0%, rgba(0,0,0,0) 70%)',
           zIndex: 0
         }}
@@ -102,71 +103,64 @@ const FullScreenPage: React.FC = () => {
             }}
           >
             <AutoFitFont dependencies={[verse]}>
-              <motion.h1 
-                initial={{ opacity: 0, y: -20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.3, duration: 0.8 }}
-                style={{ 
-                  color: 'var(--color-accent-primary)', 
-                  fontSize: 'calc(var(--font-size-3xl) * var(--font-scale))', 
-                  fontWeight: 'var(--font-weight-bold)',
-                  letterSpacing: '0.15em',
-                  textTransform: 'uppercase',
-                  marginBottom: 'calc(var(--space-6) * var(--font-scale))'
-                }}
-              >
-                {verse.ref}
-              </motion.h1>
-              
-              {verse.showPrimary && verse.primaryText && (
-                <p 
+              <div style={{ padding: '3vh 2vw' }}>
+                <motion.h1 
+                  initial={{ opacity: 0, y: -20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.3, duration: 0.8 }}
                   style={{ 
-                    color: '#ffffff', 
-                    fontSize: 'calc(var(--font-size-5xl) * var(--font-scale))', 
-                    fontWeight: 'var(--font-weight-semibold)',
-                    lineHeight: 1.4,
-                    textShadow: '0 4px 20px rgba(0,0,0,0.8)'
+                    color: 'var(--color-accent-primary)', 
+                    fontSize: 'calc(var(--font-size-3xl) * var(--font-scale))', 
+                    fontWeight: 'var(--font-weight-bold)',
+                    letterSpacing: '0.15em',
+                    textTransform: 'uppercase',
+                    marginBottom: 'calc(var(--space-6) * var(--font-scale))'
                   }}
                 >
-                  {verse.primaryText}
-                </p>
-              )}
+                  {verse.ref}
+                </motion.h1>
+                
+                {verse.showPrimary && verse.primaryText && (
+                  <p 
+                    style={{ 
+                      color: '#ffffff', 
+                      fontSize: 'calc(var(--font-size-5xl) * var(--font-scale))', 
+                      fontWeight: 'var(--font-weight-semibold)',
+                      lineHeight: 1.4,
+                      textShadow: '0 4px 20px rgba(0,0,0,0.8)',
+                      textAlign: 'center'
+                    }}
+                  >
+                    <VerseText text={verse.primaryText} showVerseNumbers={verse.showVerseNumbers ?? false} isMultiVerse={verse.ref.includes('-')} />&nbsp;&nbsp;&nbsp;
+                    <span style={{ display: 'inline-block', whiteSpace: 'nowrap', fontSize: '0.65em', opacity: 0.5, fontWeight: 'var(--font-weight-medium)', letterSpacing: '0.05em' }}>[{verse.primaryVersion}]</span>
+                  </p>
+                )}
 
-              {verse.showSecondary && verse.secondaryText && (
-                <motion.p 
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  transition={{ delay: 0.5, duration: 0.8 }}
-                  style={{ 
-                    color: 'rgba(255, 255, 255, 0.7)', 
-                    fontSize: 'calc(var(--font-size-4xl) * var(--font-scale))', 
-                    fontWeight: 'var(--font-weight-medium)',
-                    lineHeight: 1.4,
-                    fontStyle: 'italic',
-                    paddingTop: 'calc(var(--space-4) * var(--font-scale))',
-                    marginTop: 'calc(var(--space-4) * var(--font-scale))',
-                    borderTop: '1px solid rgba(255,255,255,0.1)'
-                  }}
-                >
-                  {verse.secondaryText}
-                </motion.p>
-              )}
+                {verse.showSecondary && verse.secondaryText && (
+                  <motion.p 
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ delay: 0.5, duration: 0.8 }}
+                    style={{ 
+                      color: 'rgba(255, 255, 255, 0.7)', 
+                      fontSize: 'calc(var(--font-size-4xl) * var(--font-scale))', 
+                      fontWeight: 'var(--font-weight-medium)',
+                      lineHeight: 1.4,
+                      fontStyle: 'italic',
+                      paddingTop: 'calc(var(--space-4) * var(--font-scale))',
+                      marginTop: 'calc(var(--space-4) * var(--font-scale))',
+                      borderTop: '1px solid rgba(255,255,255,0.1)',
+                      textAlign: 'center'
+                    }}
+                  >
+                    <VerseText text={verse.secondaryText} showVerseNumbers={verse.showVerseNumbers ?? false} isMultiVerse={verse.ref.includes('-')} />&nbsp;&nbsp;&nbsp;
+                    <span style={{ display: 'inline-block', whiteSpace: 'nowrap', fontSize: '0.65em', opacity: 0.5, fontStyle: 'normal', letterSpacing: '0.05em' }}>[{verse.secondaryVersion}]</span>
+                  </motion.p>
+                )}
+              </div>
             </AutoFitFont>
 
-            {/* ATTRIBUTION */}
-            <div style={{ position: 'absolute', bottom: '24px', right: '40px', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px', opacity: 0.35 }}>
-              {(verse.primarySource === 'api.bible' || verse.secondarySource === 'api.bible') && (
-                <span style={{ color: '#fff', fontSize: '14px', fontWeight: 'bold', letterSpacing: '0.05em', textTransform: 'uppercase' }}>Powered by API.Bible</span>
-              )}
-              {(verse.primarySource === 'nlt' || verse.secondarySource === 'nlt') && (
-                <span style={{ color: '#fff', fontSize: '11px', fontWeight: 'bold', textAlign: 'right', maxWidth: '500px', lineHeight: 1.4 }}>
-                  Scripture quotations marked (NLT) are taken from the Holy Bible, New Living Translation, copyright ©1996, 2004, 2015 by Tyndale House Foundation. Used by permission of Tyndale House Publishers. All rights reserved.
-                </span>
-              )}
-              {verse.primarySource === 'local' && verse.secondarySource === 'local' && (
-                <span style={{ color: '#fff', fontSize: '14px', fontWeight: 'bold', letterSpacing: '0.05em', textTransform: 'uppercase' }}>StreamBible Local Data</span>
-              )}
-            </div>
+
           </motion.div>
         )}
       </AnimatePresence>
