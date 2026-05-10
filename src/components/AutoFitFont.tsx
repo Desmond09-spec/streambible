@@ -3,9 +3,11 @@ import React, { useEffect, useRef, useState } from 'react';
 interface AutoFitFontProps {
   children: React.ReactNode;
   dependencies: unknown[];
+  maxHeightPx?: number;
+  textAlign?: 'left' | 'center' | 'right';
 }
 
-export const AutoFitFont: React.FC<AutoFitFontProps> = ({ children, dependencies }) => {
+export const AutoFitFont: React.FC<AutoFitFontProps> = ({ children, dependencies, maxHeightPx, textAlign = 'center' }) => {
   const wrapperRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
   const [scaleFactor, setScaleFactor] = useState(1);
@@ -16,8 +18,8 @@ export const AutoFitFont: React.FC<AutoFitFontProps> = ({ children, dependencies
     if (!wrapper || !content) return;
 
     const calculateFit = () => {
-      // Get the maximum allowed height from the wrapper
-      const maxHeight = wrapper.clientHeight;
+      // Use explicit max height if provided, otherwise fallback to wrapper's height
+      const maxHeight = maxHeightPx || wrapper.clientHeight;
       if (maxHeight === 0) return;
 
       let min = 0.2;
@@ -78,7 +80,7 @@ export const AutoFitFont: React.FC<AutoFitFontProps> = ({ children, dependencies
         ref={contentRef}
         style={{
           width: '100%',
-          textAlign: 'center',
+          textAlign: textAlign,
           '--font-scale': scaleFactor
         } as React.CSSProperties}
       >

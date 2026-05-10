@@ -70,109 +70,90 @@ const OverlayPage: React.FC = () => {
       <AnimatePresence>
         {verse.isVisible && (
           <motion.div
-            initial={{ opacity: 0, y: 50, scale: 0.95 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 50, scale: 0.95 }}
+            initial={{ opacity: 0, x: -50, filter: 'blur(10px)' }}
+            animate={{ opacity: 1, x: 0, filter: 'blur(0px)' }}
+            exit={{ opacity: 0, x: -50, filter: 'blur(10px)' }}
             transition={{ 
               type: "spring", 
-              stiffness: 260, 
-              damping: 25,
-              mass: 1.2
+              stiffness: 300, 
+              damping: 30,
+              mass: 1
             }}
             style={{
               position: 'absolute',
-              bottom: '40px',
-              left: '5%',
-              right: '5%',
+              bottom: '5vh',
+              left: '4vw',
               display: 'flex',
               flexDirection: 'column',
-              alignItems: 'center',
-              justifyContent: 'center',
-              textAlign: 'center'
+              alignItems: 'flex-start',
+              justifyContent: 'flex-end',
+              maxWidth: '65vw' // Restrict width so it doesn't span the whole screen
             }}
           >
             <div 
               style={{
-                background: 'rgba(0, 0, 0, 0.65)',
+                background: 'rgba(12, 12, 14, 0.85)',
                 backdropFilter: 'blur(24px)',
                 WebkitBackdropFilter: 'blur(24px)',
-                border: '1px solid rgba(255, 255, 255, 0.15)',
-                borderRadius: 'var(--radius-xl)',
-                padding: 'var(--space-6) var(--space-8)',
-                boxShadow: '0 30px 60px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.2)',
-                maxWidth: '1400px',
-                width: '92vw',
-                height: '35vh', // Fixed height so the content shrinks instead of pushing the box down
+                border: '1px solid rgba(255, 255, 255, 0.08)',
+                borderLeft: '4px solid var(--color-accent-primary)',
+                borderRadius: '16px',
+                padding: '1.5rem 2.5rem',
+                boxShadow: '0 20px 40px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.1)',
+                display: 'inline-block',
                 position: 'relative',
                 overflow: 'hidden'
               }}
             >
-              <AutoFitFont dependencies={[verse]}>
-              {/* Subtle light sweep effect */}
-              <motion.div
-                initial={{ left: '-100%' }}
-                animate={{ left: '200%' }}
-                transition={{ duration: 3, repeat: Infinity, ease: "linear", repeatDelay: 5 }}
-                style={{
-                  position: 'absolute',
-                  top: 0,
-                  width: '30%',
-                  height: '100%',
-                  background: 'linear-gradient(to right, transparent, rgba(255,255,255,0.1), transparent)',
-                  transform: 'skewX(-20deg)',
-                  zIndex: 0
-                }}
-              />
-
-              <div style={{ position: 'relative', zIndex: 1 }}>
-                <h2 
-                  style={{ 
-                    color: 'var(--color-accent-primary)', 
-                    fontSize: 'calc(var(--font-size-xl) * var(--font-scale))', 
-                    fontWeight: 'var(--font-weight-bold)',
-                    letterSpacing: '0.1em',
-                    textTransform: 'uppercase',
-                    marginBottom: 'calc(var(--space-3) * var(--font-scale))'
-                  }}
-                >
-                  {verse.ref}
-                </h2>
-                
-                {verse.showPrimary && verse.primaryText && (
-                  <p 
+              <AutoFitFont dependencies={[verse]} maxHeightPx={window.innerHeight * 0.40} textAlign="left">
+                <div style={{ position: 'relative', zIndex: 1 }}>
+                  <h2 
                     style={{ 
-                      color: '#ffffff', 
-                      fontSize: 'calc(var(--font-size-4xl) * var(--font-scale))', 
-                      fontWeight: 'var(--font-weight-semibold)',
-                      lineHeight: 1.3,
-                      textShadow: '0 2px 10px rgba(0,0,0,0.5)',
-                      marginBottom: (verse.showSecondary && verse.secondaryText) ? 'calc(var(--space-3) * var(--font-scale))' : 0,
-                      textAlign: 'center'
+                      color: 'var(--color-accent-primary)', 
+                      fontSize: 'calc(1rem * var(--font-scale))', 
+                      fontWeight: '800',
+                      letterSpacing: '0.15em',
+                      textTransform: 'uppercase',
+                      marginBottom: 'calc(0.75rem * var(--font-scale))',
+                      textShadow: '0 2px 4px rgba(0,0,0,0.5)'
                     }}
                   >
-                    <VerseText text={verse.primaryText} showVerseNumbers={verse.showVerseNumbers ?? false} isMultiVerse={verse.ref.includes('-')} />&nbsp;&nbsp;&nbsp;
-                    <span style={{ display: 'inline-block', whiteSpace: 'nowrap', fontSize: '0.65em', opacity: 0.5, fontWeight: 'var(--font-weight-medium)', letterSpacing: '0.05em', marginTop: '0.1em' }}>[{verse.primaryVersion}]</span>
-                  </p>
-                )}
+                    {verse.ref}
+                  </h2>
+                  
+                  {verse.showPrimary && verse.primaryText && (
+                    <p 
+                      style={{ 
+                        color: '#ffffff', 
+                        fontSize: 'calc(2.5vw * var(--font-scale))', 
+                        fontWeight: '600',
+                        lineHeight: 1.4,
+                        textShadow: '0 2px 8px rgba(0,0,0,0.8)',
+                        marginBottom: (verse.showSecondary && verse.secondaryText) ? 'calc(1rem * var(--font-scale))' : 0,
+                        textAlign: 'left'
+                      }}
+                    >
+                      <VerseText text={verse.primaryText} showVerseNumbers={verse.showVerseNumbers ?? false} isMultiVerse={verse.ref.includes('-')} />&nbsp;&nbsp;&nbsp;
+                      <span style={{ display: 'inline-block', whiteSpace: 'nowrap', fontSize: '0.6em', opacity: 0.6, fontWeight: '500', letterSpacing: '0.05em', transform: 'translateY(-2px)' }}>[{verse.primaryVersion}]</span>
+                    </p>
+                  )}
 
-                {verse.showSecondary && verse.secondaryText && (
-                  <p 
-                    style={{ 
-                      color: 'rgba(255, 255, 255, 0.75)', 
-                      fontSize: 'calc(var(--font-size-3xl) * var(--font-scale))', 
-                      fontWeight: 'var(--font-weight-medium)',
-                      lineHeight: 1.3,
-                      fontStyle: 'italic',
-                      textAlign: 'center'
-                    }}
-                  >
-                    <VerseText text={verse.secondaryText} showVerseNumbers={verse.showVerseNumbers ?? false} isMultiVerse={verse.ref.includes('-')} />&nbsp;&nbsp;&nbsp;
-                    <span style={{ display: 'inline-block', whiteSpace: 'nowrap', fontSize: '0.65em', opacity: 0.5, fontStyle: 'normal', letterSpacing: '0.05em', marginTop: '0.1em' }}>[{verse.secondaryVersion}]</span>
-                  </p>
-                )}
-              </div>
-              
-
+                  {verse.showSecondary && verse.secondaryText && (
+                    <p 
+                      style={{ 
+                        color: 'rgba(255, 255, 255, 0.75)', 
+                        fontSize: 'calc(2vw * var(--font-scale))', 
+                        fontWeight: '400',
+                        lineHeight: 1.4,
+                        fontStyle: 'italic',
+                        textAlign: 'left'
+                      }}
+                    >
+                      <VerseText text={verse.secondaryText} showVerseNumbers={verse.showVerseNumbers ?? false} isMultiVerse={verse.ref.includes('-')} />&nbsp;&nbsp;&nbsp;
+                      <span style={{ display: 'inline-block', whiteSpace: 'nowrap', fontSize: '0.6em', opacity: 0.6, fontStyle: 'normal', letterSpacing: '0.05em', transform: 'translateY(-2px)' }}>[{verse.secondaryVersion}]</span>
+                    </p>
+                  )}
+                </div>
               </AutoFitFont>
             </div>
           </motion.div>
