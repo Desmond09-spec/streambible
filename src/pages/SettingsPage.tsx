@@ -574,6 +574,16 @@ const SettingsPage: React.FC = () => {
             description="Disconnect all remote devices and generate a new room ID."
             onClick={regenerateRoom}
             danger
+          />
+          <SettingLinkRow
+            label="Privacy Policy"
+            description="Read how we handle your data."
+            onClick={() => navigate('/privacy')}
+          />
+          <SettingLinkRow
+            label="Terms of Service"
+            description="Read the terms for using StreamBible."
+            onClick={() => navigate('/terms')}
             last
           />
         </SettingsSection>
