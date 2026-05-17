@@ -1,36 +1,65 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
-import { motion, AnimatePresence } from 'framer-motion';
-import { MoreHorizontal, ExternalLink, MonitorUp, Settings } from 'lucide-react';
-import './ControllerLegacy.css';
-import { parseReference, getCanonicalBookName, fetchVerse, curatedVersions, type TriageCategory } from '../services/bibleService';
-import WalkthroughOverlay from '../components/WalkthroughOverlay';
-import { CustomDropdown } from '../components/CustomDropdown';
-import { ConfirmModal } from '../components/ConfirmModal';
-import { VerseText } from '../components/VerseText';
-import { useSettings } from '../context/SettingsContext';
-import { useSession } from '../context/SessionContext';
+import React, { useState, useEffect, useRef } from "react";
+import { useNavigate } from "react-router-dom";
+import { motion, AnimatePresence } from "framer-motion";
+import {
+  MoreHorizontal,
+  ExternalLink,
+  MonitorUp,
+  Settings,
+} from "lucide-react";
+import "./ControllerLegacy.css";
+import {
+  parseReference,
+  getCanonicalBookName,
+  fetchVerse,
+  curatedVersions,
+  type TriageCategory,
+} from "../services/bibleService";
+import WalkthroughOverlay from "../components/WalkthroughOverlay";
+import { CustomDropdown } from "../components/CustomDropdown";
+import { ConfirmModal } from "../components/ConfirmModal";
+import { VerseText } from "../components/VerseText";
+import { useSettings } from "../context/SettingsContext";
+import { useSession } from "../context/SessionContext";
 
 const SkeletonLoader = () => (
-  <div style={{ width: '100%', paddingTop: '4px' }}>
-    <div className="skeleton-bar" style={{ width: '100%' }}></div>
-    <div className="skeleton-bar" style={{ width: '90%' }}></div>
-    <div className="skeleton-bar" style={{ width: '95%' }}></div>
-    <div className="skeleton-bar" style={{ width: '60%' }}></div>
+  <div style={{ width: "100%", paddingTop: "4px" }}>
+    <div className="skeleton-bar" style={{ width: "100%" }}></div>
+    <div className="skeleton-bar" style={{ width: "90%" }}></div>
+    <div className="skeleton-bar" style={{ width: "95%" }}></div>
+    <div className="skeleton-bar" style={{ width: "60%" }}></div>
   </div>
 );
 
 const ControllerPage: React.FC = () => {
   const navigate = useNavigate();
-  const [theme, setTheme] = useState<'light' | 'dark'>('light');
-  const [query, setQuery] = useState('');
-  
-  const { 
-    roomId, isHost, remoteAccess, setRemoteAccess, discoveryEnabled, setDiscoveryEnabled,
-    devices, myId, hostStatus, wsConnected, pushVerse, broadcastClear,
-    joinRequest, incomingRequest,
-    requestStatus, setRequestStatus, nearbySessions, refreshDiscovery, isDiscovering, 
-    regenerateRoom, handleJoinRequest, handleResponse, claimedRoomId
+  const [theme, setTheme] = useState<"light" | "dark">("light");
+  const [query, setQuery] = useState("");
+
+  const {
+    roomId,
+    isHost,
+    remoteAccess,
+    setRemoteAccess,
+    discoveryEnabled,
+    setDiscoveryEnabled,
+    devices,
+    myId,
+    hostStatus,
+    wsConnected,
+    pushVerse,
+    broadcastClear,
+    joinRequest,
+    incomingRequest,
+    requestStatus,
+    setRequestStatus,
+    nearbySessions,
+    refreshDiscovery,
+    isDiscovering,
+    regenerateRoom,
+    handleJoinRequest,
+    handleResponse,
+    claimedRoomId,
   } = useSession();
 
   const [showPushConfirm, setShowPushConfirm] = useState(false);
@@ -41,48 +70,72 @@ const ControllerPage: React.FC = () => {
     Promise.resolve().then(() => setQrLoaded(false));
   }, [roomId]);
 
-  const { debounceEnabled, pushConfirmEnabled, autoClearSeconds, showVerseNumbers } = useSettings();
-  
+  const {
+    debounceEnabled,
+    pushConfirmEnabled,
+    autoClearSeconds,
+    showVerseNumbers,
+  } = useSettings();
+
   // ── Settings (read from context) ────────────
   const autoClearTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const [primaryVersion, setPrimaryVersion] = useState(() => localStorage.getItem('streambible-primary-version') || '1');
-  const [secondaryVersion, setSecondaryVersion] = useState(() => localStorage.getItem('streambible-secondary-version') || '1');
-  const [showPrimary, setShowPrimary] = useState(() => localStorage.getItem('streambible-show-primary') !== 'false');
-  const [showSecondary, setShowSecondary] = useState(() => localStorage.getItem('streambible-show-secondary') !== 'false');
+  const [primaryVersion, setPrimaryVersion] = useState(
+    () => localStorage.getItem("streambible-primary-version") || "1",
+  );
+  const [secondaryVersion, setSecondaryVersion] = useState(
+    () => localStorage.getItem("streambible-secondary-version") || "1",
+  );
+  const [showPrimary, setShowPrimary] = useState(
+    () => localStorage.getItem("streambible-show-primary") !== "false",
+  );
+  const [showSecondary, setShowSecondary] = useState(
+    () => localStorage.getItem("streambible-show-secondary") !== "false",
+  );
 
-  const [primaryText, setPrimaryText] = useState('');
-  const [primaryRef, setPrimaryRef] = useState('');
+  const [primaryText, setPrimaryText] = useState("");
+  const [primaryRef, setPrimaryRef] = useState("");
   const [primaryExpanded, setPrimaryExpanded] = useState(false);
 
-  const [secondaryText, setSecondaryText] = useState('');
-  const [secondaryRef, setSecondaryRef] = useState('');
+  const [secondaryText, setSecondaryText] = useState("");
+  const [secondaryRef, setSecondaryRef] = useState("");
   const [secondaryExpanded, setSecondaryExpanded] = useState(false);
 
-
-
-  const [status, setStatus] = useState<'default' | 'fetching' | 'success' | 'live' | 'error'>('default');
-  const [statusMsg, setStatusMsg] = useState('Ready');
+  const [status, setStatus] = useState<
+    "default" | "fetching" | "success" | "live" | "error"
+  >("default");
+  const [statusMsg, setStatusMsg] = useState("Ready");
 
   useEffect(() => {
-    localStorage.setItem('streambible-primary-version', primaryVersion);
-    localStorage.setItem('streambible-secondary-version', secondaryVersion);
-    localStorage.setItem('streambible-show-primary', showPrimary.toString());
-    localStorage.setItem('streambible-show-secondary', showSecondary.toString());
+    localStorage.setItem("streambible-primary-version", primaryVersion);
+    localStorage.setItem("streambible-secondary-version", secondaryVersion);
+    localStorage.setItem("streambible-show-primary", showPrimary.toString());
+    localStorage.setItem(
+      "streambible-show-secondary",
+      showSecondary.toString(),
+    );
   }, [primaryVersion, secondaryVersion, showPrimary, showSecondary]);
 
-
-
   const [isNetworkExpanded, setIsNetworkExpanded] = useState(false);
-  
-  const [copiedType, setCopiedType] = useState<'overlay' | 'fullscreen' | 'controller' | null>(null);
+
+  const [copiedType, setCopiedType] = useState<
+    "overlay" | "fullscreen" | "controller" | null
+  >(null);
   const [showFallbackToast, setShowFallbackToast] = useState(false);
   const [isUsingFallback, setIsUsingFallback] = useState(false);
-  const [fallbackType, setFallbackType] = useState<'api.bible' | 'local' | null>(null);
-  const [primarySource, setPrimarySource] = useState<'api.bible' | 'local' | 'nlt'>('local');
-  const [secondarySource, setSecondarySource] = useState<'api.bible' | 'local' | 'nlt'>('local');
+  const [fallbackType, setFallbackType] = useState<
+    "api.bible" | "local" | null
+  >(null);
+  const [primarySource, setPrimarySource] = useState<
+    "api.bible" | "local" | "nlt"
+  >("local");
+  const [secondarySource, setSecondarySource] = useState<
+    "api.bible" | "local" | "nlt"
+  >("local");
   const [triageReason, setTriageReason] = useState<TriageCategory>(null);
-  const [fallbackOriginalVersion, setFallbackOriginalVersion] = useState<string | null>(null);
+  const [fallbackOriginalVersion, setFallbackOriginalVersion] = useState<
+    string | null
+  >(null);
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
@@ -91,166 +144,184 @@ const ControllerPage: React.FC = () => {
 
   const tourSteps = [
     {
-      id: 'welcome',
-      title: 'Welcome to StreamBible',
-      text: 'A clean, simple, and powerful way to present scripture on your livestream. Let\'s quickly go over the basics.'
+      id: "welcome",
+      title: "Welcome to StreamBible",
+      text: "A clean, simple, and powerful way to present scripture on your livestream. Let's quickly go over the basics.",
     },
     {
-      id: 'search',
-      title: 'Search in Milliseconds',
-      text: 'Type a reference like "John 3:16" in the search bar. StreamBible will instantly fetch it from our curated library of reliable translations.'
+      id: "search",
+      title: "Search in Milliseconds",
+      text: 'Type a reference like "John 3:16" in the search bar. StreamBible will instantly fetch it from our curated library of reliable translations.',
     },
     {
-      id: 'preview',
-      title: 'Dual Language Support',
-      text: 'Preview your text before it goes live. You can even toggle a secondary translation (like Yoruba) to display side-by-side with English.'
+      id: "preview",
+      title: "Dual Language Support",
+      text: "Preview your text before it goes live. You can even toggle a secondary translation (like Yoruba) to display side-by-side with English.",
     },
     {
-      id: 'broadcast',
-      title: 'Push to OBS',
-      text: 'Once you are happy with the preview, click "Push Live". Copy the overlay link from the top right and paste it into an OBS Browser Source to see it on screen!'
-    }
+      id: "broadcast",
+      title: "Push to OBS",
+      text: 'Once you are happy with the preview, click "Push Live". Copy the overlay link from the top right and paste it into an OBS Browser Source to see it on screen!',
+    },
   ];
 
   useEffect(() => {
-    const saved = localStorage.getItem('streambible-theme') || 'light';
-    Promise.resolve().then(() => setTheme(saved as 'light' | 'dark'));
+    const saved = localStorage.getItem("streambible-theme") || "light";
+    Promise.resolve().then(() => setTheme(saved as "light" | "dark"));
 
-    const hasSeenTour = localStorage.getItem('streambible-tour-seen');
+    const hasSeenTour = localStorage.getItem("streambible-tour-seen");
     const urlParams = new URLSearchParams(window.location.search);
-    if (!hasSeenTour || urlParams.get('tour') === 'true') {
+    if (!hasSeenTour || urlParams.get("tour") === "true") {
       setTimeout(() => setShowTour(true), 1000); // Small delay to let UI load
-      if (urlParams.get('tour') === 'true') {
-        urlParams.delete('tour');
-        const newUrl = urlParams.toString() ? `${window.location.pathname}?${urlParams.toString()}` : window.location.pathname;
-        window.history.replaceState({}, '', newUrl);
+      if (urlParams.get("tour") === "true") {
+        urlParams.delete("tour");
+        const newUrl = urlParams.toString()
+          ? `${window.location.pathname}?${urlParams.toString()}`
+          : window.location.pathname;
+        window.history.replaceState({}, "", newUrl);
       }
     }
   }, []);
 
   const toggleTheme = () => {
-    const next = theme === 'dark' ? 'light' : 'dark';
+    const next = theme === "dark" ? "light" : "dark";
     setIsTransitioning(true);
     setTheme(next);
-    localStorage.setItem('streambible-theme', next);
+    localStorage.setItem("streambible-theme", next);
     setTimeout(() => setIsTransitioning(false), 280);
   };
 
   const handleSearch = async (searchQuery: string = query) => {
     if (!searchQuery.trim()) return;
 
-    setStatus('fetching');
-    setStatusMsg('Fetching…');
+    setStatus("fetching");
+    setStatusMsg("Fetching…");
 
     const parsed = parseReference(searchQuery);
     let canonicalRef = searchQuery;
     if (parsed) {
       const bookName = getCanonicalBookName(parsed.bookCode);
       const versePart = parsed.verseStart
-        ? `:${parsed.verseStart}${parsed.verseEnd && parsed.verseEnd !== parsed.verseStart ? `-${parsed.verseEnd}` : ''}`
-        : '';
+        ? `:${parsed.verseStart}${parsed.verseEnd && parsed.verseEnd !== parsed.verseStart ? `-${parsed.verseEnd}` : ""}`
+        : "";
       canonicalRef = `${bookName} ${parsed.chapter}${versePart}`;
     }
 
     try {
-      let pText = 'Verse not found.';
-      let sText = 'Verse not found.';
-      const LOCAL_NATIVE_IDS = new Set(['1', '2079', '2533']);
+      let pText = "Verse not found.";
+      let sText = "Verse not found.";
+      const LOCAL_NATIVE_IDS = new Set(["1", "2079", "2533"]);
       let isLocalSubstitute = false;
-      let pSource: 'api.bible' | 'local' | 'nlt' = 'local';
-      let sSource: 'api.bible' | 'local' | 'nlt' = 'local';
+      let pSource: "api.bible" | "local" | "nlt" = "local";
+      let sSource: "api.bible" | "local" | "nlt" = "local";
       let overallTriage: TriageCategory = null;
 
       try {
-         const pRes = await fetchVerse(primaryVersion, searchQuery);
-         pText = pRes.text;
-         pSource = pRes.source;
-         if (pRes.triageReason) overallTriage = pRes.triageReason;
-         // Only flag as substitute if local served a different translation than requested
-         if (pSource === 'local' && !LOCAL_NATIVE_IDS.has(primaryVersion)) isLocalSubstitute = true;
+        const pRes = await fetchVerse(primaryVersion, searchQuery);
+        pText = pRes.text;
+        pSource = pRes.source;
+        if (pRes.triageReason) overallTriage = pRes.triageReason;
+        // Only flag as substitute if local served a different translation than requested
+        if (pSource === "local" && !LOCAL_NATIVE_IDS.has(primaryVersion))
+          isLocalSubstitute = true;
       } catch (e: unknown) {
-         if (e instanceof Error && (e.message === "Verse not found." || e.message === "Unable to parse reference.")) {
-            overallTriage = 'user_input';
-         } else if (e instanceof Error && e.message === "YouVersion fetch failed") {
-            // Already handled by fetchVerse assigning triageReason, but just in case
-         }
+        if (
+          e instanceof Error &&
+          (e.message === "Verse not found." ||
+            e.message === "Unable to parse reference.")
+        ) {
+          overallTriage = "user_input";
+        } else if (
+          e instanceof Error &&
+          e.message === "YouVersion fetch failed"
+        ) {
+          // Already handled by fetchVerse assigning triageReason, but just in case
+        }
       }
 
       if (isLocalSubstitute) {
-          setIsUsingFallback(true);
-          setFallbackType('local');
-          setPrimarySource('local');
-          setSecondarySource('local');
-          setTriageReason(overallTriage);
-          setFallbackOriginalVersion(primaryVersion);
-          setShowFallbackToast(true);
-          setTimeout(() => setShowFallbackToast(false), 5000);
-          // pText is already KJV from Tier 1 — no need to re-fetch
-          try { 
-            const sRes = await fetchVerse('2079', searchQuery);
-            sText = sRes.text; sSource = sRes.source;
-          } catch { /* ignore */ }
+        setIsUsingFallback(true);
+        setFallbackType("local");
+        setPrimarySource("local");
+        setSecondarySource("local");
+        setTriageReason(overallTriage);
+        setFallbackOriginalVersion(primaryVersion);
+        setShowFallbackToast(true);
+        setTimeout(() => setShowFallbackToast(false), 5000);
+        // pText is already KJV from Tier 1 — no need to re-fetch
+        try {
+          const sRes = await fetchVerse("2079", searchQuery);
+          sText = sRes.text;
+          sSource = sRes.source;
+        } catch {
+          /* ignore */
+        }
       } else {
-          try {
-             const sRes = await fetchVerse(secondaryVersion, searchQuery);
-             sText = sRes.text;
-             sSource = sRes.source;
-             if (sRes.triageReason && !overallTriage) overallTriage = sRes.triageReason;
-             
-             if (sSource === 'local' && !LOCAL_NATIVE_IDS.has(secondaryVersion)) {
-                 setIsUsingFallback(true);
-                 setFallbackType('local');
-                 setPrimarySource(pSource);
-                 setSecondarySource('local');
-                 setTriageReason(overallTriage);
-                 setFallbackOriginalVersion(secondaryVersion);
-                 setShowFallbackToast(true);
-                 setTimeout(() => setShowFallbackToast(false), 5000);
-                 // sText already has KJV from Tier 1, no need to re-fetch
-             } else {
-                 setIsUsingFallback(false);
-                 setFallbackType(null);
-                 setPrimarySource(pSource);
-                 setSecondarySource(sSource);
-                 setTriageReason(overallTriage);
-                 setFallbackOriginalVersion(null);
-                 if (overallTriage) {
-                    setShowFallbackToast(true);
-                    setTimeout(() => setShowFallbackToast(false), 5000);
-                 }
-             }
-          } catch (e: unknown) {
-             if (e instanceof Error && (e.message === "Verse not found." || e.message === "Unable to parse reference.")) {
-                if (!overallTriage) overallTriage = 'user_input';
-             }
-             setTriageReason(overallTriage);
-             if (overallTriage) {
-                setShowFallbackToast(true);
-                setTimeout(() => setShowFallbackToast(false), 5000);
-             }
+        try {
+          const sRes = await fetchVerse(secondaryVersion, searchQuery);
+          sText = sRes.text;
+          sSource = sRes.source;
+          if (sRes.triageReason && !overallTriage)
+            overallTriage = sRes.triageReason;
+
+          if (sSource === "local" && !LOCAL_NATIVE_IDS.has(secondaryVersion)) {
+            setIsUsingFallback(true);
+            setFallbackType("local");
+            setPrimarySource(pSource);
+            setSecondarySource("local");
+            setTriageReason(overallTriage);
+            setFallbackOriginalVersion(secondaryVersion);
+            setShowFallbackToast(true);
+            setTimeout(() => setShowFallbackToast(false), 5000);
+            // sText already has KJV from Tier 1, no need to re-fetch
+          } else {
+            setIsUsingFallback(false);
+            setFallbackType(null);
+            setPrimarySource(pSource);
+            setSecondarySource(sSource);
+            setTriageReason(overallTriage);
+            setFallbackOriginalVersion(null);
+            if (overallTriage) {
+              setShowFallbackToast(true);
+              setTimeout(() => setShowFallbackToast(false), 5000);
+            }
           }
+        } catch (e: unknown) {
+          if (
+            e instanceof Error &&
+            (e.message === "Verse not found." ||
+              e.message === "Unable to parse reference.")
+          ) {
+            if (!overallTriage) overallTriage = "user_input";
+          }
+          setTriageReason(overallTriage);
+          if (overallTriage) {
+            setShowFallbackToast(true);
+            setTimeout(() => setShowFallbackToast(false), 5000);
+          }
+        }
       }
 
       setPrimaryText(pText);
       setPrimaryRef(canonicalRef);
-      
+
       setSecondaryText(sText);
       setSecondaryRef(canonicalRef);
 
       // Catch-all: if nothing was retrieved, ensure the user sees a toast
-      if (pText === 'Verse not found.' && sText === 'Verse not found.') {
-        setTriageReason('user_input');
+      if (pText === "Verse not found." && sText === "Verse not found.") {
+        setTriageReason("user_input");
         setShowFallbackToast(true);
         setTimeout(() => setShowFallbackToast(false), 5000);
-        setStatus('success');
-        setStatusMsg('Verse not found');
+        setStatus("success");
+        setStatusMsg("Verse not found");
       } else {
-        setStatus('success');
-        setStatusMsg('Ready to push');
+        setStatus("success");
+        setStatusMsg("Ready to push");
       }
     } catch {
-      setStatus('error');
-      setStatusMsg('Error fetching verses');
+      setStatus("error");
+      setStatusMsg("Error fetching verses");
     }
   };
 
@@ -269,19 +340,21 @@ const ControllerPage: React.FC = () => {
 
   const pushLive = () => {
     const doPush = () => {
-      const pVersionObj = curatedVersions.find(v => v.id === primaryVersion);
-      const sVersionObj = curatedVersions.find(v => v.id === secondaryVersion);
+      const pVersionObj = curatedVersions.find((v) => v.id === primaryVersion);
+      const sVersionObj = curatedVersions.find(
+        (v) => v.id === secondaryVersion,
+      );
       pushVerse({
         ref: primaryRef,
         primaryText: primaryText,
-        primaryVersion: pVersionObj ? pVersionObj.abbreviation : '',
+        primaryVersion: pVersionObj ? pVersionObj.abbreviation : "",
         secondaryText: secondaryText,
-        secondaryVersion: sVersionObj ? sVersionObj.abbreviation : '',
+        secondaryVersion: sVersionObj ? sVersionObj.abbreviation : "",
         showPrimary: showPrimary,
         showSecondary: showSecondary,
         primarySource: primarySource,
         secondarySource: secondarySource,
-        showVerseNumbers: showVerseNumbers
+        showVerseNumbers: showVerseNumbers,
       });
     };
     if (pushConfirmEnabled) {
@@ -290,10 +363,10 @@ const ControllerPage: React.FC = () => {
     } else {
       doPush();
     }
-      setStatus('live');
-      setStatusMsg('Live on stream');
-      scheduleAutoClear();
-    };
+    setStatus("live");
+    setStatusMsg("Live on stream");
+    scheduleAutoClear();
+  };
 
   // Auto-clear timer: fires after pushLive if the setting is on
   const scheduleAutoClear = () => {
@@ -301,23 +374,32 @@ const ControllerPage: React.FC = () => {
     if (autoClearTimerRef.current) clearTimeout(autoClearTimerRef.current);
     autoClearTimerRef.current = setTimeout(() => {
       broadcastClear();
-      setPrimaryText(''); setPrimaryRef('');
-      setSecondaryText(''); setSecondaryRef('');
-      setQuery(''); setStatus('default'); setStatusMsg('Ready');
+      setPrimaryText("");
+      setPrimaryRef("");
+      setSecondaryText("");
+      setSecondaryRef("");
+      setQuery("");
+      setStatus("default");
+      setStatusMsg("Ready");
     }, autoClearSeconds * 1000);
   };
 
   const clearScreen = () => {
     if (autoClearTimerRef.current) clearTimeout(autoClearTimerRef.current);
     broadcastClear();
-    setPrimaryText(''); setPrimaryRef('');
-    setSecondaryText(''); setSecondaryRef('');
-    setQuery('');
-    setStatus('default');
-    setStatusMsg('Ready');
+    setPrimaryText("");
+    setPrimaryRef("");
+    setSecondaryText("");
+    setSecondaryRef("");
+    setQuery("");
+    setStatus("default");
+    setStatusMsg("Ready");
   };
 
-  const copyUrl = (url: string, type: 'overlay' | 'fullscreen' | 'controller') => {
+  const copyUrl = (
+    url: string,
+    type: "overlay" | "fullscreen" | "controller",
+  ) => {
     navigator.clipboard.writeText(url);
     setCopiedType(type);
     setTimeout(() => setCopiedType(null), 3000);
@@ -325,38 +407,53 @@ const ControllerPage: React.FC = () => {
 
   const finishTour = () => {
     setShowTour(false);
-    localStorage.setItem('streambible-tour-seen', 'true');
+    localStorage.setItem("streambible-tour-seen", "true");
   };
 
-
-
   return (
-    <div id="controller-legacy-wrapper" className={`theme-${theme} legacy-body${isTransitioning ? ' theme-transitioning' : ''}`} style={{ width: '100%', minHeight: '100vh', flex: 1 }}>
-      
-      {showTour && <WalkthroughOverlay steps={tourSteps} onComplete={finishTour} />}
+    <div
+      id="controller-legacy-wrapper"
+      className={`theme-${theme} legacy-body${isTransitioning ? " theme-transitioning" : ""}`}
+      style={{ width: "100%", minHeight: "100vh", flex: 1 }}
+    >
+      {showTour && (
+        <WalkthroughOverlay steps={tourSteps} onComplete={finishTour} />
+      )}
 
       <AnimatePresence>
         {copiedType && (
-          <motion.div 
-            initial={{ opacity: 0, y: -20, x: '-50%', scale: 0.95 }}
-            animate={{ opacity: 1, y: 0, x: '-50%', scale: 1 }}
-            exit={{ opacity: 0, y: -10, x: '-50%', scale: 0.95 }}
-            transition={{ type: 'spring', damping: 20, stiffness: 300 }}
-            className="copy-toast visible" 
-            role="status" 
-            aria-live="polite" 
+          <motion.div
+            initial={{ opacity: 0, y: -20, x: "-50%", scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, x: "-50%", scale: 1 }}
+            exit={{ opacity: 0, y: -10, x: "-50%", scale: 0.95 }}
+            transition={{ type: "spring", damping: 20, stiffness: 300 }}
+            className="copy-toast visible"
+            role="status"
+            aria-live="polite"
             aria-atomic="true"
-            style={{ x: '-50%' }}
+            style={{ x: "-50%" }}
           >
             <div className="copy-toast-icon-wrap">
-              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                <polyline points="2.5 8.5 6 12 13.5 4"/>
+              <svg
+                viewBox="0 0 16 16"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <polyline points="2.5 8.5 6 12 13.5 4" />
               </svg>
             </div>
             <div className="copy-toast-body">
               <span className="copy-toast-title">Link copied</span>
               <span className="copy-toast-sub">
-                {copiedType === 'overlay' ? 'Bible overlay link' : copiedType === 'fullscreen' ? 'Fullscreen display link' : 'Controller link'} copied to clipboard
+                {copiedType === "overlay"
+                  ? "Bible overlay link"
+                  : copiedType === "fullscreen"
+                    ? "Fullscreen display link"
+                    : "Controller link"}{" "}
+                copied to clipboard
               </span>
             </div>
           </motion.div>
@@ -365,48 +462,109 @@ const ControllerPage: React.FC = () => {
 
       <AnimatePresence>
         {showFallbackToast && (
-          <motion.div 
-            initial={{ opacity: 0, y: -20, x: '-50%' }}
-            animate={{ opacity: 1, y: 0, x: '-50%' }}
-            exit={{ opacity: 0, y: -20, x: '-50%' }}
+          <motion.div
+            initial={{ opacity: 0, y: -20, x: "-50%" }}
+            animate={{ opacity: 1, y: 0, x: "-50%" }}
+            exit={{ opacity: 0, y: -20, x: "-50%" }}
             transition={{ type: "spring", stiffness: 400, damping: 30 }}
-            className="copy-toast visible" 
-            role="alert" 
-            aria-live="assertive" 
-            style={{ 
-               x: '-50%', 
-               background: triageReason === 'internal_error' ? 'rgba(255, 69, 58, 0.15)' : triageReason === 'client_network' ? 'rgba(255, 214, 10, 0.15)' : triageReason === 'user_input' ? 'rgba(152, 152, 157, 0.15)' : 'rgba(255, 159, 10, 0.15)', 
-               border: `1px solid ${triageReason === 'internal_error' ? 'rgba(255, 69, 58, 0.3)' : triageReason === 'client_network' ? 'rgba(255, 214, 10, 0.3)' : triageReason === 'user_input' ? 'rgba(152, 152, 157, 0.3)' : 'rgba(255, 159, 10, 0.3)'}`,
-               color: 'var(--text-1)'
+            className="copy-toast visible"
+            role="alert"
+            aria-live="assertive"
+            style={{
+              x: "-50%",
+              background:
+                triageReason === "internal_error"
+                  ? "rgba(255, 69, 58, 0.15)"
+                  : triageReason === "client_network"
+                    ? "rgba(255, 214, 10, 0.15)"
+                    : triageReason === "user_input"
+                      ? "rgba(152, 152, 157, 0.15)"
+                      : "rgba(255, 159, 10, 0.15)",
+              border: `1px solid ${triageReason === "internal_error" ? "rgba(255, 69, 58, 0.3)" : triageReason === "client_network" ? "rgba(255, 214, 10, 0.3)" : triageReason === "user_input" ? "rgba(152, 152, 157, 0.3)" : "rgba(255, 159, 10, 0.3)"}`,
+              color: "var(--text-1)",
             }}
           >
-            <div className="copy-toast-icon-wrap" style={{ background: triageReason === 'internal_error' ? 'rgba(255, 69, 58, 0.2)' : triageReason === 'client_network' ? 'rgba(255, 214, 10, 0.2)' : triageReason === 'user_input' ? 'rgba(152, 152, 157, 0.2)' : 'rgba(255, 159, 10, 0.2)', color: triageReason === 'internal_error' ? '#FF453A' : triageReason === 'client_network' ? '#FFD60A' : triageReason === 'user_input' ? '#98989D' : 'var(--warning)' }}>
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" width="16" height="16">
-                <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
-                <line x1="12" y1="9" x2="12" y2="13"/>
-                <line x1="12" y1="17" x2="12.01" y2="17"/>
+            <div
+              className="copy-toast-icon-wrap"
+              style={{
+                background:
+                  triageReason === "internal_error"
+                    ? "rgba(255, 69, 58, 0.2)"
+                    : triageReason === "client_network"
+                      ? "rgba(255, 214, 10, 0.2)"
+                      : triageReason === "user_input"
+                        ? "rgba(152, 152, 157, 0.2)"
+                        : "rgba(255, 159, 10, 0.2)",
+                color:
+                  triageReason === "internal_error"
+                    ? "#FF453A"
+                    : triageReason === "client_network"
+                      ? "#FFD60A"
+                      : triageReason === "user_input"
+                        ? "#98989D"
+                        : "var(--warning)",
+              }}
+            >
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                width="16"
+                height="16"
+              >
+                <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+                <line x1="12" y1="9" x2="12" y2="13" />
+                <line x1="12" y1="17" x2="12.01" y2="17" />
               </svg>
             </div>
             <div className="copy-toast-body">
               <span className="copy-toast-title">
-                {triageReason === 'client_network' ? 'Network Error' : 
-                 triageReason === 'internal_error' ? 'Critical System Error' : 
-                 triageReason === 'user_input' ? 'Verse Not Found' :
-                 triageReason === 'third_party_outage' && fallbackType === 'api.bible' ? 'Primary Unreachable' :
-                 triageReason === 'third_party_outage' && fallbackType === 'local' ? 'Translation Unavailable' : 'System Alert'}
+                {triageReason === "client_network"
+                  ? "Network Error"
+                  : triageReason === "internal_error"
+                    ? "Critical System Error"
+                    : triageReason === "user_input"
+                      ? "Verse Not Found"
+                      : triageReason === "third_party_outage" &&
+                          fallbackType === "api.bible"
+                        ? "Primary Unreachable"
+                        : triageReason === "third_party_outage" &&
+                            fallbackType === "local"
+                          ? "Translation Unavailable"
+                          : "System Alert"}
               </span>
               <span className="copy-toast-sub">
-                {triageReason === 'client_network' ? 'You appear to be offline. Defaulting to local database.' : 
-                 triageReason === 'internal_error' ? 'Local database unavailable. Please refresh.' : 
-                 triageReason === 'user_input' ? 'Please check the reference and try again.' :
-                 triageReason === 'third_party_outage' && fallbackType === 'api.bible' ? 'API is unreachable. Reverting to fallback.' :
-                 triageReason === 'third_party_outage' && fallbackType === 'local' ? 'Selected version isn\'t available right now. Showing KJV instead.' :
-                 'An unknown error occurred.'}
-                 {fallbackOriginalVersion && fallbackOriginalVersion !== '1' && fallbackType === 'local' && (
-                    <span style={{ display: 'block', marginTop: '4px', fontSize: '11px', opacity: 0.8, fontWeight: 500 }}>
+                {triageReason === "client_network"
+                  ? "You appear to be offline. Defaulting to local database."
+                  : triageReason === "internal_error"
+                    ? "Local database unavailable. Please refresh."
+                    : triageReason === "user_input"
+                      ? "Please check the reference and try again."
+                      : triageReason === "third_party_outage" &&
+                          fallbackType === "api.bible"
+                        ? "API is unreachable. Reverting to fallback."
+                        : triageReason === "third_party_outage" &&
+                            fallbackType === "local"
+                          ? "Selected version isn't available right now. Showing KJV instead."
+                          : "An unknown error occurred."}
+                {fallbackOriginalVersion &&
+                  fallbackOriginalVersion !== "1" &&
+                  fallbackType === "local" && (
+                    <span
+                      style={{
+                        display: "block",
+                        marginTop: "4px",
+                        fontSize: "11px",
+                        opacity: 0.8,
+                        fontWeight: 500,
+                      }}
+                    >
                       Translation unavailable offline. Reverted to KJV.
                     </span>
-                 )}
+                  )}
               </span>
             </div>
           </motion.div>
@@ -416,46 +574,141 @@ const ControllerPage: React.FC = () => {
       <header className="header">
         <div className="wordmark">
           <div className="wordmark-icon">
-            <svg viewBox="0 0 16 16" fill="none" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">
-              <rect x="2.5" y="1.5" width="11" height="13" rx="1.5"/>
-              <path d="M5 5h6M5 7.5h6M5 10h4"/>
+            <svg
+              viewBox="0 0 16 16"
+              fill="none"
+              strokeWidth="1.4"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <rect x="2.5" y="1.5" width="11" height="13" rx="1.5" />
+              <path d="M5 5h6M5 7.5h6M5 10h4" />
             </svg>
           </div>
           <div className="wordmark-text">
-            <span className="wordmark-name" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <span
+              className="wordmark-name"
+              style={{ display: "flex", alignItems: "center", gap: "6px" }}
+            >
               StreamBible
-              <span className={`ws-dot-mobile ${wsConnected ? 'connected' : 'error'}`}></span>
+              <span
+                className={`ws-dot-mobile ${wsConnected ? "connected" : "error"}`}
+              ></span>
             </span>
-            <span className="wordmark-sub mobile-hidden" style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+            <span
+              className="wordmark-sub mobile-hidden"
+              style={{ display: "flex", alignItems: "center", gap: "4px" }}
+            >
               Room {roomId}
               {roomId === claimedRoomId && (
-                <span style={{ color: '#E5B05C', fontSize: '14px', textShadow: '0 0 8px rgba(229,176,92,0.4)' }} title="Claimed Premium Room">✦</span>
+                <span
+                  style={{
+                    color: "#E5B05C",
+                    fontSize: "14px",
+                    textShadow: "0 0 8px rgba(229,176,92,0.4)",
+                  }}
+                  title="Claimed Premium Room"
+                >
+                  ✦
+                </span>
               )}
             </span>
           </div>
         </div>
 
-        <div id="header-links" className="header-right mobile-hidden" style={{ display: 'flex', gap: 'var(--space-2)', alignItems: 'center' }}>
-          <button className="obs-copy-btn" onClick={() => copyUrl(`${window.location.origin}/overlay?room=${roomId}`, 'overlay')} title="Copy Lower Third Overlay Link">
-            <svg className="icon-copy" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M6 5H4a2 2 0 0 0-2 2v4a2 2 0 0 0 2 2h2m4-10h2a2 2 0 0 1 2 2v4a2 2 0 0 1-2 2h-2M5 8h6"/>
+        <div
+          id="header-links"
+          className="header-right mobile-hidden"
+          style={{
+            display: "flex",
+            gap: "var(--space-2)",
+            alignItems: "center",
+          }}
+        >
+          <button
+            className="obs-copy-btn"
+            onClick={() =>
+              copyUrl(
+                `${window.location.origin}/overlay?room=${roomId}`,
+                "overlay",
+              )
+            }
+            title="Copy Lower Third Overlay Link"
+          >
+            <svg
+              className="icon-copy"
+              viewBox="0 0 16 16"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="M6 5H4a2 2 0 0 0-2 2v4a2 2 0 0 0 2 2h2m4-10h2a2 2 0 0 1 2 2v4a2 2 0 0 1-2 2h-2M5 8h6" />
             </svg>
             <span className="btn-label">Overlay</span>
           </button>
-          
-          <button className="obs-copy-btn" onClick={() => copyUrl(`${window.location.origin}/fullscreen?room=${roomId}`, 'fullscreen')} title="Copy Full Screen Overlay Link">
-            <svg className="icon-copy" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/>
+
+          <button
+            className="obs-copy-btn"
+            onClick={() =>
+              copyUrl(
+                `${window.location.origin}/fullscreen?room=${roomId}`,
+                "fullscreen",
+              )
+            }
+            title="Copy Full Screen Overlay Link"
+          >
+            <svg
+              className="icon-copy"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.8"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3" />
             </svg>
             <span className="btn-label">Fullscreen</span>
           </button>
 
-          <button className="theme-toggle" onClick={toggleTheme} title="Toggle Theme">
+          <button
+            className="theme-toggle"
+            onClick={toggleTheme}
+            title="Toggle Theme"
+          >
             <span>
-              {theme === 'dark' ? (
-                <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="8" cy="8" r="3"/><line x1="8" y1="1" x2="8" y2="2.5"/><line x1="8" y1="13.5" x2="8" y2="15"/><line x1="1" y1="8" x2="2.5" y2="8"/><line x1="13.5" y1="8" x2="15" y2="8"/><line x1="3.05" y1="3.05" x2="4.1" y2="4.1"/><line x1="11.9" y1="11.9" x2="12.95" y2="12.95"/><line x1="3.05" y1="12.95" x2="4.1" y2="11.9"/><line x1="11.9" y1="4.1" x2="12.95" y2="3.05"/></svg>
+              {theme === "dark" ? (
+                <svg
+                  viewBox="0 0 16 16"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <circle cx="8" cy="8" r="3" />
+                  <line x1="8" y1="1" x2="8" y2="2.5" />
+                  <line x1="8" y1="13.5" x2="8" y2="15" />
+                  <line x1="1" y1="8" x2="2.5" y2="8" />
+                  <line x1="13.5" y1="8" x2="15" y2="8" />
+                  <line x1="3.05" y1="3.05" x2="4.1" y2="4.1" />
+                  <line x1="11.9" y1="11.9" x2="12.95" y2="12.95" />
+                  <line x1="3.05" y1="12.95" x2="4.1" y2="11.9" />
+                  <line x1="11.9" y1="4.1" x2="12.95" y2="3.05" />
+                </svg>
               ) : (
-                <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M13.5 10A5.5 5.5 0 0 1 6 2.5a5.5 5.5 0 1 0 7.5 7.5z"/></svg>
+                <svg
+                  viewBox="0 0 16 16"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <path d="M13.5 10A5.5 5.5 0 0 1 6 2.5a5.5 5.5 0 1 0 7.5 7.5z" />
+                </svg>
               )}
             </span>
           </button>
@@ -466,16 +719,29 @@ const ControllerPage: React.FC = () => {
               onClick={() => navigate(`/settings?room=${roomId}`)}
               title="Session Settings"
             >
-              <span><Settings size={16} /></span>
+              <span>
+                <Settings size={16} />
+              </span>
             </button>
           ) : (
             <button
               className="theme-toggle"
-              onClick={() => navigate('/help')}
+              onClick={() => navigate("/help")}
               title="Help"
             >
               <span>
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.8"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <circle cx="12" cy="12" r="10" />
+                  <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" />
+                  <line x1="12" y1="17" x2="12.01" y2="17" />
+                </svg>
               </span>
             </button>
           )}
@@ -483,17 +749,41 @@ const ControllerPage: React.FC = () => {
           <div className="ws-pill connected">
             <span className="ws-dot"></span>
             <span id="wsLabel">Connected</span>
-            <svg className="ws-wifi-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M1 6a10.9 10.9 0 0 1 14 0"/>
-              <path d="M3.5 9a7 7 0 0 1 9 0"/>
-              <path d="M6 12a3.5 3.5 0 0 1 4 0"/>
-              <circle cx="8" cy="14.5" r="0.75" fill="currentColor" stroke="none"/>
-              <line className="ws-wifi-slash" x1="2" y1="2" x2="14" y2="14" strokeWidth="1.5"/>
+            <svg
+              className="ws-wifi-icon"
+              viewBox="0 0 16 16"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="M1 6a10.9 10.9 0 0 1 14 0" />
+              <path d="M3.5 9a7 7 0 0 1 9 0" />
+              <path d="M6 12a3.5 3.5 0 0 1 4 0" />
+              <circle
+                cx="8"
+                cy="14.5"
+                r="0.75"
+                fill="currentColor"
+                stroke="none"
+              />
+              <line
+                className="ws-wifi-slash"
+                x1="2"
+                y1="2"
+                x2="14"
+                y2="14"
+                strokeWidth="1.5"
+              />
             </svg>
           </div>
         </div>
 
-        <button className="mobile-more-btn" onClick={() => setIsMobileMenuOpen(true)}>
+        <button
+          className="mobile-more-btn"
+          onClick={() => setIsMobileMenuOpen(true)}
+        >
           <MoreHorizontal size={20} />
         </button>
       </header>
@@ -503,139 +793,267 @@ const ControllerPage: React.FC = () => {
           <div className="network-header">
             <div className="network-title-box">
               <div className="network-title">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <rect
+                    x="3"
+                    y="11"
+                    width="18"
+                    height="11"
+                    rx="2"
+                    ry="2"
+                  ></rect>
                   <path d="M7 11V7a5 5 0 0110 0v4"></path>
                 </svg>
                 Remote Access
               </div>
-              <div className="network-status">Allow mobile devices on this Wi-Fi to control StreamBible.</div>
+              <div className="network-status">
+                Allow mobile devices on this Wi-Fi to control StreamBible.
+              </div>
             </div>
             <div className="network-header-controls">
-              <label className={`toggle-switch ${!isHost ? 'is-locked' : ''}`}>
-                <input 
-                  type="checkbox" 
-                  checked={remoteAccess} 
-                  onChange={(e) => setRemoteAccess(e.target.checked)} 
+              <label className={`toggle-switch ${!isHost ? "is-locked" : ""}`}>
+                <input
+                  type="checkbox"
+                  checked={remoteAccess}
+                  onChange={(e) => setRemoteAccess(e.target.checked)}
                   disabled={!isHost}
                 />
                 <span className="toggle-slider"></span>
               </label>
-              <button 
-                className={`network-collapse-btn ${isNetworkExpanded ? '' : 'collapsed'} ${remoteAccess ? 'active' : ''}`}
+              <button
+                className={`network-collapse-btn ${isNetworkExpanded ? "" : "collapsed"} ${remoteAccess ? "active" : ""}`}
                 onClick={() => setIsNetworkExpanded(!isNetworkExpanded)}
               >
-                <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <polyline points="4 10 8 6 12 10"/>
+                <svg
+                  viewBox="0 0 16 16"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <polyline points="4 10 8 6 12 10" />
                 </svg>
               </button>
             </div>
           </div>
-          
+
           <AnimatePresence initial={false}>
             {isNetworkExpanded && remoteAccess && (
-              <motion.div 
+              <motion.div
                 initial={{ height: 0, opacity: 0 }}
-                animate={{ height: 'auto', opacity: 1 }}
+                animate={{ height: "auto", opacity: 1 }}
                 exit={{ height: 0, opacity: 0 }}
-                transition={{ type: 'spring', bounce: 0, duration: 0.4 }}
+                transition={{ type: "spring", bounce: 0, duration: 0.4 }}
                 className="network-expanded visible"
-                style={{ overflow: 'hidden' }}
+                style={{ overflow: "hidden" }}
               >
-                <div className="qr-container" style={{ padding: '16px', background: 'white', borderRadius: '12px', display: 'inline-block', position: 'relative', width: '172px', height: '172px' }}>
-                   {roomId && (
-                     <>
-                       <AnimatePresence>
-                         {!qrLoaded && (
-                           <motion.div
-                             initial={{ opacity: 0 }}
-                             animate={{ opacity: 1 }}
-                             exit={{ opacity: 0 }}
-                             transition={{ duration: 0.2 }}
-                             style={{
-                               position: 'absolute',
-                               inset: '16px',
-                               display: 'flex',
-                               alignItems: 'center',
-                               justifyContent: 'center',
-                               background: 'rgba(0,0,0,0.02)',
-                               borderRadius: '8px'
-                             }}
-                           >
-                             <motion.div
-                               animate={{ rotate: 360 }}
-                               transition={{ repeat: Infinity, duration: 1, ease: "linear" }}
-                               style={{
-                                 width: '24px',
-                                 height: '24px',
-                                 borderRadius: '50%',
-                                 border: '2px solid rgba(0,0,0,0.1)',
-                                 borderTopColor: '#0A84FF',
-                               }}
-                             />
-                           </motion.div>
-                         )}
-                       </AnimatePresence>
-                       <img 
-                         src={`https://api.qrserver.com/v1/create-qr-code/?size=140x140&data=${encodeURIComponent(`${window.location.origin}/controller?room=${roomId}`)}`} 
-                         alt="Scan to control session"
-                         width={140}
-                         height={140}
-                         onLoad={() => setQrLoaded(true)}
-                         style={{ display: 'block', opacity: qrLoaded ? 1 : 0, transition: 'opacity 0.4s ease' }}
-                       />
-                     </>
-                   )}
+                <div
+                  className="qr-container"
+                  style={{
+                    padding: "16px",
+                    background: "white",
+                    borderRadius: "12px",
+                    display: "inline-block",
+                    position: "relative",
+                    width: "172px",
+                    height: "172px",
+                  }}
+                >
+                  {roomId && (
+                    <>
+                      <AnimatePresence>
+                        {!qrLoaded && (
+                          <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            transition={{ duration: 0.2 }}
+                            style={{
+                              position: "absolute",
+                              inset: "16px",
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              background: "rgba(0,0,0,0.02)",
+                              borderRadius: "8px",
+                            }}
+                          >
+                            <motion.div
+                              animate={{ rotate: 360 }}
+                              transition={{
+                                repeat: Infinity,
+                                duration: 1,
+                                ease: "linear",
+                              }}
+                              style={{
+                                width: "24px",
+                                height: "24px",
+                                borderRadius: "50%",
+                                border: "2px solid rgba(0,0,0,0.1)",
+                                borderTopColor: "#0A84FF",
+                              }}
+                            />
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                      <img
+                        src={`https://api.qrserver.com/v1/create-qr-code/?size=140x140&data=${encodeURIComponent(`${window.location.origin}/controller?room=${roomId}`)}`}
+                        alt="Scan to control session"
+                        width={140}
+                        height={140}
+                        onLoad={() => setQrLoaded(true)}
+                        style={{
+                          display: "block",
+                          opacity: qrLoaded ? 1 : 0,
+                          transition: "opacity 0.4s ease",
+                        }}
+                      />
+                    </>
+                  )}
                 </div>
-                <div className="network-url-box" style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                  <svg className="network-url-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                    <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                <div
+                  className="network-url-box"
+                  style={{ display: "flex", gap: "8px", alignItems: "center" }}
+                >
+                  <svg
+                    className="network-url-icon"
+                    width="12"
+                    height="12"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <rect
+                      x="3"
+                      y="11"
+                      width="18"
+                      height="11"
+                      rx="2"
+                      ry="2"
+                    ></rect>
                     <path d="M7 11V7a5 5 0 0110 0v4"></path>
                   </svg>
-                  <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis' }}>{window.location.origin}/controller?room={roomId}</span>
-                  <button onClick={() => copyUrl(`${window.location.origin}/controller?room=${roomId}`, 'controller')} style={{ padding: '4px 12px' }}>Copy</button>
+                  <span
+                    style={{
+                      flex: 1,
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                    }}
+                  >
+                    {window.location.origin}/controller?room={roomId}
+                  </span>
+                  <button
+                    onClick={() =>
+                      copyUrl(
+                        `${window.location.origin}/controller?room=${roomId}`,
+                        "controller",
+                      )
+                    }
+                    style={{ padding: "4px 12px" }}
+                  >
+                    Copy
+                  </button>
                   {isHost && (
-                    <button onClick={regenerateRoom} style={{ padding: '4px 12px', background: 'rgba(255,0,0,0.1)', color: '#ff4444' }} title="Reset Session ID">Reset</button>
+                    <button
+                      onClick={regenerateRoom}
+                      style={{
+                        padding: "4px 12px",
+                        background: "rgba(255,0,0,0.1)",
+                        color: "#ff4444",
+                      }}
+                      title="Reset Session ID"
+                    >
+                      Reset
+                    </button>
                   )}
                 </div>
 
                 <div className="device-monitor">
-                   <div className="device-monitor-header">
-                     <span className="device-monitor-title">Live Sessions</span>
-                   </div>
-                   <div className="device-list">
-                     {[...devices]
-                       .sort((a, b) => {
-                         if (a.id === myId) return -1;
-                         if (b.id === myId) return 1;
-                         if (a.isHost) return -1;
-                         if (b.isHost) return 1;
-                         return 0;
-                       })
-                       .map((dev) => {
-                         const isMe = dev.id === myId;
-                         return (
-                           <div key={dev.id} className={`device-item ${isMe ? 'is-me' : ''}`}>
-                             <div className="device-item-left">
-                               <div className="device-icon-wrap">
-                                 <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                   <rect x="5" y="2" width="14" height="20" rx="2" ry="2"></rect>
-                                   <line x1="12" y1="18" x2="12.01" y2="18"></line>
-                                 </svg>
-                               </div>
-                               <div className="device-info">
-                                 <div className="device-name">{isMe ? 'You' : dev.name}</div>
-                                 <div className="device-meta">
-                                   {isMe ? dev.name : (dev.isOverlay ? 'Overlay' : 'Remote Controller')}
-                                   {dev.isHost && <span className="device-badge badge-host">Host</span>}
-                                   {isMe && <span className="device-badge badge-me">You</span>}
-                                 </div>
-                               </div>
-                             </div>
-                           </div>
-                         );
-                       })}
-                   </div>
+                  <div className="device-monitor-header">
+                    <span className="device-monitor-title">Live Sessions</span>
+                  </div>
+                  <div className="device-list">
+                    {[...devices]
+                      .sort((a, b) => {
+                        if (a.id === myId) return -1;
+                        if (b.id === myId) return 1;
+                        if (a.isHost) return -1;
+                        if (b.isHost) return 1;
+                        return 0;
+                      })
+                      .map((dev) => {
+                        const isMe = dev.id === myId;
+                        return (
+                          <div
+                            key={dev.id}
+                            className={`device-item ${isMe ? "is-me" : ""}`}
+                          >
+                            <div className="device-item-left">
+                              <div className="device-icon-wrap">
+                                <svg
+                                  viewBox="0 0 24 24"
+                                  width="14"
+                                  height="14"
+                                  fill="none"
+                                  stroke="currentColor"
+                                  strokeWidth="2"
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                >
+                                  <rect
+                                    x="5"
+                                    y="2"
+                                    width="14"
+                                    height="20"
+                                    rx="2"
+                                    ry="2"
+                                  ></rect>
+                                  <line
+                                    x1="12"
+                                    y1="18"
+                                    x2="12.01"
+                                    y2="18"
+                                  ></line>
+                                </svg>
+                              </div>
+                              <div className="device-info">
+                                <div className="device-name">
+                                  {isMe ? "You" : dev.name}
+                                </div>
+                                <div className="device-meta">
+                                  {isMe
+                                    ? dev.name
+                                    : dev.isOverlay
+                                      ? "Overlay"
+                                      : "Remote Controller"}
+                                  {dev.isHost && (
+                                    <span className="device-badge badge-host">
+                                      Host
+                                    </span>
+                                  )}
+                                  {isMe && (
+                                    <span className="device-badge badge-me">
+                                      You
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                  </div>
                 </div>
               </motion.div>
             )}
@@ -644,64 +1062,67 @@ const ControllerPage: React.FC = () => {
 
         <AnimatePresence>
           {incomingRequest && isHost && (
-            <motion.div 
-              initial={{ opacity: 0, y: 50, x: '-50%', scale: 0.9 }}
-              animate={{ opacity: 1, y: 0, x: '-50%', scale: 1 }}
-              exit={{ opacity: 0, y: 20, x: '-50%', scale: 0.9 }}
+            <motion.div
+              initial={{ opacity: 0, y: 50, x: "-50%", scale: 0.9 }}
+              animate={{ opacity: 1, y: 0, x: "-50%", scale: 1 }}
+              exit={{ opacity: 0, y: 20, x: "-50%", scale: 0.9 }}
               className="glass join-modal"
               style={{
-                position: 'fixed',
-                bottom: '100px',
-                left: '50%',
+                position: "fixed",
+                bottom: "100px",
+                left: "50%",
                 zIndex: 11000,
-                width: '90%',
-                maxWidth: '380px',
-                textAlign: 'center',
-                padding: 'var(--s-6)',
-                borderRadius: 'var(--r-2xl)',
+                width: "90%",
+                maxWidth: "380px",
+                textAlign: "center",
+                padding: "var(--s-6)",
+                borderRadius: "var(--r-2xl)",
               }}
             >
               <div className="modal-icon">🤝</div>
               <h3 className="modal-title">Join Request</h3>
               <p className="modal-body-text">
-                <strong>{incomingRequest.name}</strong> is nearby and wants to join your session.
+                <strong>{incomingRequest.name}</strong> is nearby and wants to
+                join your session.
               </p>
               {!remoteAccess && (
-                <div style={{
-                  marginTop: '8px',
-                  marginBottom: '4px',
-                  padding: '10px 12px',
-                  background: 'rgba(255, 170, 0, 0.12)',
-                  border: '1px solid rgba(255, 170, 0, 0.35)',
-                  borderRadius: '8px',
-                  fontSize: '12px',
-                  color: 'var(--warning, #e6a000)',
-                  textAlign: 'left',
-                  lineHeight: '1.5',
-                  display: 'flex',
-                  gap: '8px',
-                  alignItems: 'flex-start',
-                }}
-                role="alert"
+                <div
+                  style={{
+                    marginTop: "8px",
+                    marginBottom: "4px",
+                    padding: "10px 12px",
+                    background: "rgba(255, 170, 0, 0.12)",
+                    border: "1px solid rgba(255, 170, 0, 0.35)",
+                    borderRadius: "8px",
+                    fontSize: "12px",
+                    color: "var(--warning, #e6a000)",
+                    textAlign: "left",
+                    lineHeight: "1.5",
+                    display: "flex",
+                    gap: "8px",
+                    alignItems: "flex-start",
+                  }}
+                  role="alert"
                 >
-                  <span style={{ flexShrink: 0, fontSize: '14px' }}>⚠️</span>
+                  <span style={{ flexShrink: 0, fontSize: "14px" }}>⚠️</span>
                   <span>
-                    <strong>Remote Access is off.</strong> Accepting will automatically enable it so this device can connect.
+                    <strong>Remote Access is off.</strong> Accepting will
+                    automatically enable it so this device can connect.
                   </span>
                 </div>
               )}
               <div className="modal-actions">
-                <button 
+                <button
                   onClick={() => handleResponse(false)}
                   className="modal-btn modal-btn-decline"
                 >
                   Decline
                 </button>
-                <button 
+                <button
                   onClick={() => handleResponse(true)}
                   className="modal-btn modal-btn-accept"
                 >
-                  {!remoteAccess ? 'Accept & Enable Access' : 'Accept'}
+                  {!remoteAccess ? "Accept & Enable Access" : "Accept"}
                 </button>
               </div>
             </motion.div>
@@ -709,26 +1130,31 @@ const ControllerPage: React.FC = () => {
         </AnimatePresence>
 
         <AnimatePresence>
-          {requestStatus === 'pending' && (
-            <motion.div 
-              initial={{ opacity: 0, y: 20, x: '-50%' }}
-              animate={{ opacity: 1, y: 0, x: '-50%' }}
-              exit={{ opacity: 0, y: 20, x: '-50%' }}
+          {requestStatus === "pending" && (
+            <motion.div
+              initial={{ opacity: 0, y: 20, x: "-50%" }}
+              animate={{ opacity: 1, y: 0, x: "-50%" }}
+              exit={{ opacity: 0, y: 20, x: "-50%" }}
               className="request-pending-pill"
             >
               <span className="spinner-dots"></span>
               Request sent. Waiting for Host approval...
-              <button onClick={() => setRequestStatus('idle')} className="cancel-request-btn">Cancel</button>
+              <button
+                onClick={() => setRequestStatus("idle")}
+                className="cancel-request-btn"
+              >
+                Cancel
+              </button>
             </motion.div>
           )}
         </AnimatePresence>
 
         <AnimatePresence>
-          {requestStatus === 'declined' && (
-            <motion.div 
-              initial={{ opacity: 0, y: 20, x: '-50%' }}
-              animate={{ opacity: 1, y: 0, x: '-50%' }}
-              exit={{ opacity: 0, y: 20, x: '-50%' }}
+          {requestStatus === "declined" && (
+            <motion.div
+              initial={{ opacity: 0, y: 20, x: "-50%" }}
+              animate={{ opacity: 1, y: 0, x: "-50%" }}
+              exit={{ opacity: 0, y: 20, x: "-50%" }}
               className="request-declined-pill"
             >
               🔒 Request declined by the Host.
@@ -737,107 +1163,171 @@ const ControllerPage: React.FC = () => {
         </AnimatePresence>
 
         <div id="discovery-section" className="discovery-section">
-           <div className="device-monitor discovery-prominent">
-             <div className="device-monitor-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-               <span className="device-monitor-title" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                 {discoveryEnabled && isDiscovering ? (
-                    <span className="spinner-dots" style={{ margin: '0 4px' }}></span>
-                 ) : (
-                    <span className={`live-pulse ${!discoveryEnabled ? 'is-paused' : ''}`}></span>
-                 )}
-                 Discover Nearby Sessions
-               </span>
-               <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-                 {discoveryEnabled && (
-                   <button 
-                     onClick={refreshDiscovery} 
-                     disabled={isDiscovering}
-                     className="refresh-discovery-btn"
-                     title="Refresh List"
-                   >
-                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="14" height="14">
-                       <polyline points="23 4 23 10 17 10"></polyline>
-                       <polyline points="1 20 1 14 7 14"></polyline>
-                       <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
-                     </svg>
-                   </button>
-                 )}
-                 <label className="toggle-switch">
-                   <input 
-                     type="checkbox" 
-                     checked={discoveryEnabled} 
-                     onChange={(e) => setDiscoveryEnabled(e.target.checked)} 
-                   />
-                   <span className="toggle-slider"></span>
-                 </label>
-               </div>
-             </div>
-             
-             <AnimatePresence mode="wait">
-               {!discoveryEnabled ? (
-                 <motion.div 
-                   key="disabled"
-                   initial={{ opacity: 0 }}
-                   animate={{ opacity: 1 }}
-                   exit={{ opacity: 0 }}
-                   className="discovery-empty-state"
-                 >
-                   Turn on discovery to find and join active StreamBible sessions on your Wi-Fi network.
-                 </motion.div>
-               ) : nearbySessions.filter(s => s.room_id !== roomId).length > 0 ? (
-                 <motion.div 
-                   key="list"
-                   initial={{ opacity: 0 }}
-                   animate={{ opacity: 1 }}
-                   exit={{ opacity: 0 }}
-                   className="device-list"
-                 >
-                   {nearbySessions.filter(s => s.room_id !== roomId).map(session => (
-                     <div key={session.room_id} className="device-item discovery-item">
-                       <div className="device-item-left">
-                         <div className="device-icon-wrap" style={{ background: 'var(--color-accent-primary)', color: 'white' }}>
-                           <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <div className="device-monitor discovery-prominent">
+            <div
+              className="device-monitor-header"
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+              }}
+            >
+              <span
+                className="device-monitor-title"
+                style={{ display: "flex", alignItems: "center", gap: "8px" }}
+              >
+                {discoveryEnabled && isDiscovering ? (
+                  <span
+                    className="spinner-dots"
+                    style={{ margin: "0 4px" }}
+                  ></span>
+                ) : (
+                  <span
+                    className={`live-pulse ${!discoveryEnabled ? "is-paused" : ""}`}
+                  ></span>
+                )}
+                Discover Nearby Sessions
+              </span>
+              <div
+                style={{ display: "flex", gap: "12px", alignItems: "center" }}
+              >
+                {discoveryEnabled && (
+                  <button
+                    onClick={refreshDiscovery}
+                    disabled={isDiscovering}
+                    className="refresh-discovery-btn"
+                    title="Refresh List"
+                  >
+                    <svg
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      width="14"
+                      height="14"
+                    >
+                      <polyline points="23 4 23 10 17 10"></polyline>
+                      <polyline points="1 20 1 14 7 14"></polyline>
+                      <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+                    </svg>
+                  </button>
+                )}
+                <label className="toggle-switch">
+                  <input
+                    type="checkbox"
+                    checked={discoveryEnabled}
+                    onChange={(e) => setDiscoveryEnabled(e.target.checked)}
+                  />
+                  <span className="toggle-slider"></span>
+                </label>
+              </div>
+            </div>
+
+            <AnimatePresence mode="wait">
+              {!discoveryEnabled ? (
+                <motion.div
+                  key="disabled"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  className="discovery-empty-state"
+                >
+                  Turn on discovery to find and join active StreamBible sessions
+                  on your Wi-Fi network.
+                </motion.div>
+              ) : nearbySessions.filter((s) => s.room_id !== roomId).length >
+                0 ? (
+                <motion.div
+                  key="list"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  className="device-list"
+                >
+                  {nearbySessions
+                    .filter((s) => s.room_id !== roomId)
+                    .map((session) => (
+                      <div
+                        key={session.room_id}
+                        className="device-item discovery-item"
+                      >
+                        <div className="device-item-left">
+                          <div
+                            className="device-icon-wrap"
+                            style={{
+                              background: "var(--color-accent-primary)",
+                              color: "white",
+                            }}
+                          >
+                            <svg
+                              viewBox="0 0 24 24"
+                              width="14"
+                              height="14"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="2"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                            >
                               <path d="M5 12.55a11 11 0 0 1 14.08 0"></path>
                               <path d="M1.42 9a16 16 0 0 1 21.16 0"></path>
                               <path d="M8.53 16.11a6 6 0 0 1 6.95 0"></path>
                               <line x1="12" y1="20" x2="12.01" y2="20"></line>
-                           </svg>
-                         </div>
-                         <div className="device-info">
-                           <div className="device-name">Room: {session.room_id}</div>
-                           <div className="device-meta">Church Wi-Fi Network</div>
-                         </div>
-                       </div>
-                       <button 
-                         onClick={() => handleJoinRequest(session.room_id)}
-                         disabled={requestStatus === 'pending'}
-                         className="join-request-btn"
-                       >
-                         {requestStatus === 'pending' && joinRequest?.roomId === session.room_id ? 'Wait...' : 'Request Join'}
-                       </button>
-                     </div>
-                   ))}
-                 </motion.div>
-               ) : (
-                 <motion.div 
-                   key="empty"
-                   initial={{ opacity: 0 }}
-                   animate={{ opacity: 1 }}
-                   exit={{ opacity: 0 }}
-                   className="discovery-empty-state"
-                 >
-                   {isDiscovering ? 'Scanning network...' : 'No nearby sessions found. Make sure Remote Access is enabled on the host device.'}
-                 </motion.div>
-               )}
-             </AnimatePresence>
-           </div>
+                            </svg>
+                          </div>
+                          <div className="device-info">
+                            <div className="device-name">
+                              Room: {session.room_id}
+                            </div>
+                            <div className="device-meta">
+                              Church Wi-Fi Network
+                            </div>
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => handleJoinRequest(session.room_id)}
+                          disabled={requestStatus === "pending"}
+                          className="join-request-btn"
+                        >
+                          {requestStatus === "pending" &&
+                          joinRequest?.roomId === session.room_id
+                            ? "Wait..."
+                            : "Request Join"}
+                        </button>
+                      </div>
+                    ))}
+                </motion.div>
+              ) : (
+                <motion.div
+                  key="empty"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  className="discovery-empty-state"
+                >
+                  {isDiscovering
+                    ? "Scanning network..."
+                    : "No nearby sessions found. Make sure Remote Access is enabled on the host device."}
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
         </div>
 
         <form id="search-bar" className="search-bar" onSubmit={onFormSubmit}>
           <span className="search-icon">
-            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-              <circle cx="6.5" cy="6.5" r="4"/>
-              <path d="M10 10L13.5 13.5"/>
+            <svg
+              viewBox="0 0 16 16"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <circle cx="6.5" cy="6.5" r="4" />
+              <path d="M10 10L13.5 13.5" />
             </svg>
           </span>
           <input
@@ -853,12 +1343,13 @@ const ControllerPage: React.FC = () => {
         </form>
 
         <div id="preview-cards" className="previews">
-          <div className={`preview-card ${!showPrimary ? 'lang-disabled' : ''}`}>
+          <div
+            className={`preview-card ${!showPrimary ? "lang-disabled" : ""}`}
+          >
             <div className="card-label">
               <span className="card-label-dot"></span>
-              Window 1
-              <span className="card-label-rule"></span>
-              <div style={{ flex: 1, margin: '0 12px' }}>
+              Window 1<span className="card-label-rule"></span>
+              <div style={{ flex: 1, margin: "0 12px" }}>
                 <CustomDropdown
                   value={primaryVersion}
                   onChange={setPrimaryVersion}
@@ -867,30 +1358,51 @@ const ControllerPage: React.FC = () => {
                 />
               </div>
               <label className="lang-toggle" title="Show on stream">
-                <input type="checkbox" checked={showPrimary} onChange={(e) => setShowPrimary(e.target.checked)} />
+                <input
+                  type="checkbox"
+                  checked={showPrimary}
+                  onChange={(e) => setShowPrimary(e.target.checked)}
+                />
                 <span className="lang-toggle-track"></span>
               </label>
             </div>
-            <div className={`preview-text ${primaryText && status !== 'fetching' ? 'has-content' : ''} ${primaryExpanded ? 'expanded' : ''}`}>
-              {status === 'fetching' ? <SkeletonLoader /> : primaryText ? <VerseText text={primaryText} showVerseNumbers={showVerseNumbers} isMultiVerse={primaryRef.includes('-')} /> : 'Waiting for a verse…'}
+            <div
+              className={`preview-text ${primaryText && status !== "fetching" ? "has-content" : ""} ${primaryExpanded ? "expanded" : ""}`}
+            >
+              {status === "fetching" ? (
+                <SkeletonLoader />
+              ) : primaryText ? (
+                <VerseText
+                  text={primaryText}
+                  showVerseNumbers={showVerseNumbers}
+                  isMultiVerse={primaryRef.includes("-")}
+                />
+              ) : (
+                "Waiting for a verse…"
+              )}
             </div>
             <div className="card-footer">
-              <span className={`card-ref ${primaryRef && status !== 'fetching' ? 'visible' : ''}`}>{primaryRef}</span>
-              <button 
-                className={`expand-btn ${primaryText.length > 230 && status !== 'fetching' ? 'visible' : ''}`}
+              <span
+                className={`card-ref ${primaryRef && status !== "fetching" ? "visible" : ""}`}
+              >
+                {primaryRef}
+              </span>
+              <button
+                className={`expand-btn ${primaryText.length > 230 && status !== "fetching" ? "visible" : ""}`}
                 onClick={() => setPrimaryExpanded(!primaryExpanded)}
               >
-                {primaryExpanded ? 'Show less' : 'Show more'}
+                {primaryExpanded ? "Show less" : "Show more"}
               </button>
             </div>
           </div>
 
-          <div className={`preview-card ${!showSecondary ? 'lang-disabled' : ''}`}>
+          <div
+            className={`preview-card ${!showSecondary ? "lang-disabled" : ""}`}
+          >
             <div className="card-label">
               <span className="card-label-dot"></span>
-              Window 2
-              <span className="card-label-rule"></span>
-              <div style={{ flex: 1, margin: '0 12px' }}>
+              Window 2<span className="card-label-rule"></span>
+              <div style={{ flex: 1, margin: "0 12px" }}>
                 <CustomDropdown
                   value={secondaryVersion}
                   onChange={setSecondaryVersion}
@@ -899,20 +1411,40 @@ const ControllerPage: React.FC = () => {
                 />
               </div>
               <label className="lang-toggle" title="Show on stream">
-                <input type="checkbox" checked={showSecondary} onChange={(e) => setShowSecondary(e.target.checked)} />
+                <input
+                  type="checkbox"
+                  checked={showSecondary}
+                  onChange={(e) => setShowSecondary(e.target.checked)}
+                />
                 <span className="lang-toggle-track"></span>
               </label>
             </div>
-            <div className={`preview-text ${secondaryText && status !== 'fetching' ? 'has-content' : ''} ${secondaryExpanded ? 'expanded' : ''}`}>
-               {status === 'fetching' ? <SkeletonLoader /> : secondaryText ? <VerseText text={secondaryText} showVerseNumbers={showVerseNumbers} isMultiVerse={secondaryRef.includes('-')} /> : 'Nduro fun ẹsẹ kan…'}
+            <div
+              className={`preview-text ${secondaryText && status !== "fetching" ? "has-content" : ""} ${secondaryExpanded ? "expanded" : ""}`}
+            >
+              {status === "fetching" ? (
+                <SkeletonLoader />
+              ) : secondaryText ? (
+                <VerseText
+                  text={secondaryText}
+                  showVerseNumbers={showVerseNumbers}
+                  isMultiVerse={secondaryRef.includes("-")}
+                />
+              ) : (
+                "Nduro fun ẹsẹ kan…"
+              )}
             </div>
             <div className="card-footer">
-              <span className={`card-ref ${secondaryRef && status !== 'fetching' ? 'visible' : ''}`}>{secondaryRef}</span>
-              <button 
-                className={`expand-btn ${secondaryText.length > 230 && status !== 'fetching' ? 'visible' : ''}`}
+              <span
+                className={`card-ref ${secondaryRef && status !== "fetching" ? "visible" : ""}`}
+              >
+                {secondaryRef}
+              </span>
+              <button
+                className={`expand-btn ${secondaryText.length > 230 && status !== "fetching" ? "visible" : ""}`}
                 onClick={() => setSecondaryExpanded(!secondaryExpanded)}
               >
-                {secondaryExpanded ? 'Show less' : 'Show more'}
+                {secondaryExpanded ? "Show less" : "Show more"}
               </button>
             </div>
           </div>
@@ -931,65 +1463,173 @@ const ControllerPage: React.FC = () => {
               onClick={() => setIsMobileMenuOpen(false)}
             />
             <motion.div
-              initial={{ y: '100%' }}
+              initial={{ y: "100%" }}
               animate={{ y: 0 }}
-              exit={{ y: '100%' }}
-              transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+              exit={{ y: "100%" }}
+              transition={{ type: "spring", damping: 25, stiffness: 300 }}
               className="bottom-sheet-modal"
             >
               <div className="bottom-sheet-handle" />
-              
+
               <div className="bottom-sheet-header">
                 <h3>Menu</h3>
-                <div className={`ws-pill ${wsConnected ? 'connected' : 'error'}`} style={{ border: 'none', background: 'transparent', padding: 0 }}>
+                <div
+                  className={`ws-pill ${wsConnected ? "connected" : "error"}`}
+                  style={{
+                    border: "none",
+                    background: "transparent",
+                    padding: 0,
+                  }}
+                >
                   <span className="ws-dot"></span>
-                  <span style={{ fontSize: '13px', fontWeight: 500 }}>{wsConnected ? 'Sync Active' : 'Offline'}</span>
+                  <span style={{ fontSize: "13px", fontWeight: 500 }}>
+                    {wsConnected ? "Sync Active" : "Offline"}
+                  </span>
                 </div>
               </div>
 
               <div className="bottom-sheet-body">
-                <button className="bottom-sheet-btn" onClick={() => { copyUrl(`${window.location.origin}/overlay?room=${roomId}`, 'overlay'); setIsMobileMenuOpen(false); }}>
-                  <div className="bottom-sheet-btn-icon"><ExternalLink size={18} /></div>
+                <button
+                  className="bottom-sheet-btn"
+                  onClick={() => {
+                    copyUrl(
+                      `${window.location.origin}/overlay?room=${roomId}`,
+                      "overlay",
+                    );
+                    setIsMobileMenuOpen(false);
+                  }}
+                >
+                  <div className="bottom-sheet-btn-icon">
+                    <ExternalLink size={18} />
+                  </div>
                   <div className="bottom-sheet-btn-text">
                     <span>Overlay Link</span>
-                    <span className="sub">Copy link for OBS Browser Source</span>
+                    <span className="sub">
+                      Copy link for OBS Browser Source
+                    </span>
                   </div>
                 </button>
 
-                <button className="bottom-sheet-btn" onClick={() => { copyUrl(`${window.location.origin}/fullscreen?room=${roomId}`, 'fullscreen'); setIsMobileMenuOpen(false); }}>
-                  <div className="bottom-sheet-btn-icon"><MonitorUp size={18} /></div>
+                <button
+                  className="bottom-sheet-btn"
+                  onClick={() => {
+                    copyUrl(
+                      `${window.location.origin}/fullscreen?room=${roomId}`,
+                      "fullscreen",
+                    );
+                    setIsMobileMenuOpen(false);
+                  }}
+                >
+                  <div className="bottom-sheet-btn-icon">
+                    <MonitorUp size={18} />
+                  </div>
                   <div className="bottom-sheet-btn-text">
                     <span>Fullscreen Link</span>
-                    <span className="sub">Copy link for full-screen display</span>
+                    <span className="sub">
+                      Copy link for full-screen display
+                    </span>
                   </div>
                 </button>
 
-                <button className="bottom-sheet-btn" onClick={() => { toggleTheme(); setIsMobileMenuOpen(false); }}>
+                <button
+                  className="bottom-sheet-btn"
+                  onClick={() => {
+                    toggleTheme();
+                    setIsMobileMenuOpen(false);
+                  }}
+                >
                   <div className="bottom-sheet-btn-icon">
-                    {theme === 'dark' ? <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" width="18" height="18"><circle cx="8" cy="8" r="3"/><line x1="8" y1="1" x2="8" y2="2.5"/><line x1="8" y1="13.5" x2="8" y2="15"/><line x1="1" y1="8" x2="2.5" y2="8"/><line x1="13.5" y1="8" x2="15" y2="8"/><line x1="3.05" y1="3.05" x2="4.1" y2="4.1"/><line x1="11.9" y1="11.9" x2="12.95" y2="12.95"/><line x1="3.05" y1="12.95" x2="4.1" y2="11.9"/><line x1="11.9" y1="4.1" x2="12.95" y2="3.05"/></svg> : <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" width="18" height="18"><path d="M13.5 10A5.5 5.5 0 0 1 6 2.5a5.5 5.5 0 1 0 7.5 7.5z"/></svg>}
+                    {theme === "dark" ? (
+                      <svg
+                        viewBox="0 0 16 16"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="1.5"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        width="18"
+                        height="18"
+                      >
+                        <circle cx="8" cy="8" r="3" />
+                        <line x1="8" y1="1" x2="8" y2="2.5" />
+                        <line x1="8" y1="13.5" x2="8" y2="15" />
+                        <line x1="1" y1="8" x2="2.5" y2="8" />
+                        <line x1="13.5" y1="8" x2="15" y2="8" />
+                        <line x1="3.05" y1="3.05" x2="4.1" y2="4.1" />
+                        <line x1="11.9" y1="11.9" x2="12.95" y2="12.95" />
+                        <line x1="3.05" y1="12.95" x2="4.1" y2="11.9" />
+                        <line x1="11.9" y1="4.1" x2="12.95" y2="3.05" />
+                      </svg>
+                    ) : (
+                      <svg
+                        viewBox="0 0 16 16"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="1.5"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        width="18"
+                        height="18"
+                      >
+                        <path d="M13.5 10A5.5 5.5 0 0 1 6 2.5a5.5 5.5 0 1 0 7.5 7.5z" />
+                      </svg>
+                    )}
                   </div>
                   <div className="bottom-sheet-btn-text">
                     <span>Toggle Theme</span>
-                    <span className="sub">Switch to {theme === 'dark' ? 'Light' : 'Dark'} mode</span>
+                    <span className="sub">
+                      Switch to {theme === "dark" ? "Light" : "Dark"} mode
+                    </span>
                   </div>
                 </button>
 
                 {isHost ? (
-                  <button className="bottom-sheet-btn" onClick={() => { navigate(`/settings?room=${roomId}`); setIsMobileMenuOpen(false); }}>
-                    <div className="bottom-sheet-btn-icon"><Settings size={18} /></div>
+                  <button
+                    className="bottom-sheet-btn"
+                    onClick={() => {
+                      navigate(`/settings?room=${roomId}`);
+                      setIsMobileMenuOpen(false);
+                    }}
+                  >
+                    <div className="bottom-sheet-btn-icon">
+                      <Settings size={18} />
+                    </div>
                     <div className="bottom-sheet-btn-text">
                       <span>Session Settings</span>
-                      <span className="sub">Configure search, network, and broadcast options</span>
+                      <span className="sub">
+                        Configure search, network, and broadcast options
+                      </span>
                     </div>
                   </button>
                 ) : (
-                  <button className="bottom-sheet-btn" onClick={() => { navigate('/help'); setIsMobileMenuOpen(false); }}>
+                  <button
+                    className="bottom-sheet-btn"
+                    onClick={() => {
+                      navigate("/help");
+                      setIsMobileMenuOpen(false);
+                    }}
+                  >
                     <div className="bottom-sheet-btn-icon">
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" width="18" height="18"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                      <svg
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="1.8"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        width="18"
+                        height="18"
+                      >
+                        <circle cx="12" cy="12" r="10" />
+                        <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" />
+                        <line x1="12" y1="17" x2="12.01" y2="17" />
+                      </svg>
                     </div>
                     <div className="bottom-sheet-btn-text">
                       <span>Help & Documentation</span>
-                      <span className="sub">Guides, FAQs, and getting started</span>
+                      <span className="sub">
+                        Guides, FAQs, and getting started
+                      </span>
                     </div>
                   </button>
                 )}
@@ -999,19 +1639,60 @@ const ControllerPage: React.FC = () => {
         )}
       </AnimatePresence>
 
-      <div style={{ textAlign: 'center', marginTop: '10px', marginBottom: '10px', display: 'flex', flexDirection: 'column', gap: '4px', minHeight: '28px', alignItems: 'center' }}>
-        {(primarySource === 'api.bible' || secondarySource === 'api.bible') && (
-          <span style={{ fontSize: '12px', fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase', opacity: 0.45, color: 'var(--text-1)' }}>
+      <div
+        style={{
+          textAlign: "center",
+          marginTop: "10px",
+          marginBottom: "10px",
+          display: "flex",
+          flexDirection: "column",
+          gap: "4px",
+          minHeight: "28px",
+          alignItems: "center",
+        }}
+      >
+        {(primarySource === "api.bible" || secondarySource === "api.bible") && (
+          <span
+            style={{
+              fontSize: "12px",
+              fontWeight: 600,
+              letterSpacing: "0.06em",
+              textTransform: "uppercase",
+              opacity: 0.45,
+              color: "var(--text-1)",
+            }}
+          >
             Powered by API.Bible
           </span>
         )}
-        {(primarySource === 'nlt' || secondarySource === 'nlt') && (
-          <span style={{ fontSize: '10px', fontWeight: 500, opacity: 0.45, color: 'var(--text-1)', maxWidth: '400px', lineHeight: 1.4 }}>
-            Scripture quotations marked (NLT) are taken from the Holy Bible, New Living Translation, copyright ©1996, 2004, 2015 by Tyndale House Foundation. Used by permission of Tyndale House Publishers. All rights reserved.
+        {(primarySource === "nlt" || secondarySource === "nlt") && (
+          <span
+            style={{
+              fontSize: "10px",
+              fontWeight: 500,
+              opacity: 0.45,
+              color: "var(--text-1)",
+              maxWidth: "400px",
+              lineHeight: 1.4,
+            }}
+          >
+            Scripture quotations marked (NLT) are taken from the Holy Bible, New
+            Living Translation, copyright ©1996, 2004, 2015 by Tyndale House
+            Foundation. Used by permission of Tyndale House Publishers. All
+            rights reserved.
           </span>
         )}
-        {primarySource === 'local' && secondarySource === 'local' && (
-          <span style={{ fontSize: '12px', fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase', opacity: 0.45, color: 'var(--text-1)' }}>
+        {primarySource === "local" && secondarySource === "local" && (
+          <span
+            style={{
+              fontSize: "12px",
+              fontWeight: 600,
+              letterSpacing: "0.06em",
+              textTransform: "uppercase",
+              opacity: 0.45,
+              color: "var(--text-1)",
+            }}
+          >
             StreamBible Local Data
           </span>
         )}
@@ -1019,14 +1700,16 @@ const ControllerPage: React.FC = () => {
 
       <footer id="action-bar" className="action-bar">
         <div className="action-row">
-          <button 
-            className={`btn-live ${status === 'live' ? 'is-live' : ''}`} 
-            onClick={pushLive} 
-            disabled={(!primaryText && !secondaryText) || status === 'fetching'}
+          <button
+            className={`btn-live ${status === "live" ? "is-live" : ""}`}
+            onClick={pushLive}
+            disabled={(!primaryText && !secondaryText) || status === "fetching"}
           >
             Push Live
           </button>
-          <button className="btn-clear" onClick={clearScreen}>Clear</button>
+          <button className="btn-clear" onClick={clearScreen}>
+            Clear
+          </button>
         </div>
         <div className="status-pill" data-state={status}>
           <span className="status-dot"></span>
@@ -1034,50 +1717,61 @@ const ControllerPage: React.FC = () => {
         </div>
       </footer>
       {/* DISCONNECTED OVERLAY for Guests */}
-      {!isHost && hostStatus !== 'online' && (
-        <div style={{
-          position: 'fixed',
-          top: 0, left: 0, right: 0, bottom: 0,
-          backgroundColor: 'rgba(0,0,0,0.85)',
-          backdropFilter: 'blur(10px)',
-          zIndex: 10000,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          color: 'white',
-          textAlign: 'center',
-          padding: '20px'
-        }}>
-          <motion.div 
+      {!isHost && hostStatus !== "online" && (
+        <div
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: "rgba(0,0,0,0.85)",
+            backdropFilter: "blur(10px)",
+            zIndex: 10000,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            color: "white",
+            textAlign: "center",
+            padding: "20px",
+          }}
+        >
+          <motion.div
             initial={{ scale: 0.9, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
-            style={{ maxWidth: '400px' }}
+            style={{ maxWidth: "400px" }}
           >
-            <div style={{ fontSize: '48px', marginBottom: '20px' }}>
-              {hostStatus === 'denied' ? '🔒' : '📡'}
+            <div style={{ fontSize: "48px", marginBottom: "20px" }}>
+              {hostStatus === "denied" ? "🔒" : "📡"}
             </div>
-            <h2 style={{ fontSize: '24px', fontWeight: 'bold', marginBottom: '12px' }}>
-              {hostStatus === 'denied' ? 'Access Revoked' : 'Host Disconnected'}
+            <h2
+              style={{
+                fontSize: "24px",
+                fontWeight: "bold",
+                marginBottom: "12px",
+              }}
+            >
+              {hostStatus === "denied" ? "Access Revoked" : "Host Disconnected"}
             </h2>
             <p style={{ opacity: 0.7, lineHeight: 1.5 }}>
-              {hostStatus === 'denied' 
+              {hostStatus === "denied"
                 ? "The host has disabled remote access for this session. Please contact your media team."
                 : "The primary controller has gone offline or the session has been reset."}
             </p>
-            <button 
+            <button
               onClick={() => {
-                localStorage.removeItem('streambible-active-room');
+                localStorage.removeItem("streambible-active-room");
                 window.location.href = window.location.pathname;
               }}
               style={{
-                marginTop: '30px',
-                padding: '12px 24px',
-                borderRadius: 'full',
-                background: 'var(--color-accent-primary)',
-                color: 'white',
-                border: 'none',
-                fontWeight: '600',
-                cursor: 'pointer'
+                marginTop: "30px",
+                padding: "12px 24px",
+                borderRadius: "full",
+                background: "var(--color-accent-primary)",
+                color: "white",
+                border: "none",
+                fontWeight: "600",
+                cursor: "pointer",
               }}
             >
               Back to Home
@@ -1094,9 +1788,15 @@ const ControllerPage: React.FC = () => {
         cancelLabel="Cancel"
         onConfirm={() => {
           setShowPushConfirm(false);
-          if (pendingPush) { pendingPush(); setPendingPush(null); }
+          if (pendingPush) {
+            pendingPush();
+            setPendingPush(null);
+          }
         }}
-        onCancel={() => { setShowPushConfirm(false); setPendingPush(null); }}
+        onCancel={() => {
+          setShowPushConfirm(false);
+          setPendingPush(null);
+        }}
       />
     </div>
   );
