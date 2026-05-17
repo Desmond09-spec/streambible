@@ -9,6 +9,7 @@ export const OnboardingModal: React.FC = () => {
   const location = useLocation();
 
   const [dismissed, setDismissed] = useState(false);
+  const [forceClaimView, setForceClaimView] = useState(false);
 
   const isVisible = useMemo(() => {
     if (!user || dismissed) return false;
@@ -17,8 +18,8 @@ export const OnboardingModal: React.FC = () => {
     return false;
   }, [user, dismissed, hasOnboarded, claimedRoomId, location.pathname]);
 
-  // Derive view directly from state — no side-effect needed
-  const view: 'tour' | 'claim' = hasOnboarded ? 'claim' : 'tour';
+  // Derive view from state — safe, no side-effects in effects/memos
+  const view: 'tour' | 'claim' = (hasOnboarded || forceClaimView) ? 'claim' : 'tour';
 
   const [claimInput, setClaimInput] = useState('');
   const [claimStatus, setClaimStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
@@ -148,7 +149,7 @@ export const OnboardingModal: React.FC = () => {
       </div>
 
       <button
-        onClick={() => setView('claim')}
+        onClick={() => setForceClaimView(true)}
         style={{
           marginTop: '10px',
           padding: '14px',
