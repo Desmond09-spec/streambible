@@ -133,7 +133,7 @@ export const TermsPage: React.FC = () => {
         </Section>
 
         <div style={{ borderTop: '1px solid var(--color-border)', paddingTop: '24px', marginTop: '16px', fontSize: '14px', color: 'var(--color-text-secondary)' }}>
-          <p>StreamBible is a free tool built for the church community. If you have any questions about these Terms of Service, please contact the developer directly.</p>
+          <p>StreamBible is a free tool built for the church community. If you have any questions about these Terms of Service, please <a href="mailto:streambibleteam@gmail.com" style={{ color: 'var(--color-accent-primary)', textDecoration: 'none' }}>contact the developer directly</a>.</p>
         </div>
       </motion.div>
     </div>
