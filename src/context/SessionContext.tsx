@@ -4,8 +4,10 @@ import { useSearchParams, Outlet, useNavigate } from 'react-router-dom';
 import { usePresence, useHeartbeat, useSyncPublisher, useDiscovery, type VersePayload, type DevicePresence, type ActiveSession } from '../hooks/useSync';
 import { useSettings } from './SettingsContext';
 import { supabase } from '../lib/supabase';
+import type { User } from '@supabase/supabase-js';
 import { SwitchingOverlay } from '../components/SwitchingOverlay';
 import { ConfirmModal } from '../components/ConfirmModal';
+import { OnboardingModal } from '../components/OnboardingModal';
 
 export interface SessionContextType {
   roomId: string;
@@ -35,6 +37,10 @@ export interface SessionContextType {
   cancelRegenerate: () => void;
   handleJoinRequest: (targetRoomId: string) => Promise<void>;
   handleResponse: (accepted: boolean) => Promise<void>;
+  user: User | null;
+  claimedRoomId: string | null;
+  hasOnboarded: boolean;
+  setHasOnboarded: React.Dispatch<React.SetStateAction<boolean>>;
 }
 
 const SessionContext = createContext<SessionContextType | null>(null);
@@ -55,7 +61,7 @@ export const SessionProvider: React.FC<{ children?: ReactNode }> = ({ children }
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
 
-  // Priority: URL param → localStorage → generate new
+  // Priority: Claimed Room -> URL param → localStorage → generate new
   const [roomId, setRoomId] = useState<string>(() => {
     const fromUrl = searchParams.get('room');
     if (fromUrl) return fromUrl;
@@ -68,19 +74,52 @@ export const SessionProvider: React.FC<{ children?: ReactNode }> = ({ children }
     return newRoom;
   });
 
-  // On mount: clean the URL if it had a ?room= param, persist room to storage
+  const [user, setUser] = useState<User | null>(null);
+  const [claimedRoomId, setClaimedRoomId] = useState<string | null>(null);
+  const [hasOnboarded, setHasOnboarded] = useState<boolean>(false);
+
   useEffect(() => {
+    // Check Auth and fetch claimed room ID
+    const fetchAuthAndProfile = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      setUser(user);
+      
+      if (user) {
+        const { data } = await supabase
+          .from('profiles')
+          .select('claimed_room_id, has_onboarded')
+          .eq('id', user.id)
+          .single();
+          
+        if (data) {
+          setHasOnboarded(!!data.has_onboarded);
+          
+          if (data.claimed_room_id) {
+            setClaimedRoomId(data.claimed_room_id);
+            // If we have a claimed room, we enforce it as our active room
+            setRoomId(data.claimed_room_id);
+            localStorage.setItem(`streambible-host-${data.claimed_room_id}`, 'true');
+            localStorage.setItem(LS_ROOM_KEY, data.claimed_room_id);
+          }
+        }
+      }
+    };
+    
+    fetchAuthAndProfile();
+
     const fromUrl = searchParams.get('room');
     if (fromUrl) {
-      // Strip room from URL, keep any other params
       setSearchParams(prev => {
         prev.delete('room');
         return prev;
       }, { replace: true });
     }
-    localStorage.setItem(LS_ROOM_KEY, roomId);
+    // Only set standard room to storage if we don't have a claimed room yet
+    if (!claimedRoomId) {
+      localStorage.setItem(LS_ROOM_KEY, roomId);
+    }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // run once on mount
+  }, [roomId]);
 
   const isHost = localStorage.getItem(`streambible-host-${roomId}`) === 'true';
 
@@ -263,8 +302,10 @@ export const SessionProvider: React.FC<{ children?: ReactNode }> = ({ children }
       devices, myId, hostStatus, wsConnected, pushVerse, broadcastClear,
       joinRequest, setJoinRequest, incomingRequest, setIncomingRequest,
       requestStatus, setRequestStatus, nearbySessions, refreshDiscovery, isDiscovering,
-      regenerateRoom, pendingReset, confirmRegenerate, cancelRegenerate, handleJoinRequest, handleResponse
+      regenerateRoom, pendingReset, confirmRegenerate, cancelRegenerate, handleJoinRequest, handleResponse,
+      user, claimedRoomId, hasOnboarded, setHasOnboarded
     }}>
+      <OnboardingModal />
       <SwitchingOverlay isVisible={isSwitching} error={switchError} />
       <ConfirmModal
         isVisible={pendingReset}

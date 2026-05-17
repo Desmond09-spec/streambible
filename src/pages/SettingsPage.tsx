@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { supabase } from '../lib/supabase';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useSettings } from '../context/SettingsContext';
 import { useSession } from '../context/SessionContext';
@@ -209,7 +210,10 @@ const SettingsSection: React.FC<SettingsSectionProps> = ({ title, footer, childr
 // ─── Main Page ────────────────────────────────────────────────────────────────
 const SettingsPage: React.FC = () => {
   const navigate = useNavigate();
-  const { roomId, isHost, regenerateRoom } = useSession();
+  const { roomId, isHost, regenerateRoom, user, claimedRoomId } = useSession();
+  const [claimInput, setClaimInput] = useState('');
+  const [claimStatus, setClaimStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
+  const [claimMessage, setClaimMessage] = useState('');
 
   const [theme] = useState<'light' | 'dark'>(() =>
     (localStorage.getItem(SETTINGS_KEYS.theme) || 'light') as 'light' | 'dark'
@@ -237,6 +241,56 @@ const SettingsPage: React.FC = () => {
   const setVerseNumbers = (v: boolean) => { setShowVerseNumbers(v); save(); };
 
   const goBack = () => navigate(roomId ? `/controller?room=${roomId}` : '/controller');
+
+  const handleClaim = async () => {
+    if (!user) return;
+    const roomCode = claimInput.toUpperCase().trim();
+    if (roomCode.length < 3 || roomCode.length > 8) {
+      setClaimStatus('error');
+      setClaimMessage('Room ID must be between 3 and 8 characters.');
+      return;
+    }
+    if (!/^[A-Z0-9]+$/.test(roomCode)) {
+      setClaimStatus('error');
+      setClaimMessage('Room ID can only contain letters and numbers.');
+      return;
+    }
+
+    setClaimStatus('loading');
+    
+    try {
+      // Securely check availability via RPC (OWASP A01 Prevention)
+      const { data: isAvailable, error: rpcError } = await supabase.rpc('check_room_available', { room_code: roomCode });
+      if (rpcError) throw rpcError;
+      
+      if (!isAvailable && roomCode !== claimedRoomId) {
+        setClaimStatus('error');
+        setClaimMessage('This Room ID is already taken.');
+        return;
+      }
+
+      // Update the profile
+      const { error: updateError } = await supabase
+        .from('profiles')
+        .update({ claimed_room_id: roomCode })
+        .eq('id', user.id);
+        
+      if (updateError) throw updateError;
+
+      setClaimStatus('success');
+      setClaimMessage('Room successfully claimed! Changes will apply on your next session restart.');
+      setTimeout(() => setClaimStatus('idle'), 5000);
+      
+    } catch (err: unknown) {
+      setClaimStatus('error');
+      setClaimMessage(err instanceof Error ? err.message : 'Failed to claim room.');
+    }
+  };
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    window.location.reload();
+  };
 
   // ── Access denied ─────────────────────────────────────────────────────────
   if (!isHost) {
@@ -375,6 +429,132 @@ const SettingsPage: React.FC = () => {
             onChange={setAutoClear}
             last
           />
+        </SettingsSection>
+
+        {/* Account & Persistent Room */}
+        <SettingsSection
+          title="Account & Room ID"
+          footer={user ? "Your claimed room ID ensures your overlays never break and you always control the same session URL." : "Create a free account to claim a permanent, custom Room ID (e.g., room=GRACE)."}
+        >
+          {!user ? (
+            <SettingLinkRow
+              label="Sign in or Create Account"
+              description="Claim your custom Room ID today."
+              onClick={() => navigate('/auth')}
+              last
+            />
+          ) : (
+            <div className="settings-row settings-row--last" style={{ flexDirection: 'column', alignItems: 'flex-start', padding: '16px' }}>
+              <div style={{ width: '100%', marginBottom: '16px' }}>
+                <span className="settings-row-label">Claimed Room ID</span>
+                <span className="settings-row-desc">Currently signed in as {user.email}</span>
+              </div>
+              
+              <div style={{ display: 'flex', gap: '12px', width: '100%', marginBottom: '12px' }}>
+                <motion.input
+                  animate={
+                    claimStatus === 'error' ? { x: [-5, 5, -5, 5, 0], transition: { duration: 0.4 } } :
+                    claimStatus === 'success' ? { boxShadow: '0 0 15px rgba(52,199,89,0.4)', borderColor: 'var(--color-accent-success)' } :
+                    {}
+                  }
+                  type="text"
+                  placeholder={claimedRoomId || "e.g. GRACE"}
+                  value={claimInput}
+                  onChange={(e) => setClaimInput(e.target.value.toUpperCase())}
+                  maxLength={8}
+                  style={{
+                    flex: 1,
+                    padding: '10px 14px',
+                    borderRadius: '8px',
+                    border: `1px solid ${claimStatus === 'error' ? 'var(--color-accent-danger)' : 'var(--color-border)'}`,
+                    background: 'var(--color-bg-secondary)',
+                    color: 'var(--color-text-primary)',
+                    outline: 'none',
+                    textTransform: 'uppercase',
+                    fontWeight: 'bold',
+                    letterSpacing: '2px'
+                  }}
+                />
+                <motion.button
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  onClick={handleClaim}
+                  disabled={claimStatus === 'loading' || !claimInput.trim()}
+                  style={{
+                    padding: '10px 20px',
+                    borderRadius: '8px',
+                    background: claimStatus === 'success' ? 'var(--color-accent-success)' : 'var(--color-accent-primary)',
+                    color: 'white',
+                    fontWeight: '600',
+                    border: 'none',
+                    cursor: (claimStatus === 'loading' || !claimInput.trim()) ? 'not-allowed' : 'pointer',
+                    opacity: (claimStatus === 'loading' || !claimInput.trim()) ? 0.6 : 1
+                  }}
+                >
+                  {claimStatus === 'loading' ? 'Checking...' : claimStatus === 'success' ? 'Claimed!' : 'Claim'}
+                </motion.button>
+              </div>
+              
+              {claimMessage && (
+                <div style={{
+                  fontSize: '13px',
+                  fontWeight: '500',
+                  color: claimStatus === 'error' ? 'var(--color-accent-danger)' : 'var(--color-accent-success)',
+                  marginBottom: '16px'
+                }}>
+                  {claimMessage}
+                </div>
+              )}
+
+              {claimedRoomId && (
+                <div style={{ marginTop: '16px', width: '100%', padding: '16px', background: 'var(--color-bg-primary)', borderRadius: '8px', border: '1px solid var(--color-border)' }}>
+                  <h4 style={{ fontSize: '13px', color: 'var(--color-text-secondary)', marginBottom: '12px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Copy URLs for OBS</h4>
+                  
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px', background: 'var(--color-bg-secondary)', padding: '8px 12px', borderRadius: '6px' }}>
+                    <span style={{ fontSize: '14px', fontFamily: 'monospace', color: 'var(--color-text-primary)' }}>/overlay?room={claimedRoomId}</span>
+                    <button 
+                      onClick={(e) => {
+                        navigator.clipboard.writeText(`${window.location.origin}/overlay?room=${claimedRoomId}`);
+                        const btn = e.currentTarget;
+                        btn.innerText = 'Copied!';
+                        setTimeout(() => btn.innerText = 'Copy', 2000);
+                      }}
+                      style={{ background: 'none', border: '1px solid var(--color-border)', padding: '4px 10px', borderRadius: '4px', color: 'var(--color-text-secondary)', fontSize: '12px', cursor: 'pointer' }}
+                    >Copy</button>
+                  </div>
+                  
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--color-bg-secondary)', padding: '8px 12px', borderRadius: '6px' }}>
+                    <span style={{ fontSize: '14px', fontFamily: 'monospace', color: 'var(--color-text-primary)' }}>/fullscreen?room={claimedRoomId}</span>
+                    <button 
+                      onClick={(e) => {
+                        navigator.clipboard.writeText(`${window.location.origin}/fullscreen?room=${claimedRoomId}`);
+                        const btn = e.currentTarget;
+                        btn.innerText = 'Copied!';
+                        setTimeout(() => btn.innerText = 'Copy', 2000);
+                      }}
+                      style={{ background: 'none', border: '1px solid var(--color-border)', padding: '4px 10px', borderRadius: '4px', color: 'var(--color-text-secondary)', fontSize: '12px', cursor: 'pointer' }}
+                    >Copy</button>
+                  </div>
+                </div>
+              )}
+
+              <button
+                onClick={handleLogout}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: 'var(--color-accent-danger)',
+                  fontSize: '14px',
+                  fontWeight: '600',
+                  cursor: 'pointer',
+                  padding: '4px 0',
+                  marginTop: '16px'
+                }}
+              >
+                Sign Out
+              </button>
+            </div>
+          )}
         </SettingsSection>
 
         {/* Session */}

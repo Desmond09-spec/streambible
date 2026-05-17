@@ -1,0 +1,20 @@
+# StreamBible
+
+StreamBible is a real-time Bible presentation platform designed for churches, livestreams, and modern worship settings. It enables pastors, media teams, and presentation operators to quickly sync Scripture across various displays, including overlays, fullscreen projections, and remote controller devices, with almost no delay.
+
+With a user-friendly iOS/macOS-style interface, StreamBible combines live Bible streaming, multi-translation support, LAN-based device discovery, and smooth remote syncing into a single lightweight web application. The platform supports several Bible translations, including KJV, NIV, NKJV, NLT, AMP, Yoruba (BM), ASV, BSB, and WEB. This allows for multilingual worship experiences for both local congregations and online audiences.
+
+### Features include:
+
+- Real-time verse synchronization across devices
+- Live overlay support for church livestreams
+- Multi-translation Bible fetching with smart caching
+- Remote session management and room-based control
+- Automatic device discovery on local church networks
+- Smooth fullscreen display optimized for projectors and broadcast screens
+- Interactive onboarding and user-friendly design
+- Fast, responsive performance powered by React, TypeScript, and Supabase
+
+StreamBible is built for reliability during live services. It remains stable even under poor network conditions thanks to smart caching, timeout protection, and robust syncing systems.
+
+Whether used in a local church, hybrid worship environment, or professional livestream production setup, StreamBible helps churches present Scripture beautifully, instantly, and without technical issues.

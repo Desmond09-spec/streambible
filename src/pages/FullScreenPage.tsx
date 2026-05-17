@@ -39,7 +39,15 @@ const FullScreenPage: React.FC = () => {
 
   const { hostStatus } = usePresence(roomId || "", true);
 
-  if (roomId === null || hostStatus !== 'online') {
+  // Auto-clear the screen gracefully if the host disconnects
+  useEffect(() => {
+    if (hostStatus !== 'online') {
+      const id = setTimeout(() => setVerse(prev => ({ ...prev, isVisible: false })), 0);
+      return () => clearTimeout(id);
+    }
+  }, [hostStatus]);
+
+  if (roomId === null) {
     if (window.location.search && !new URLSearchParams(window.location.search).get('room')) {
        return (
          <div style={{ width: '100vw', height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#000', color: '#fff', fontFamily: 'Inter, sans-serif' }}>

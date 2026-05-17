@@ -39,7 +39,15 @@ const OverlayPage: React.FC = () => {
 
   const { hostStatus } = usePresence(roomId || "", true);
 
-  if (roomId === null || hostStatus === 'offline') {
+  // Auto-clear the screen gracefully if the host disconnects
+  useEffect(() => {
+    if (hostStatus !== 'online') {
+      const id = setTimeout(() => setVerse(prev => ({ ...prev, isVisible: false })), 0);
+      return () => clearTimeout(id);
+    }
+  }, [hostStatus]);
+
+  if (roomId === null) {
     // Only show the error if we've checked the URL and it's definitely missing
     if (window.location.search && !new URLSearchParams(window.location.search).get('room')) {
        return (

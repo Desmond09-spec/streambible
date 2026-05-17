@@ -30,7 +30,7 @@ const ControllerPage: React.FC = () => {
     devices, myId, hostStatus, wsConnected, pushVerse, broadcastClear,
     joinRequest, incomingRequest,
     requestStatus, setRequestStatus, nearbySessions, refreshDiscovery, isDiscovering, 
-    regenerateRoom, handleJoinRequest, handleResponse
+    regenerateRoom, handleJoinRequest, handleResponse, claimedRoomId
   } = useSession();
 
   const [showPushConfirm, setShowPushConfirm] = useState(false);
@@ -426,7 +426,12 @@ const ControllerPage: React.FC = () => {
               StreamBible
               <span className={`ws-dot-mobile ${wsConnected ? 'connected' : 'error'}`}></span>
             </span>
-            <span className="wordmark-sub mobile-hidden">Live Controller</span>
+            <span className="wordmark-sub mobile-hidden" style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+              Room {roomId}
+              {roomId === claimedRoomId && (
+                <span style={{ color: '#E5B05C', fontSize: '14px', textShadow: '0 0 8px rgba(229,176,92,0.4)' }} title="Claimed Premium Room">✦</span>
+              )}
+            </span>
           </div>
         </div>
 
