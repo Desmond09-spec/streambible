@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { MoreHorizontal, ExternalLink, MonitorUp, Settings } from 'lucide-react';
 import './ControllerLegacy.css';
@@ -1043,10 +1043,10 @@ const ControllerPage: React.FC = () => {
           paddingBottom: '2px',
           userSelect: 'none',
         }}>
-          <button
-            onClick={() => navigate('/privacy')}
+          <Link
+            to="/privacy"
             style={{
-              background: 'none', border: 'none', padding: 0, margin: 0,
+              textDecoration: 'none',
               font: 'inherit', color: 'inherit', cursor: 'pointer',
               opacity: 0.7, transition: 'opacity 0.15s ease',
             }}
@@ -1054,12 +1054,12 @@ const ControllerPage: React.FC = () => {
             onMouseLeave={e => (e.currentTarget.style.opacity = '0.7')}
           >
             Privacy Policy
-          </button>
+          </Link>
           <span style={{ opacity: 0.4 }}>·</span>
-          <button
-            onClick={() => navigate('/terms')}
+          <Link
+            to="/terms"
             style={{
-              background: 'none', border: 'none', padding: 0, margin: 0,
+              textDecoration: 'none',
               font: 'inherit', color: 'inherit', cursor: 'pointer',
               opacity: 0.7, transition: 'opacity 0.15s ease',
             }}
@@ -1067,7 +1067,7 @@ const ControllerPage: React.FC = () => {
             onMouseLeave={e => (e.currentTarget.style.opacity = '0.7')}
           >
             Terms of Service
-          </button>
+          </Link>
         </div>
       </footer>
       {/* DISCONNECTED OVERLAY for Guests */}

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { supabase } from '../lib/supabase';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 
 export const AuthPage: React.FC = () => {
   const [email, setEmail] = useState('');
@@ -234,13 +234,13 @@ export const AuthPage: React.FC = () => {
 
         <div style={{ marginTop: '28px', paddingTop: '20px', borderTop: '1px solid var(--color-border)', textAlign: 'center', fontSize: '12px', color: 'var(--color-text-secondary)' }}>
           By continuing, you agree to our{' '}
-          <button onClick={() => navigate('/terms')} style={{ background: 'none', border: 'none', color: 'var(--color-accent-primary)', cursor: 'pointer', padding: 0, fontSize: '12px', textDecoration: 'underline' }}>
+          <Link to="/terms" style={{ color: 'var(--color-accent-primary)', textDecoration: 'underline' }}>
             Terms of Service
-          </button>
+          </Link>
           {' '}and{' '}
-          <button onClick={() => navigate('/privacy')} style={{ background: 'none', border: 'none', color: 'var(--color-accent-primary)', cursor: 'pointer', padding: 0, fontSize: '12px', textDecoration: 'underline' }}>
+          <Link to="/privacy" style={{ color: 'var(--color-accent-primary)', textDecoration: 'underline' }}>
             Privacy Policy
-          </button>.
+          </Link>.
         </div>
       </motion.div>
     </div>
