@@ -1032,6 +1032,43 @@ const ControllerPage: React.FC = () => {
           <span className="status-dot"></span>
           <span>{statusMsg}</span>
         </div>
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '6px',
+          fontFamily: 'var(--font)',
+          fontSize: '11px',
+          color: 'var(--text-4)',
+          letterSpacing: '0.01em',
+          paddingBottom: '2px',
+          userSelect: 'none',
+        }}>
+          <button
+            onClick={() => navigate('/privacy')}
+            style={{
+              background: 'none', border: 'none', padding: 0, margin: 0,
+              font: 'inherit', color: 'inherit', cursor: 'pointer',
+              opacity: 0.7, transition: 'opacity 0.15s ease',
+            }}
+            onMouseEnter={e => (e.currentTarget.style.opacity = '1')}
+            onMouseLeave={e => (e.currentTarget.style.opacity = '0.7')}
+          >
+            Privacy Policy
+          </button>
+          <span style={{ opacity: 0.4 }}>·</span>
+          <button
+            onClick={() => navigate('/terms')}
+            style={{
+              background: 'none', border: 'none', padding: 0, margin: 0,
+              font: 'inherit', color: 'inherit', cursor: 'pointer',
+              opacity: 0.7, transition: 'opacity 0.15s ease',
+            }}
+            onMouseEnter={e => (e.currentTarget.style.opacity = '1')}
+            onMouseLeave={e => (e.currentTarget.style.opacity = '0.7')}
+          >
+            Terms of Service
+          </button>
+        </div>
       </footer>
       {/* DISCONNECTED OVERLAY for Guests */}
       {!isHost && hostStatus !== 'online' && (
