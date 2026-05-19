@@ -41,6 +41,11 @@ While the app operates offline, it utilizes a lightweight Supabase backend for s
 - **Native Fallback Database:** A Postgres table holds native, public-domain Bible texts (like KJV and Bibeli Mimo) to guarantee availability even if external Bible APIs go down.
 - **Edge Functions:** Securely proxies requests to strict third-party APIs (like API.Bible) before permanently caching the results locally.
 
+### 5. Native Desktop Wrapper (Electron)
+To ensure the application operates seamlessly within a dedicated broadcast environment, StreamBible is bundled as a native desktop application:
+- **Framework:** Electron (Chromium + Node.js).
+- **Execution:** Compiles the Vite web app into a standalone, installable `.exe` format. This removes the reliance on a standard web browser, granting the Controller dashboard a dedicated window that avoids interference from other browser tabs or plugins.
+
 ---
 
 *StreamBible is designed to ensure the message is never interrupted by technical failure.*
