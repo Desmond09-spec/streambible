@@ -1,13 +1,10 @@
-import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef, useCallback } from 'react';
 import type { ReactNode } from 'react';
-import { useSearchParams, Outlet, useNavigate } from 'react-router-dom';
-import { usePresence, useHeartbeat, useSyncPublisher, useDiscovery, type VersePayload, type DevicePresence, type ActiveSession } from '../hooks/useSync';
+import { useSearchParams, useNavigate, Outlet } from 'react-router-dom';
+import { useHeartbeat, useWebRTCNode, useDiscovery, type VersePayload, type DevicePresence, type ActiveSession } from '../hooks/useSync';
 import { useSettings } from './SettingsContext';
 import { supabase } from '../lib/supabase';
 import type { User } from '@supabase/supabase-js';
-import { SwitchingOverlay } from '../components/SwitchingOverlay';
-import { ConfirmModal } from '../components/ConfirmModal';
-import { OnboardingModal } from '../components/OnboardingModal';
 
 export interface SessionContextType {
   roomId: string;
@@ -79,7 +76,6 @@ export const SessionProvider: React.FC<{ children?: ReactNode }> = ({ children }
   const [hasOnboarded, setHasOnboarded] = useState<boolean>(false);
 
   useEffect(() => {
-    // Check Auth and fetch claimed room ID
     const fetchAuthAndProfile = async () => {
       const { data: { user } } = await supabase.auth.getUser();
       setUser(user);
@@ -93,10 +89,8 @@ export const SessionProvider: React.FC<{ children?: ReactNode }> = ({ children }
           
         if (data) {
           setHasOnboarded(!!data.has_onboarded);
-          
           if (data.claimed_room_id) {
             setClaimedRoomId(data.claimed_room_id);
-            // If we have a claimed room, we enforce it as our active room
             setRoomId(data.claimed_room_id);
             localStorage.setItem(`streambible-host-${data.claimed_room_id}`, 'true');
             localStorage.setItem(LS_ROOM_KEY, data.claimed_room_id);
@@ -114,7 +108,6 @@ export const SessionProvider: React.FC<{ children?: ReactNode }> = ({ children }
         return prev;
       }, { replace: true });
     }
-    // Only set standard room to storage if we don't have a claimed room yet
     if (!claimedRoomId) {
       localStorage.setItem(LS_ROOM_KEY, roomId);
     }
@@ -124,15 +117,63 @@ export const SessionProvider: React.FC<{ children?: ReactNode }> = ({ children }
   const isHost = localStorage.getItem(`streambible-host-${roomId}`) === 'true';
 
   const [isSwitching, setIsSwitching] = useState(false);
-  const [switchError, setSwitchError] = useState<string | null>(null);
   const switchStartTime = useRef(0);
   const switchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [remoteAccess, setRemoteAccess] = useState(false);
   const [discoveryEnabled, setDiscoveryEnabled] = useState(false);
 
-  const { pushVerse, clearScreen: broadcastClear, broadcastReset } = useSyncPublisher(roomId);
-  const { devices, myId, hostStatus, isReady } = usePresence(roomId, false, remoteAccess);
+  const [joinRequest, setJoinRequest] = useState<{ roomId: string, deviceId: string, name: string } | null>(null);
+  const [incomingRequest, setIncomingRequest] = useState<{ roomId: string, deviceId: string, name: string } | null>(null);
+  const [requestStatus, setRequestStatus] = useState<'idle' | 'pending' | 'accepted' | 'declined'>('idle');
+
+  // Callbacks for the WebRTC Node
+  const onRoomReset = useCallback(() => {
+    if (!isHost) {
+      localStorage.removeItem(LS_ROOM_KEY);
+      window.location.reload();
+    }
+  }, [isHost]);
+
+  const onJoinRequest = useCallback((req: { fromRoom: string, deviceId: string, name: string }) => {
+    setIncomingRequest({
+      roomId: req.fromRoom,
+      deviceId: req.deviceId,
+      name: req.name
+    });
+  }, []);
+
+  const onJoinResponse = useCallback((res: { targetDeviceId: string, accepted: boolean, newRoomId: string }) => {
+    if (res.accepted) {
+      setRequestStatus('accepted');
+      setIsSwitching(true);
+      switchStartTime.current = Date.now();
+      localStorage.setItem(LS_ROOM_KEY, res.newRoomId);
+      setRoomId(res.newRoomId);
+      navigate('/controller', { replace: true });
+    } else {
+      setRequestStatus('declined');
+      setJoinRequest(null);
+      setTimeout(() => setRequestStatus('idle'), 4000);
+    }
+  }, [navigate]);
+
+  const {
+    devices,
+    myId,
+    hostStatus,
+    isReady,
+    pushVerse,
+    clearScreen: broadcastClear,
+    broadcastReset,
+    sendJoinRequest,
+    respondToJoinRequest
+  } = useWebRTCNode(roomId, isHost, false, remoteAccess, {
+    onRoomReset,
+    onJoinRequest,
+    onJoinResponse
+  });
+
   const wsConnected = hostStatus === 'online';
 
   useEffect(() => {
@@ -149,7 +190,8 @@ export const SessionProvider: React.FC<{ children?: ReactNode }> = ({ children }
       }
     } else {
       switchTimeoutRef.current = setTimeout(() => {
-        setSwitchError('Connection timed out. Please check your network.');
+        // Handle timeout silently or log it
+        console.warn('Connection timed out while switching rooms.');
       }, 8000);
     }
 
@@ -163,12 +205,7 @@ export const SessionProvider: React.FC<{ children?: ReactNode }> = ({ children }
   useHeartbeat(roomId, isHost, isDiscoverable);
   const { nearbySessions, refresh: refreshDiscovery, isDiscovering } = useDiscovery(discoveryEnabled);
 
-  const [joinRequest, setJoinRequest] = useState<{ roomId: string, deviceId: string, name: string } | null>(null);
-  const [incomingRequest, setIncomingRequest] = useState<{ roomId: string, deviceId: string, name: string } | null>(null);
-  const [requestStatus, setRequestStatus] = useState<'idle' | 'pending' | 'accepted' | 'declined'>('idle');
-
   const [pendingReset, setPendingReset] = useState(false);
-  const [sessionTerminated, setSessionTerminated] = useState(false);
 
   const regenerateRoom = () => {
     setPendingReset(true);
@@ -179,7 +216,6 @@ export const SessionProvider: React.FC<{ children?: ReactNode }> = ({ children }
     broadcastClear();
     setIsSwitching(true);
     switchStartTime.current = Date.now();
-    setSwitchError(null);
 
     broadcastReset();
 
@@ -187,7 +223,6 @@ export const SessionProvider: React.FC<{ children?: ReactNode }> = ({ children }
     localStorage.setItem(`streambible-host-${newRoom}`, 'true');
     localStorage.setItem(LS_ROOM_KEY, newRoom);
     setRoomId(newRoom);
-    // Navigate to clear the page state without a URL room param
     navigate('/controller', { replace: true });
   };
 
@@ -195,145 +230,33 @@ export const SessionProvider: React.FC<{ children?: ReactNode }> = ({ children }
     setPendingReset(false);
   };
 
-  const getFriendlyDeviceName = () => {
-     const dev = devices.find(d => d.id === myId);
-     return dev ? dev.name : 'Unknown Device';
-  };
-
-  useEffect(() => {
-    if (!roomId) return;
-    const channel = supabase.channel(`streambible-sync-${roomId}`);
-    
-    if (isHost) {
-      channel.on('broadcast', { event: 'JOIN_REQUEST' }, ({ payload }) => {
-         if (payload.deviceId !== myId) {
-           setIncomingRequest({
-             roomId: payload.fromRoom,
-             deviceId: payload.deviceId,
-             name: payload.name
-           });
-         }
-      });
-    }
-
-    channel.on('broadcast', { event: 'ROOM_RESET' }, () => {
-       if (!isHost) {
-          localStorage.removeItem(LS_ROOM_KEY);
-          setSessionTerminated(true);
-       }
-    });
-
-    channel.subscribe();
-    return () => { channel.unsubscribe(); };
-  }, [roomId, isHost, myId]);
-
-  useEffect(() => {
-    if (requestStatus !== 'pending' || !joinRequest) return;
-    
-    const channel = supabase.channel(`streambible-sync-${joinRequest.roomId}`);
-    channel.on('broadcast', { event: 'JOIN_RESPONSE' }, ({ payload }) => {
-       if (payload.targetDeviceId === myId) {
-          if (payload.accepted) {
-            setRequestStatus('accepted');
-            setIsSwitching(true);
-            switchStartTime.current = Date.now();
-            setSwitchError(null);
-            // Switch room in context, not in URL
-            const newRoom = payload.newRoomId;
-            localStorage.setItem(LS_ROOM_KEY, newRoom);
-            setRoomId(newRoom);
-            navigate('/controller', { replace: true });
-          } else {
-            setRequestStatus('declined');
-            setJoinRequest(null);
-            setTimeout(() => setRequestStatus('idle'), 4000);
-          }
-       }
-    }).subscribe();
-
-    return () => { channel.unsubscribe(); };
-  }, [isHost, requestStatus, myId, joinRequest, navigate]);
-
   const handleJoinRequest = async (targetRoomId: string) => {
     if (targetRoomId === roomId) return;
     setRequestStatus('pending');
     setJoinRequest({ roomId: targetRoomId, deviceId: '', name: 'Target Room' });
-
-    const channel = supabase.channel(`streambible-sync-${targetRoomId}`);
-    await channel.subscribe(async (status) => {
-      if (status === 'SUBSCRIBED') {
-        await channel.send({
-          type: 'broadcast',
-          event: 'JOIN_REQUEST',
-          payload: {
-            fromRoom: roomId,
-            deviceId: myId,
-            name: getFriendlyDeviceName()
-          }
-        });
-      }
-    });
+    sendJoinRequest(targetRoomId, 'Remote Device');
   };
 
   const handleResponse = async (accepted: boolean) => {
     if (!incomingRequest) return;
+    if (accepted && !remoteAccess) setRemoteAccess(true);
     
-    if (accepted && !remoteAccess) {
-      setRemoteAccess(true);
-    }
-    
-    const channel = supabase.channel(`streambible-sync-${roomId}`);
-    await channel.send({
-      type: 'broadcast',
-      event: 'JOIN_RESPONSE',
-      payload: {
-        targetDeviceId: incomingRequest.deviceId,
-        accepted,
-        newRoomId: roomId
-      }
-    });
-    
+    respondToJoinRequest(incomingRequest.deviceId, accepted, roomId);
     setIncomingRequest(null);
   };
 
   return (
     <SessionContext.Provider value={{
-      roomId, isHost, remoteAccess, setRemoteAccess, discoveryEnabled, setDiscoveryEnabled,
-      devices, myId, hostStatus, wsConnected, pushVerse, broadcastClear,
+      roomId, isHost, remoteAccess, setRemoteAccess,
+      discoveryEnabled, setDiscoveryEnabled, devices, myId,
+      hostStatus, wsConnected, pushVerse, broadcastClear,
       joinRequest, setJoinRequest, incomingRequest, setIncomingRequest,
-      requestStatus, setRequestStatus, nearbySessions, refreshDiscovery, isDiscovering,
-      regenerateRoom, pendingReset, confirmRegenerate, cancelRegenerate, handleJoinRequest, handleResponse,
+      requestStatus, setRequestStatus, nearbySessions, refreshDiscovery,
+      isDiscovering, regenerateRoom, pendingReset, confirmRegenerate,
+      cancelRegenerate, handleJoinRequest, handleResponse,
       user, claimedRoomId, hasOnboarded, setHasOnboarded
     }}>
-      <OnboardingModal />
-      <SwitchingOverlay isVisible={isSwitching} error={switchError} />
-      <ConfirmModal
-        isVisible={pendingReset}
-        title="Reset Session?"
-        message="This will disconnect all currently connected overlays and remote controllers."
-        confirmLabel="Reset"
-        cancelLabel="Cancel"
-        destructive
-        onConfirm={confirmRegenerate}
-        onCancel={cancelRegenerate}
-      />
-      <ConfirmModal
-        isVisible={sessionTerminated}
-        title="Session Ended"
-        message="The host has closed this room. You have been disconnected."
-        confirmLabel="Create New Room"
-        cancelLabel="Dismiss"
-        onConfirm={() => {
-          setSessionTerminated(false);
-          window.location.reload();
-        }}
-        onCancel={() => {
-          setSessionTerminated(false);
-        }}
-      />
-      {children || <Outlet />}
+      {children ? children : <Outlet />}
     </SessionContext.Provider>
   );
 };
-
-

@@ -234,6 +234,7 @@ export function formatYouVersionReference(reference: BibleReference): string {
 
 // ─── YouVersion-powered fetch functions via Supabase Edge Function ──────────
 import { supabase } from '../lib/supabase';
+import { db } from '../lib/db';
 
 export const curatedVersions = [
   { id: 'nlt', name: 'New Living Translation', abbreviation: 'NLT', language: 'English' },
@@ -308,21 +309,20 @@ export async function fetchVerse(versionId: string, query: string): Promise<{ te
     nltRef += `-${canonicalBook}.${reference.chapter}.${reference.verseEnd}`;
   }
 
-  // Check client-side cache
-  const cached = localStorage.getItem(cacheKey);
-  if (cached) {
-    try {
-      const parsed = JSON.parse(cached);
-      // Reject stale error entries (e.g. from previous broken NLT fetches)
-      const isValidText = parsed.text && parsed.text !== "Text not found" && parsed.text !== "Verse not found.";
-      if (isValidText && parsed.source) {
+  // Check client-side cache (IndexedDB)
+  try {
+    const cached = await db.verses.get(cacheKey);
+    if (cached) {
+      const isValidText = cached.content && cached.content !== "Text not found" && cached.content !== "Verse not found.";
+      if (isValidText && cached.source) {
         console.log(`[Cache] Serving: ${formattedRef} (${versionId})`);
-        return parsed;
+        return { text: cached.content, source: cached.source, triageReason: null };
       } else {
-        // Evict invalid cache entry so we retry the network
-        localStorage.removeItem(cacheKey);
+        await db.verses.delete(cacheKey);
       }
-    } catch { /* stale cache, refetch */ }
+    }
+  } catch (err) {
+    console.warn("IndexedDB cache read failed:", err);
   }
 
   let verseText = "";
@@ -373,7 +373,18 @@ export async function fetchVerse(versionId: string, query: string): Promise<{ te
   const result = { text: verseText, source: currentSource, triageReason: currentTriage };
   // Only cache a genuine successful response — never cache errors or empty text
   if (verseText && verseText !== "Text not found" && verseText !== "Verse not found.") {
-    localStorage.setItem(cacheKey, JSON.stringify(result));
+    try {
+      await db.verses.put({
+        id: cacheKey,
+        versionId: versionId,
+        reference: formattedRef,
+        content: verseText,
+        source: currentSource,
+        timestamp: Date.now()
+      });
+    } catch (err) {
+      console.warn("IndexedDB cache write failed:", err);
+    }
   }
   return result;
 }

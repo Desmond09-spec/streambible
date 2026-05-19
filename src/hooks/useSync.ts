@@ -1,4 +1,5 @@
 import { useEffect, useRef, useCallback, useState } from 'react';
+import Peer, { type DataConnection } from 'peerjs';
 import { supabase } from '../lib/supabase';
 
 export interface VersePayload {
@@ -29,7 +30,7 @@ export interface ActiveSession {
   is_discoverable: boolean;
 }
 
-function getDeviceId() {
+export function getDeviceId() {
   let id = localStorage.getItem('streambible-device-id');
   if (!id) {
     id = Math.random().toString(36).substring(2, 10);
@@ -38,7 +39,7 @@ function getDeviceId() {
   return id;
 }
 
-function getFriendlyDeviceName() {
+export function getFriendlyDeviceName() {
   const ua = navigator.userAgent;
   let browser = 'Browser';
   let os = 'Device';
@@ -60,296 +61,340 @@ function getFriendlyDeviceName() {
   return `${browser} on ${os}`;
 }
 
-/**
- * Publisher hook — used by ControllerPage to broadcast verse updates.
- */
-export function useSyncPublisher(roomId: string) {
-  const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
+export type HostStatus = 'online' | 'offline' | 'denied';
 
-  useEffect(() => {
-    if (!roomId) return;
-    const channelName = `streambible-sync-${roomId}`;
-    const channel = supabase.channel(channelName);
-    channel.subscribe();
-    channelRef.current = channel;
-
-    return () => {
-      channel.unsubscribe();
-    };
-  }, [roomId]);
-
-  const pushVerse = useCallback((payload: VersePayload) => {
-    channelRef.current?.send({
-      type: 'broadcast',
-      event: 'PUSH_VERSE',
-      payload,
-    });
-  }, []);
-
-  const clearScreen = useCallback(() => {
-    channelRef.current?.send({
-      type: 'broadcast',
-      event: 'CLEAR_SCREEN',
-      payload: {},
-    });
-  }, []);
-
-  const broadcastReset = useCallback(() => {
-    channelRef.current?.send({
-      type: 'broadcast',
-      event: 'ROOM_RESET',
-      payload: {},
-    });
-  }, []);
-
-  return { pushVerse, clearScreen, broadcastReset };
+interface WebRTCCallbacks {
+  onVerseUpdate?: (payload: VersePayload) => void;
+  onClear?: () => void;
+  onRoomReset?: () => void;
+  onJoinRequest?: (payload: { fromRoom: string, deviceId: string, name: string }) => void;
+  onJoinResponse?: (payload: { targetDeviceId: string, accepted: boolean, newRoomId: string }) => void;
 }
 
 /**
- * Subscriber hook — used by OverlayPage and FullScreenPage to receive updates.
+ * The master WebRTC hook that replaces Supabase channels.
+ * It handles Host logic, Client logic, broadcasting, and presence.
  */
-export function useSyncSubscriber(
+export function useWebRTCNode(
   roomId: string | null,
-  onVerseUpdate: (payload: VersePayload) => void,
-  onClear: () => void
+  isHost: boolean,
+  isOverlay: boolean = false,
+  remoteAccess: boolean = true,
+  callbacks?: WebRTCCallbacks
 ) {
-  useEffect(() => {
-    if (!roomId) return;
-    const channelName = `streambible-sync-${roomId}`;
-    const channel = supabase
-      .channel(channelName)
-      .on('broadcast', { event: 'PUSH_VERSE' }, ({ payload }) => {
-        onVerseUpdate(payload as VersePayload);
-      })
-      .on('broadcast', { event: 'CLEAR_SCREEN' }, () => {
-        onClear();
-      })
-      .on('broadcast', { event: 'ROOM_RESET' }, () => {
-        window.location.reload();
-      })
-      .subscribe();
+  const peerRef = useRef<Peer | null>(null);
+  const connsRef = useRef<Map<string, DataConnection>>(new Map());
+  const hostConnRef = useRef<DataConnection | null>(null);
 
-    return () => {
-      channel.unsubscribe();
-    };
-  }, [roomId, onVerseUpdate, onClear]);
-}
-
-/**
- * Presence hook — tracks connected devices in a room.
- */
-export function usePresence(roomId: string, isOverlay: boolean = false, remoteAccess: boolean = true) {
   const [devices, setDevices] = useState<DevicePresence[]>([]);
-  const [hostStatus, setHostStatus] = useState<'online' | 'offline' | 'denied'>('online');
+  const [hostStatus, setHostStatus] = useState<HostStatus>('offline');
   const [isReady, setIsReady] = useState(false);
-  const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
-  const remoteAccessRef = useRef(remoteAccess);
+
   const myId = getDeviceId();
+  const myName = getFriendlyDeviceName();
+
+  const remoteAccessRef = useRef(remoteAccess);
+  const callbacksRef = useRef(callbacks);
 
   useEffect(() => {
     remoteAccessRef.current = remoteAccess;
   }, [remoteAccess]);
 
   useEffect(() => {
-    Promise.resolve().then(() => setIsReady(false));
-    if (!roomId) return;
-    const channelName = `streambible-presence-${roomId}`;
-    const isHost = localStorage.getItem(`streambible-host-${roomId}`) === 'true';
+    callbacksRef.current = callbacks;
+  }, [callbacks]);
 
-    const channel = supabase.channel(channelName, {
-      config: {
-        presence: {
-          key: myId,
-        },
-      },
+  // Handle Broadcasting payload to all peers (or upstream to host)
+  const pushVerse = useCallback((payload: VersePayload) => {
+    const data = { type: 'broadcast', event: 'PUSH_VERSE', payload };
+    if (isHost) {
+      connsRef.current.forEach(conn => conn.send(data));
+      // Triger local callback for dual-window sync if host
+      callbacksRef.current?.onVerseUpdate?.(payload);
+    } else {
+      hostConnRef.current?.send({ type: 'upstream', event: 'PUSH_VERSE', payload });
+    }
+  }, [isHost]);
+
+  const clearScreen = useCallback(() => {
+    const data = { type: 'broadcast', event: 'CLEAR_SCREEN', payload: {} };
+    if (isHost) {
+      connsRef.current.forEach(conn => conn.send(data));
+      callbacksRef.current?.onClear?.();
+    } else {
+      hostConnRef.current?.send({ type: 'upstream', event: 'CLEAR_SCREEN', payload: {} });
+    }
+  }, [isHost]);
+
+  const broadcastReset = useCallback(() => {
+    const data = { type: 'broadcast', event: 'ROOM_RESET', payload: {} };
+    if (isHost) {
+      connsRef.current.forEach(conn => conn.send(data));
+      callbacksRef.current?.onRoomReset?.();
+    }
+  }, [isHost]);
+
+  const sendJoinRequest = useCallback((targetRoomId: string, name: string) => {
+    // Temporarily connect to the target host to send the join request
+    if (!peerRef.current) return;
+    const tempConn = peerRef.current.connect(`streambible-room-${targetRoomId}`, {
+      metadata: { isJoinRequest: true, deviceId: myId, name }
     });
-    
-    channelRef.current = channel;
+    tempConn.on('open', () => {
+      setTimeout(() => tempConn.close(), 2000); // close after sending
+    });
+  }, [myId]);
 
-    channel
-      .on('presence', { event: 'sync' }, () => {
-        const state = channel.presenceState();
-        const connectedDevices: DevicePresence[] = [];
-        let hostFound = false;
-        let accessGranted = false;
-        let latestHostUpdate = 0;
-        
-        for (const [key, presences] of Object.entries(state)) {
-           for (const p of presences as { name?: string; isHost?: boolean; isOverlay?: boolean; updatedAt?: number; remoteAccess?: boolean }[]) {
-              const device = {
-                 id: key,
-                 name: p.name || 'Unknown Device',
-                 isHost: p.isHost || false,
-                 isOverlay: p.isOverlay || false
-              };
-              
-              if (!connectedDevices.find(d => d.id === key)) {
-                connectedDevices.push(device);
-              }
+  const respondToJoinRequest = useCallback((targetDeviceId: string, accepted: boolean, newRoomId: string) => {
+    // Host broadcasts the response to everyone, the specific client will catch it
+    if (isHost) {
+      const data = {
+        type: 'broadcast',
+        event: 'JOIN_RESPONSE',
+        payload: { targetDeviceId, accepted, newRoomId }
+      };
+      connsRef.current.forEach(conn => conn.send(data));
+    }
+  }, [isHost]);
 
-              if (device.isHost) {
-                hostFound = true;
-                // Use the most recently updated host presence to determine access (ignores stale ghost connections)
-                const updateTime = p.updatedAt || 0;
-                if (updateTime >= latestHostUpdate) {
-                  latestHostUpdate = updateTime;
-                  accessGranted = p.remoteAccess !== false;
-                }
-              }
-           }
-        }
-        
-        setDevices(connectedDevices);
-        
-        // Host management logic for guests/overlays
-        if (!isHost) {
-          if (!hostFound) {
-            setHostStatus('offline');
-          } else if (!accessGranted) {
-            setHostStatus('denied');
-          } else {
-            setHostStatus('online');
-          }
-        }
-      })
-      .subscribe(async (status) => {
-        if (status === 'SUBSCRIBED') {
-          setIsReady(true);
-          await channel.track({
-            name: getFriendlyDeviceName(),
-            isHost,
-            isOverlay,
-            remoteAccess: isHost ? remoteAccessRef.current : true,
-            updatedAt: Date.now()
-          });
-        }
+  useEffect(() => {
+    if (!roomId) return;
+
+    if (peerRef.current) {
+      peerRef.current.destroy();
+    }
+
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setDevices([]);
+    setIsReady(false);
+    setHostStatus('offline');
+    connsRef.current.clear();
+    hostConnRef.current = null;
+
+    if (isHost) {
+      // ---------------- HOST MODE ----------------
+      const hostId = `streambible-room-${roomId}`;
+      const peer = new Peer(hostId, {
+        config: { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] }
       });
 
-    return () => {
-      channel.unsubscribe();
-      channelRef.current = null;
-    };
-  }, [roomId, isOverlay, myId]);
+      peer.on('open', () => {
+        setIsReady(true);
+        setHostStatus('online');
+        setDevices([{ id: myId, name: myName, isHost: true, isOverlay: false }]);
+      });
 
-  // Update presence dynamically without dropping the connection
-  useEffect(() => {
-    if (channelRef.current) {
-      const isHost = localStorage.getItem(`streambible-host-${roomId}`) === 'true';
-      // channel.track automatically broadcasts the updated state to clients
-      channelRef.current.track({
-        name: getFriendlyDeviceName(),
-        isHost,
-        isOverlay,
-        remoteAccess: isHost ? remoteAccess : true,
-        updatedAt: Date.now()
-      }).catch((e: unknown) => console.log('Track update failed, might not be subscribed yet', e));
+      peer.on('connection', (conn) => {
+        conn.on('open', () => {
+          const meta = conn.metadata || {};
+          
+          if (meta.isJoinRequest) {
+            callbacksRef.current?.onJoinRequest?.({
+              fromRoom: '',
+              deviceId: meta.deviceId,
+              name: meta.name
+            });
+            return;
+          }
+
+          if (!meta.isOverlay && !remoteAccessRef.current) {
+            conn.send({ type: 'system', event: 'ACCESS_DENIED' });
+            setTimeout(() => conn.close(), 500);
+            return;
+          }
+
+          connsRef.current.set(conn.peer, conn);
+          
+          // Add to presence
+          setDevices(prev => {
+            if (prev.find(d => d.id === meta.deviceId)) return prev;
+            return [...prev, { id: meta.deviceId, name: meta.name, isHost: false, isOverlay: meta.isOverlay }];
+          });
+
+          // Broadcast updated devices list to everyone
+          setTimeout(() => {
+             const currentDevices = Array.from(connsRef.current.values()).map(c => ({
+               id: c.metadata?.deviceId,
+               name: c.metadata?.name,
+               isHost: false,
+               isOverlay: c.metadata?.isOverlay
+             }));
+             const allDevs = [{ id: myId, name: myName, isHost: true, isOverlay: false }, ...currentDevices];
+             connsRef.current.forEach(c => c.send({ type: 'system', event: 'PRESENCE_UPDATE', payload: allDevs }));
+          }, 100);
+        });
+
+        conn.on('data', (data: unknown) => {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const typedData = data as { type: string, event: string, payload: any };
+          if (typedData.type === 'upstream') {
+            // Client is sending an action to be broadcasted
+            if (typedData.event === 'PUSH_VERSE') {
+              pushVerse(typedData.payload);
+            } else if (typedData.event === 'CLEAR_SCREEN') {
+              clearScreen();
+            }
+          }
+        });
+
+        conn.on('close', () => {
+          connsRef.current.delete(conn.peer);
+          setDevices(prev => prev.filter(d => d.id !== conn.metadata?.deviceId));
+          
+          const currentDevices = Array.from(connsRef.current.values()).map(c => ({
+            id: c.metadata?.deviceId,
+            name: c.metadata?.name,
+            isHost: false,
+            isOverlay: c.metadata?.isOverlay
+          }));
+          const allDevs = [{ id: myId, name: myName, isHost: true, isOverlay: false }, ...currentDevices];
+          connsRef.current.forEach(c => c.send({ type: 'system', event: 'PRESENCE_UPDATE', payload: allDevs }));
+        });
+      });
+
+      peer.on('error', (err) => {
+        console.error("PeerJS Host Error:", err);
+      });
+
+      peerRef.current = peer;
+
+    } else {
+      // ---------------- CLIENT MODE ----------------
+      const peer = new Peer({
+        config: { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] }
+      });
+
+      peer.on('open', () => {
+        const hostId = `streambible-room-${roomId}`;
+        const conn = peer.connect(hostId, {
+          metadata: { deviceId: myId, name: myName, isOverlay }
+        });
+
+        conn.on('open', () => {
+          setIsReady(true);
+          setHostStatus('online');
+          hostConnRef.current = conn;
+        });
+
+        conn.on('data', (data: unknown) => {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const typedData = data as { type: string, event: string, payload: any };
+          if (typedData.type === 'system') {
+            if (typedData.event === 'ACCESS_DENIED') setHostStatus('denied');
+            if (typedData.event === 'PRESENCE_UPDATE') setDevices(typedData.payload);
+          } else if (typedData.type === 'broadcast') {
+            if (typedData.event === 'PUSH_VERSE') callbacksRef.current?.onVerseUpdate?.(typedData.payload);
+            if (typedData.event === 'CLEAR_SCREEN') callbacksRef.current?.onClear?.();
+            if (typedData.event === 'ROOM_RESET') callbacksRef.current?.onRoomReset?.();
+            if (typedData.event === 'JOIN_RESPONSE') callbacksRef.current?.onJoinResponse?.(typedData.payload);
+          }
+        });
+
+        conn.on('close', () => {
+          setHostStatus('offline');
+          setIsReady(false);
+        });
+      });
+
+      peer.on('error', (err) => {
+        console.error("PeerJS Client Error:", err);
+        setHostStatus('offline');
+      });
+
+      peerRef.current = peer;
     }
-  }, [remoteAccess, roomId, isOverlay]);
 
-  return { devices, myId, hostStatus, isReady };
+    return () => {
+      peerRef.current?.destroy();
+    };
+  }, [roomId, isHost, myId, myName, isOverlay, pushVerse, clearScreen]);
+
+  return {
+    devices,
+    myId,
+    hostStatus,
+    isReady,
+    pushVerse,
+    clearScreen,
+    broadcastReset,
+    sendJoinRequest,
+    respondToJoinRequest
+  };
 }
 
 /**
- * Heartbeat hook — keeps a session active in the global discovery table.
+ * Discovery Hooks - We keep these on Supabase because they don't use real-time
+ * WebSockets for the core syncing, they just poll a database table for LAN discovery.
  */
-export function useHeartbeat(roomId: string, isHost: boolean, isDiscoverable: boolean) {
+export function useHeartbeat(roomId: string | null, isHost: boolean, isDiscoverable: boolean) {
+  const myId = getDeviceId();
+  
   useEffect(() => {
-    if (!roomId || !isHost) return;
-
-    const sendHeartbeat = async () => {
+    if (!roomId || !isHost || !isDiscoverable) return;
+    
+    const updateHeartbeat = async () => {
       try {
-        const ipRes = await fetch('https://api.ipify.org?format=json');
-        const { ip } = await ipRes.json();
-        console.log('Heartbeat IP:', ip);
-
-        const { error } = await supabase
-          .from('active_sessions')
-          .upsert({
-            room_id: roomId,
-            host_device_id: getDeviceId(),
-            public_ip: ip,
-            is_discoverable: isDiscoverable,
-            last_seen: new Date().toISOString()
-          }, { onConflict: 'room_id' });
+        const res = await fetch('https://api.ipify.org?format=json');
+        const { ip } = await res.json();
         
-        if (error) console.error('Supabase Heartbeat Error:', error);
-      } catch (e) {
-        console.error('Heartbeat failed', e);
+        await supabase.from('active_sessions').upsert({
+          room_id: roomId,
+          host_device_id: myId,
+          public_ip: ip,
+          last_seen: new Date().toISOString(),
+          is_discoverable: true
+        });
+      } catch (err) {
+        console.error("Heartbeat error", err);
       }
     };
-
-    sendHeartbeat();
-    const interval = setInterval(sendHeartbeat, 20000);
-
-    const cleanup = () => {
-      // Use navigator.sendBeacon if possible for more reliable tab-close cleanup
-      // But for simple projects, a basic delete works fairly well if the tab is still closing
-      const { supabaseUrl, supabaseAnonKey } = (supabase as unknown as Record<string, string>);
-      if (supabaseUrl && supabaseAnonKey) {
-        const url = `${supabaseUrl}/rest/v1/active_sessions?room_id=eq.${roomId}`;
-        const headers = {
-          'apikey': supabaseAnonKey,
-          'Authorization': `Bearer ${supabaseAnonKey}`,
-          'Content-Type': 'application/json'
-        };
-        fetch(url, { method: 'DELETE', headers, keepalive: true });
-      }
-    };
-
-    window.addEventListener('beforeunload', cleanup);
-
+    
+    updateHeartbeat();
+    const interval = setInterval(updateHeartbeat, 15000); // 15s heartbeat
+    
     return () => {
       clearInterval(interval);
-      window.removeEventListener('beforeunload', cleanup);
-      cleanup();
+      supabase.from('active_sessions').delete().eq('room_id', roomId).then();
     };
-  }, [roomId, isHost, isDiscoverable]);
+  }, [roomId, isHost, isDiscoverable, myId]);
 }
 
-/**
- * Discovery hook — finds sessions on the same public IP.
- */
 export function useDiscovery(enabled: boolean) {
   const [nearbySessions, setNearbySessions] = useState<ActiveSession[]>([]);
   const [isDiscovering, setIsDiscovering] = useState(false);
 
-  const refresh = useCallback(async () => {
-    if (!enabled) return;
+  const fetchNearby = useCallback(async () => {
+    if (!enabled) {
+      setNearbySessions([]);
+      return;
+    }
     
     setIsDiscovering(true);
     try {
-      const ipRes = await fetch('https://api.ipify.org?format=json');
-      const { ip } = await ipRes.json();
-      console.log('Discovery IP:', ip);
-
-      const { data, error } = await supabase
+      const res = await fetch('https://api.ipify.org?format=json');
+      const { ip } = await res.json();
+      
+      const { data } = await supabase
         .from('active_sessions')
         .select('*')
         .eq('public_ip', ip)
         .eq('is_discoverable', true)
-        .gt('last_seen', new Date(Date.now() - 60000).toISOString()); // filter stale
-      
-      if (error) console.error('Supabase Discovery Error:', error);
+        .gt('last_seen', new Date(Date.now() - 30000).toISOString()); // seen in last 30s
+        
       setNearbySessions(data || []);
-    } catch (e) {
-      console.error('Discovery failed', e);
+    } catch (err) {
+      console.error("Discovery error", err);
     } finally {
       setIsDiscovering(false);
     }
   }, [enabled]);
 
   useEffect(() => {
-    if (enabled) {
-      Promise.resolve().then(() => refresh());
-      const interval = setInterval(refresh, 15000);
-      return () => clearInterval(interval);
-    } else {
-      Promise.resolve().then(() => {
-        setNearbySessions([]);
-        setIsDiscovering(false);
-      });
-    }
-  }, [enabled, refresh]);
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    fetchNearby();
+    const interval = setInterval(fetchNearby, 15000);
+    return () => clearInterval(interval);
+  }, [fetchNearby]);
 
-  return { nearbySessions, refresh, isDiscovering };
+  return { nearbySessions, refresh: fetchNearby, isDiscovering };
 }

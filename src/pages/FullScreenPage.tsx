@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { AutoFitFont } from '../components/AutoFitFont';
 import { VerseText } from '../components/VerseText';
 
-import { useSyncSubscriber, usePresence } from '../hooks/useSync';
+import { useWebRTCNode } from '../hooks/useSync';
 import type { VersePayload } from '../hooks/useSync';
 
 // Extension of VersePayload for local UI state
@@ -31,13 +31,11 @@ const FullScreenPage: React.FC = () => {
     isVisible: false
   });
 
-  useSyncSubscriber(
-    roomId,
-    (payload) => setVerse({ ...payload, isVisible: true }),
-    () => setVerse((prev) => ({ ...prev, isVisible: false }))
-  );
-
-  const { hostStatus } = usePresence(roomId || "", true);
+  const { hostStatus } = useWebRTCNode(roomId, false, true, false, {
+    onVerseUpdate: (payload) => setVerse({ ...payload, isVisible: true }),
+    onClear: () => setVerse((prev) => ({ ...prev, isVisible: false })),
+    onRoomReset: () => window.location.reload()
+  });
 
   // Auto-clear the screen gracefully if the host disconnects
   useEffect(() => {
