@@ -1,26 +1,147 @@
-import { BrowserWindow, app } from "electron";
+import { BrowserWindow, app, dialog, ipcMain } from "electron";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 //#region electron/main.ts
 var __dirname = dirname(fileURLToPath(import.meta.url));
+ipcMain.handle("dialog:saveFile", async (_, content, defaultPath) => {
+	const { canceled, filePath } = await dialog.showSaveDialog({
+		title: "Save Setlist",
+		defaultPath,
+		filters: [{
+			name: "JSON Files",
+			extensions: ["json"]
+		}]
+	});
+	if (!canceled && filePath) {
+		const fs = await import("node:fs/promises");
+		try {
+			await fs.writeFile(filePath, content, "utf-8");
+			return {
+				success: true,
+				filePath
+			};
+		} catch (error) {
+			return {
+				success: false,
+				error: error instanceof Error ? error.message : String(error)
+			};
+		}
+	}
+	return {
+		success: false,
+		error: "User canceled"
+	};
+});
 process.env.DIST = join(__dirname, "../dist");
 process.env.VITE_PUBLIC = app.isPackaged ? process.env.DIST : join(process.env.DIST, "../public");
-var win;
 var VITE_DEV_SERVER_URL = process.env["VITE_DEV_SERVER_URL"];
+var ICON_PATH = join(process.env.VITE_PUBLIC || "", "build.png");
+var win;
+var splash;
+function createSplash() {
+	splash = new BrowserWindow({
+		width: 480,
+		height: 300,
+		transparent: false,
+		frame: false,
+		resizable: false,
+		alwaysOnTop: true,
+		center: true,
+		icon: ICON_PATH,
+		webPreferences: {
+			nodeIntegration: false,
+			contextIsolation: true
+		}
+	});
+	splash.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(`
+    <!DOCTYPE html>
+    <html>
+      <head>
+        <meta charset="UTF-8" />
+        <style>
+          * { margin: 0; padding: 0; box-sizing: border-box; }
+          body {
+            width: 480px; height: 300px;
+            background: linear-gradient(160deg, #0A84FF 0%, #003d99 100%);
+            display: flex; flex-direction: column;
+            align-items: center; justify-content: center;
+            font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', sans-serif;
+            -webkit-font-smoothing: antialiased;
+          }
+          .icon {
+            margin-bottom: 18px;
+            opacity: 0.95;
+          }
+          svg { width: 48px; height: 48px; }
+          h1 {
+            color: #ffffff;
+            font-size: 32px;
+            font-weight: 700;
+            letter-spacing: -0.5px;
+          }
+          p {
+            color: rgba(255,255,255,0.55);
+            font-size: 13px;
+            margin-top: 8px;
+            letter-spacing: 0.2px;
+          }
+          .dot {
+            display: inline-block;
+            width: 6px; height: 6px;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.6);
+            animation: pulse 1.2s ease-in-out infinite;
+            margin: 20px 3px 0;
+          }
+          .dot:nth-child(2) { animation-delay: 0.2s; }
+          .dot:nth-child(3) { animation-delay: 0.4s; }
+          @keyframes pulse {
+            0%, 100% { opacity: 0.3; transform: scale(0.8); }
+            50% { opacity: 1; transform: scale(1); }
+          }
+        </style>
+      </head>
+      <body>
+        <div class="icon">
+          <svg viewBox="0 0 48 48" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="7" y="4" width="34" height="40" rx="4"/>
+            <path d="M14 14h20M14 22h20M14 30h14"/>
+          </svg>
+        </div>
+        <h1>StreamBible</h1>
+        <p>Loading your broadcast environment…</p>
+        <div>
+          <span class="dot"></span>
+          <span class="dot"></span>
+          <span class="dot"></span>
+        </div>
+      </body>
+    </html>
+  `)}`);
+}
 function createWindow() {
 	win = new BrowserWindow({
-		icon: join(process.env.VITE_PUBLIC, "build.png"),
 		width: 1280,
 		height: 800,
+		show: false,
 		title: "StreamBible",
+		icon: ICON_PATH,
 		webPreferences: {
+			preload: join(__dirname, "preload.mjs"),
 			nodeIntegration: false,
 			contextIsolation: true
 		}
 	});
 	win.setMenu(null);
 	if (VITE_DEV_SERVER_URL) win.loadURL(VITE_DEV_SERVER_URL);
-	else win.loadFile(join(process.env.DIST, "index.html"));
+	else win.loadFile(join(process.env.DIST || "", "index.html"));
+	win.once("ready-to-show", () => {
+		if (splash && !splash.isDestroyed()) {
+			splash.destroy();
+			splash = null;
+		}
+		win?.show();
+	});
 }
 app.on("window-all-closed", () => {
 	if (process.platform !== "darwin") {
@@ -28,5 +149,8 @@ app.on("window-all-closed", () => {
 		win = null;
 	}
 });
-app.whenReady().then(createWindow);
+app.whenReady().then(() => {
+	createSplash();
+	createWindow();
+});
 //#endregion

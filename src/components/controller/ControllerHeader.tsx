@@ -201,9 +201,9 @@ export const ControllerHeader: React.FC<ControllerHeaderProps> = ({
           </button>
         )}
 
-        <div className="ws-pill connected">
+        <div className={`ws-pill ${wsConnected ? 'connected' : 'error'}`}>
           <span className="ws-dot"></span>
-          <span id="wsLabel">Connected</span>
+          <span id="wsLabel">{wsConnected ? 'Connected' : (isHost ? 'No Overlay' : 'Disconnected')}</span>
           <svg
             className="ws-wifi-icon"
             viewBox="0 0 16 16"

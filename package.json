@@ -1,5 +1,6 @@
 {
-  "name": "streambible-dual",
+  "name": "streambible",
+  "productName": "StreamBible",
   "private": true,
   "version": "0.0.0",
   "type": "module",
@@ -10,9 +11,12 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "desktop:dev": "vite",
-    "desktop:build": "vite build && electron-builder"
+    "desktop:build": "vite build && electron-builder",
+    "android:build": "vite build && npx cap sync android"
   },
   "dependencies": {
+    "@capacitor/android": "^8.3.4",
+    "@capacitor/core": "^8.3.4",
     "@supabase/supabase-js": "^2.104.0",
     "dexie": "^4.4.2",
     "framer-motion": "^12.38.0",
@@ -24,6 +28,7 @@
     "react-router-dom": "^7.14.2"
   },
   "devDependencies": {
+    "@capacitor/cli": "^8.3.4",
     "@eslint/js": "^9.39.4",
     "@types/node": "^24.12.2",
     "@types/peerjs": "^0.0.30",
@@ -45,5 +50,32 @@
     "vite-plugin-electron-renderer": "^0.14.7",
     "vite-plugin-pwa": "^1.3.0",
     "vitest": "^4.1.5"
+  },
+  "build": {
+    "appId": "xyz.streambible.app",
+    "productName": "StreamBible",
+    "icon": "public/build.ico",
+    "files": [
+      "dist/**/*",
+      "dist-electron/**/*"
+    ],
+    "win": {
+      "target": "nsis",
+      "icon": "public/build.ico"
+    },
+    "mac": {
+      "target": "dmg",
+      "icon": "public/build.ico"
+    },
+    "linux": {
+      "target": "AppImage",
+      "icon": "public/build.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "installerIcon": "public/build.ico",
+      "installerHeaderIcon": "public/build.ico"
+    }
   }
 }

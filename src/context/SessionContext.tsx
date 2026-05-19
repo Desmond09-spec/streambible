@@ -174,7 +174,7 @@ export const SessionProvider: React.FC<{ children?: ReactNode }> = ({ children }
     onJoinResponse
   });
 
-  const wsConnected = hostStatus === 'online';
+  const wsConnected = isHost ? devices.some(d => d.isOverlay) : hostStatus === 'online';
 
   useEffect(() => {
     if (!isSwitching) return;

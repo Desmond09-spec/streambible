@@ -157,6 +157,10 @@ export function useWebRTCNode(
     }
   }, [isHost]);
 
+  // Tracking last PONG from clients
+  const lastPongRef = useRef<Map<string, number>>(new Map());
+
+  // Initialization
   useEffect(() => {
     if (!roomId) return;
 
@@ -204,6 +208,7 @@ export function useWebRTCNode(
           }
 
           connsRef.current.set(conn.peer, conn);
+          lastPongRef.current.set(meta.deviceId, Date.now());
           
           // Add to presence
           setDevices(prev => {
@@ -234,11 +239,14 @@ export function useWebRTCNode(
             } else if (typedData.event === 'CLEAR_SCREEN') {
               clearScreen();
             }
+          } else if (typedData.type === 'system' && typedData.event === 'PONG') {
+            lastPongRef.current.set(typedData.payload?.deviceId, Date.now());
           }
         });
 
         conn.on('close', () => {
           connsRef.current.delete(conn.peer);
+          lastPongRef.current.delete(conn.metadata?.deviceId);
           setDevices(prev => prev.filter(d => d.id !== conn.metadata?.deviceId));
           
           const currentDevices = Array.from(connsRef.current.values()).map(c => ({
@@ -256,7 +264,39 @@ export function useWebRTCNode(
         console.error("PeerJS Host Error:", err);
       });
 
+      const pingInterval = setInterval(() => {
+        const now = Date.now();
+        connsRef.current.forEach((c, peerId) => {
+          const deviceId = c.metadata?.deviceId;
+          const lastPong = lastPongRef.current.get(deviceId) || now;
+          if (now - lastPong > 15000) {
+            // Client missed 3 pings, assume disconnected
+            c.close();
+            connsRef.current.delete(peerId);
+            lastPongRef.current.delete(deviceId);
+            setDevices(prev => prev.filter(d => d.id !== deviceId));
+            
+            // Broadcast presence update
+            const currentDevices = Array.from(connsRef.current.values()).map(conn => ({
+              id: conn.metadata?.deviceId,
+              name: conn.metadata?.name,
+              isHost: false,
+              isOverlay: conn.metadata?.isOverlay
+            }));
+            const allDevs = [{ id: myId, name: myName, isHost: true, isOverlay: false }, ...currentDevices];
+            connsRef.current.forEach(conn => conn.send({ type: 'system', event: 'PRESENCE_UPDATE', payload: allDevs }));
+          } else {
+            c.send({ type: 'system', event: 'PING' });
+          }
+        });
+      }, 5000);
+
       peerRef.current = peer;
+
+      return () => {
+        clearInterval(pingInterval);
+        peer.destroy();
+      };
 
     } else {
       // ---------------- CLIENT MODE ----------------
@@ -280,8 +320,13 @@ export function useWebRTCNode(
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           const typedData = data as { type: string, event: string, payload: any };
           if (typedData.type === 'system') {
-            if (typedData.event === 'ACCESS_DENIED') setHostStatus('denied');
-            if (typedData.event === 'PRESENCE_UPDATE') setDevices(typedData.payload);
+            if (typedData.event === 'PING') {
+              conn.send({ type: 'system', event: 'PONG', payload: { deviceId: myId } });
+            } else if (typedData.event === 'ACCESS_DENIED') {
+              setHostStatus('denied');
+            } else if (typedData.event === 'PRESENCE_UPDATE') {
+              setDevices(typedData.payload);
+            }
           } else if (typedData.type === 'broadcast') {
             if (typedData.event === 'PUSH_VERSE') callbacksRef.current?.onVerseUpdate?.(typedData.payload);
             if (typedData.event === 'CLEAR_SCREEN') callbacksRef.current?.onClear?.();

@@ -76,6 +76,8 @@ export const SetlistManager: React.FC<SetlistManagerProps> = ({ onSelectVerse, p
     for (const v of list.verses) {
       try {
         await fetchVerse(v.versionId, v.reference);
+        // Throttle to protect API quotas
+        await new Promise(resolve => setTimeout(resolve, 250));
       } catch (err) {
         console.warn('Failed to pre-cache', v.reference, err);
       }
