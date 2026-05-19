@@ -13,6 +13,8 @@ interface SettingsContextType {
   setAutoClearSeconds: (val: number) => void;
   showVerseNumbers: boolean;
   setShowVerseNumbers: (val: boolean) => void;
+  setlistStyle: 'modal' | 'drawer';
+  setSetlistStyle: (val: 'modal' | 'drawer') => void;
 }
 
 const defaultSettings: SettingsContextType = {
@@ -26,6 +28,8 @@ const defaultSettings: SettingsContextType = {
   setAutoClearSeconds: () => {},
   showVerseNumbers: false,
   setShowVerseNumbers: () => {},
+  setlistStyle: 'modal',
+  setSetlistStyle: () => {},
 };
 
 const SettingsContext = createContext<SettingsContextType>(defaultSettings);
@@ -48,6 +52,9 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
   );
   const [showVerseNumbers, setShowVerseNumbersState] = useState(() =>
     localStorage.getItem(SETTINGS_KEYS.verseNumbers) === 'true'
+  );
+  const [setlistStyle, setSetlistStyleState] = useState<'modal' | 'drawer'>(() =>
+    (localStorage.getItem(SETTINGS_KEYS.setlistStyle) || 'modal') as 'modal' | 'drawer'
   );
 
   const setDebounceEnabled = (val: boolean) => {
@@ -75,6 +82,11 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
     localStorage.setItem(SETTINGS_KEYS.verseNumbers, String(val));
   };
 
+  const setSetlistStyle = (val: 'modal' | 'drawer') => {
+    setSetlistStyleState(val);
+    localStorage.setItem(SETTINGS_KEYS.setlistStyle, val);
+  };
+
   return (
     <SettingsContext.Provider
       value={{
@@ -88,6 +100,8 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
         setAutoClearSeconds,
         showVerseNumbers,
         setShowVerseNumbers,
+        setlistStyle,
+        setSetlistStyle,
       }}
     >
       {children}

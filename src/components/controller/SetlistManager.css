@@ -1,254 +1,333 @@
-.setlist-manager {
-  background: var(--surface-default);
-  border: 1px solid var(--border-subtle);
-  border-radius: 8px;
-  overflow: hidden;
+/* ==========================================================================
+   SETLIST MANAGER (APPLE NATIVE REDESIGN)
+   ========================================================================== */
+
+/* Overlay Background */
+.setlist-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  z-index: 9999;
   display: flex;
-  flex-direction: column;
-  margin-top: 16px;
+  justify-content: center;
 }
 
+.overlay-modal {
+  align-items: center;
+  padding: 20px;
+}
+
+.overlay-drawer {
+  align-items: flex-end;
+  padding: 0;
+}
+
+/* Main Modal Container */
+.setlist-modal-content, .setlist-drawer-content {
+  width: 100%;
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(40px) saturate(200%);
+  -webkit-backdrop-filter: blur(40px) saturate(200%);
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15), 0 0 0 1px rgba(255, 255, 255, 0.4) inset;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* Modal Specific */
+.setlist-modal-content {
+  max-width: 420px;
+  border-radius: 24px;
+  max-height: 85vh;
+}
+
+/* Drawer Specific */
+.setlist-drawer-content {
+  max-width: 600px;
+  border-radius: 24px 24px 0 0;
+  max-height: 90vh;
+  margin: 0 auto;
+}
+
+[data-theme="dark"] .setlist-modal-content,
+[data-theme="dark"] .setlist-drawer-content {
+  background: rgba(30, 30, 30, 0.75);
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.1) inset;
+}
+
+/* Drawer Pull Tab */
+.drawer-pull-tab {
+  display: flex;
+  justify-content: center;
+  padding: 12px 0 4px;
+}
+
+.drawer-pull-indicator {
+  width: 36px;
+  height: 5px;
+  background: rgba(0, 0, 0, 0.15);
+  border-radius: 4px;
+}
+
+[data-theme="dark"] .drawer-pull-indicator {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+/* Header */
 .setlist-header {
-  padding: 12px 16px;
+  padding: 16px 20px;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  border-bottom: 1px solid var(--border-subtle);
-  background: rgba(0,0,0,0.2);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+[data-theme="dark"] .setlist-header {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .setlist-header h3 {
-  margin: 0;
-  font-size: 14px;
+  font-size: 17px;
   font-weight: 600;
-  color: var(--text-primary);
+  letter-spacing: -0.4px;
+  margin: 0;
 }
 
-.btn-icon {
-  background: none;
-  border: none;
-  color: var(--text-secondary);
-  cursor: pointer;
-  padding: 4px;
-  border-radius: 4px;
+.setlist-header-actions {
   display: flex;
   align-items: center;
-  justify-content: center;
-  transition: all 0.2s;
-}
-
-.btn-icon:hover {
-  background: var(--surface-hover);
-  color: var(--text-primary);
-}
-
-.setlist-empty {
-  padding: 24px;
-  text-align: center;
-  color: var(--text-secondary);
-  font-size: 13px;
-}
-
-.setlist-tabs {
-  display: flex;
-  overflow-x: auto;
-  border-bottom: 1px solid var(--border-subtle);
-  scrollbar-width: none;
-}
-
-.setlist-tabs::-webkit-scrollbar {
-  display: none;
-}
-
-.setlist-tab {
-  background: none;
-  border: none;
-  padding: 10px 16px;
-  color: var(--text-secondary);
-  font-size: 13px;
-  cursor: pointer;
-  white-space: nowrap;
-  border-bottom: 2px solid transparent;
-  transition: all 0.2s;
-}
-
-.setlist-tab:hover {
-  color: var(--text-primary);
-}
-
-.setlist-tab.active {
-  color: var(--accent-blue);
-  border-bottom-color: var(--accent-blue);
-}
-
-.setlist-content {
-  padding: 16px;
-  display: flex;
-  flex-direction: column;
   gap: 12px;
 }
 
-.setlist-add-form {
+.btn-done {
+  color: #0A84FF;
+  font-weight: 600;
+  font-size: 16px;
+}
+
+[data-theme="light"] .btn-done {
+  color: #007AFF;
+}
+
+.btn-done:active {
+  opacity: 0.6;
+}
+
+/* Empty State */
+.setlist-empty {
+  padding: 40px 20px;
+  text-align: center;
+  color: var(--color-text-secondary);
+}
+
+/* Segmented Control (iOS Style Tabs) */
+.segmented-control {
   display: flex;
-  gap: 8px;
+  background: rgba(118, 118, 128, 0.12);
+  padding: 2px;
+  border-radius: 8px;
+  margin: 16px 20px;
 }
 
-.setlist-input {
+[data-theme="dark"] .segmented-control {
+  background: rgba(118, 118, 128, 0.24);
+}
+
+.segment-btn {
   flex: 1;
-  background: var(--surface-raised);
-  border: 1px solid var(--border-subtle);
-  border-radius: 6px;
-  padding: 8px 12px;
-  color: var(--text-primary);
-  font-size: 14px;
-}
-
-.setlist-input:focus {
-  outline: none;
-  border-color: var(--accent-blue);
-}
-
-.btn-secondary {
-  background: var(--surface-raised);
-  border: 1px solid var(--border-subtle);
-  color: var(--text-primary);
-  padding: 8px 16px;
-  border-radius: 6px;
-  cursor: pointer;
-  font-size: 13px;
-  transition: all 0.2s;
-}
-
-.btn-secondary:hover:not(:disabled) {
-  background: var(--surface-hover);
-}
-
-.btn-secondary:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.btn-primary {
-  background: var(--accent-blue);
-  border: none;
-  color: white;
-  padding: 8px 16px;
-  border-radius: 6px;
-  cursor: pointer;
+  padding: 6px 0;
   font-size: 13px;
   font-weight: 500;
-  transition: all 0.2s;
+  color: var(--color-text-primary);
+  border-radius: 6px;
+  text-align: center;
+  transition: all 0.2s ease;
 }
 
-.btn-primary:hover {
-  background: var(--color-accent-primary-hover);
+.segment-btn.active {
+  background: #ffffff;
+  box-shadow: 0 3px 8px rgba(0,0,0,0.12), 0 3px 1px rgba(0,0,0,0.04);
 }
 
-.setlist-items {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  max-height: 200px;
-  overflow-y: auto;
+[data-theme="dark"] .segment-btn.active {
+  background: #636366;
+  box-shadow: 0 3px 8px rgba(0,0,0,0.2), 0 3px 1px rgba(0,0,0,0.1);
+  color: #fff;
 }
 
-.setlist-item {
+/* Search Input Pill */
+.setlist-add-form {
+  padding: 0 20px;
+  margin-bottom: 16px;
+}
+
+.search-pill {
   display: flex;
   align-items: center;
-  gap: 8px;
-  background: var(--surface-raised);
-  padding: 6px 8px;
-  border-radius: 6px;
-  transition: all 0.2s;
+  background: rgba(118, 118, 128, 0.12);
+  border-radius: 100px;
+  padding: 4px 4px 4px 16px;
+  transition: background 0.2s;
 }
 
-.setlist-item:hover {
-  background: var(--surface-hover);
+[data-theme="dark"] .search-pill {
+  background: rgba(118, 118, 128, 0.24);
 }
 
-.setlist-item-play {
+.search-pill:focus-within {
+  background: rgba(118, 118, 128, 0.18);
+}
+
+[data-theme="dark"] .search-pill:focus-within {
+  background: rgba(118, 118, 128, 0.32);
+}
+
+.search-pill input {
+  flex: 1;
+  border: none;
+  background: transparent;
+  outline: none;
+  font-size: 15px;
+  color: var(--color-text-primary);
+  padding: 8px 0;
+}
+
+.search-pill input::placeholder {
+  color: var(--color-text-secondary);
+}
+
+.btn-add-pill {
+  background: #007AFF;
+  color: white;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 6px 12px;
+  border-radius: 100px;
+}
+
+[data-theme="dark"] .btn-add-pill {
+  background: #0A84FF;
+}
+
+/* iOS Unified List Group */
+.setlist-active-view {
+  overflow-y: auto;
+  padding-bottom: 20px;
+}
+
+.ios-list-group {
+  margin: 0 20px 20px;
+  background: #ffffff;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+[data-theme="dark"] .ios-list-group {
+  background: #1c1c1e;
+}
+
+.ios-list-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 0.5px solid rgba(0,0,0,0.1);
+  background: transparent;
+}
+
+[data-theme="dark"] .ios-list-item {
+  border-bottom: 0.5px solid rgba(255,255,255,0.1);
+}
+
+.ios-list-item:last-child {
+  border-bottom: none;
+}
+
+.ios-list-btn {
   flex: 1;
   display: flex;
   align-items: center;
-  gap: 8px;
-  background: none;
-  border: none;
-  color: var(--text-primary);
-  cursor: pointer;
+  padding: 14px 16px;
+  gap: 12px;
   text-align: left;
-  font-size: 13px;
 }
 
-.setlist-item-play svg {
-  color: var(--accent-blue);
-  opacity: 0.8;
-}
-
-.setlist-item-play:hover svg {
-  opacity: 1;
-}
-
-.setlist-item-remove {
-  background: none;
-  border: none;
-  color: var(--text-secondary);
-  cursor: pointer;
-  padding: 4px;
-  border-radius: 4px;
+.ios-list-icon {
+  width: 24px;
+  height: 24px;
+  border-radius: 12px;
   display: flex;
   align-items: center;
   justify-content: center;
+  color: white;
 }
 
-.setlist-item-remove:hover {
-  color: var(--color-accent-danger);
-  background: rgba(255, 59, 48, 0.1);
+.play-icon {
+  background: #34C759; /* iOS Green */
 }
 
-.setlist-empty-hint {
-  margin: 0;
-  font-size: 12px;
-  color: var(--text-secondary);
-  text-align: center;
-  padding: 12px;
+[data-theme="dark"] .play-icon {
+  background: #30D158;
 }
 
-.setlist-actions {
-  margin-top: 4px;
-  padding-top: 12px;
-  border-top: 1px solid var(--border-subtle);
-  display: flex;
-  justify-content: flex-end;
+.ios-list-text {
+  font-size: 16px;
+  color: var(--color-text-primary);
+  font-weight: 500;
+  letter-spacing: -0.2px;
 }
 
-.btn-precache {
-  background: rgba(10, 132, 255, 0.1);
-  border: 1px solid rgba(10, 132, 255, 0.2);
-  color: var(--accent-blue);
-  padding: 6px 12px;
-  border-radius: 4px;
-  font-size: 12px;
-  cursor: pointer;
+.ios-list-remove {
+  padding: 14px 16px;
+  color: #FF3B30; /* iOS Red */
+}
+
+[data-theme="dark"] .ios-list-remove {
+  color: #FF453A;
+}
+
+.empty-hint {
+  padding: 20px;
+  justify-content: center;
+  color: var(--color-text-secondary);
+  font-size: 15px;
+}
+
+/* Apple Primary/Secondary Buttons */
+.btn-apple-primary {
+  background: #007AFF;
+  color: white;
+  font-size: 16px;
+  font-weight: 600;
+  padding: 12px 24px;
+  border-radius: 12px;
+  width: 100%;
+}
+
+[data-theme="dark"] .btn-apple-primary {
+  background: #0A84FF;
+}
+
+.btn-apple-secondary {
   display: flex;
   align-items: center;
-  gap: 6px;
-  transition: all 0.2s;
+  justify-content: center;
+  gap: 8px;
+  background: rgba(118, 118, 128, 0.12);
+  color: #007AFF;
+  font-size: 15px;
+  font-weight: 600;
+  padding: 12px;
+  border-radius: 12px;
+  margin: 0 20px;
+  width: calc(100% - 40px);
 }
 
-.btn-precache:hover:not(:disabled) {
-  background: rgba(10, 132, 255, 0.2);
-}
-
-.btn-precache:disabled {
-  opacity: 0.7;
-  cursor: not-allowed;
-}
-
-.spin {
-  animation: spin 1s linear infinite;
-}
-
-@keyframes spin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
+[data-theme="dark"] .btn-apple-secondary {
+  background: rgba(118, 118, 128, 0.24);
+  color: #0A84FF;
 }

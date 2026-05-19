@@ -30,10 +30,12 @@ const ControllerPage: React.FC = () => {
     showFallbackToast, isUsingFallback, fallbackType, primarySource, secondarySource, triageReason, fallbackOriginalVersion,
     isMobileMenuOpen, setIsMobileMenuOpen,
     showTour, finishTour, tourSteps,
-    pushLive, clearScreen
+    pushLive, clearScreen,
+    setlistStyle
   } = useControllerState();
 
   const { wsConnected, roomId, claimedRoomId, isHost, hostStatus } = useSession();
+  const [isSetlistOpen, setIsSetlistOpen] = React.useState(false);
 
   return (
     <div
@@ -214,6 +216,8 @@ const ControllerPage: React.FC = () => {
           query={query}
           setQuery={setQuery}
           onFormSubmit={onFormSubmit}
+          isSetlistOpen={isSetlistOpen}
+          setIsSetlistOpen={setIsSetlistOpen}
         />
 
         <PreviewCards 
@@ -227,10 +231,19 @@ const ControllerPage: React.FC = () => {
           secondaryExpanded={secondaryExpanded} setSecondaryExpanded={setSecondaryExpanded}
         />
 
-        <SetlistManager 
-          primaryVersion={primaryVersion}
-          onSelectVerse={(ref) => setQuery(ref)}
-        />
+        <AnimatePresence>
+          {isSetlistOpen && (
+            <SetlistManager 
+              primaryVersion={primaryVersion}
+              onSelectVerse={(ref) => {
+                setQuery(ref);
+                setIsSetlistOpen(false);
+              }}
+              onClose={() => setIsSetlistOpen(false)}
+              style={setlistStyle}
+            />
+          )}
+        </AnimatePresence>
       </main>
 
       <MobileMenuSheet 

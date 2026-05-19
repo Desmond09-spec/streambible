@@ -15,7 +15,11 @@ const OverlayPage: React.FC = () => {
   const [roomId, setRoomId] = useState<string | null>(null);
 
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
+    // With HashRouter, query params live in the hash: /#/overlay?room=XYZ
+    // window.location.search is empty; we must parse from window.location.hash
+    const hash = window.location.hash; // e.g. "#/overlay?room=XYZ"
+    const queryStart = hash.indexOf('?');
+    const params = new URLSearchParams(queryStart >= 0 ? hash.slice(queryStart) : '');
     Promise.resolve().then(() => setRoomId(params.get('room')));
   }, []);
   const [verse, setVerse] = useState<ActiveVerse>({

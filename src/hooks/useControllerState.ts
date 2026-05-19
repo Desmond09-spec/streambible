@@ -23,6 +23,7 @@ export const useControllerState = () => {
     pushConfirmEnabled,
     autoClearSeconds,
     showVerseNumbers,
+    setlistStyle,
   } = useSettings();
 
   const autoClearTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -373,6 +374,7 @@ export const useControllerState = () => {
     showFallbackToast, isUsingFallback, fallbackType, primarySource, secondarySource, triageReason, fallbackOriginalVersion,
     isMobileMenuOpen, setIsMobileMenuOpen,
     showTour, finishTour, tourSteps,
-    pushLive, clearScreen
+    pushLive, clearScreen,
+    setlistStyle
   };
 };

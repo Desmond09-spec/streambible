@@ -15,7 +15,10 @@ const FullScreenPage: React.FC = () => {
   const [roomId, setRoomId] = useState<string | null>(null);
 
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
+    // With HashRouter, query params live in the hash: /#/fullscreen?room=XYZ
+    const hash = window.location.hash;
+    const queryStart = hash.indexOf('?');
+    const params = new URLSearchParams(queryStart >= 0 ? hash.slice(queryStart) : '');
     Promise.resolve().then(() => setRoomId(params.get('room')));
   }, []);
   const [verse, setVerse] = useState<ActiveVerse>({

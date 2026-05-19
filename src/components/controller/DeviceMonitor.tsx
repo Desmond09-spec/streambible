@@ -142,7 +142,7 @@ export const DeviceMonitor: React.FC<DeviceMonitorProps> = ({ copyUrl }) => {
                       )}
                     </AnimatePresence>
                     <img
-                      src={`https://api.qrserver.com/v1/create-qr-code/?size=140x140&data=${encodeURIComponent(`${window.location.origin}/controller?room=${roomId}`)}`}
+                      src={`https://api.qrserver.com/v1/create-qr-code/?size=140x140&data=${encodeURIComponent(`${window.location.origin}/#/controller?room=${roomId}`)}`}
                       alt="Scan to control session"
                       width={140}
                       height={140}
@@ -181,12 +181,12 @@ export const DeviceMonitor: React.FC<DeviceMonitorProps> = ({ copyUrl }) => {
                     textOverflow: "ellipsis",
                   }}
                 >
-                  {window.location.origin}/controller?room={roomId}
+                  {window.location.origin}/#/controller?room={roomId}
                 </span>
                 <button
                   onClick={() =>
                     copyUrl(
-                      `${window.location.origin}/controller?room=${roomId}`,
+                      `${window.location.origin}/#/controller?room=${roomId}`,
                       "controller",
                     )
                   }

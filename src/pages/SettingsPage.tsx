@@ -15,6 +15,7 @@ export const SETTINGS_KEYS = {
   autoClear: "streambible-auto-clear-seconds",
   theme: "streambible-theme",
   verseNumbers: "streambible-verse-numbers",
+  setlistStyle: "streambible-setlist-style",
 };
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
@@ -304,6 +305,8 @@ const SettingsPage: React.FC = () => {
     setAutoClearSeconds,
     showVerseNumbers,
     setShowVerseNumbers,
+    setlistStyle,
+    setSetlistStyle,
   } = useSettings();
   const [savedIndicator, setSavedIndicator] = useState(false);
 
@@ -330,6 +333,10 @@ const SettingsPage: React.FC = () => {
   };
   const setVerseNumbers = (v: boolean) => {
     setShowVerseNumbers(v);
+    save();
+  };
+  const updateSetlistStyle = (v: number) => {
+    setSetlistStyle(v === 1 ? 'modal' : 'drawer');
     save();
   };
 
@@ -547,6 +554,24 @@ const SettingsPage: React.FC = () => {
           />
         </SettingsSection>
 
+        {/* Appearance */}
+        <SettingsSection
+          title="Appearance"
+          footer="Choose how the Setlist Manager appears when you click the List button."
+        >
+          <SettingSelectRow
+            label="Setlist UI Style"
+            description="Display setlists as a centered pop-up or a bottom drawer."
+            value={setlistStyle === 'modal' ? 1 : 2}
+            options={[
+              { value: 1, label: "Floating Modal" },
+              { value: 2, label: "Bottom Drawer" },
+            ]}
+            onChange={updateSetlistStyle}
+            last
+          />
+        </SettingsSection>
+
         {/* Account & Persistent Room */}
         <SettingsSection
           title="Account & Room ID"
@@ -709,7 +734,7 @@ const SettingsPage: React.FC = () => {
                     <button
                       onClick={(e) => {
                         navigator.clipboard.writeText(
-                          `${window.location.origin}/overlay?room=${claimedRoomId}`,
+                          `${window.location.origin}/#/overlay?room=${claimedRoomId}`,
                         );
                         const btn = e.currentTarget;
                         btn.innerText = "Copied!";
@@ -751,7 +776,7 @@ const SettingsPage: React.FC = () => {
                     <button
                       onClick={(e) => {
                         navigator.clipboard.writeText(
-                          `${window.location.origin}/fullscreen?room=${claimedRoomId}`,
+                          `${window.location.origin}/#/fullscreen?room=${claimedRoomId}`,
                         );
                         const btn = e.currentTarget;
                         btn.innerText = "Copied!";

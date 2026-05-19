@@ -84,7 +84,7 @@ export const ControllerHeader: React.FC<ControllerHeaderProps> = ({
           className="obs-copy-btn"
           onClick={() =>
             copyUrl(
-              `${window.location.origin}/overlay?room=${roomId}`,
+              `${window.location.origin}/#/overlay?room=${roomId}`,
               "overlay",
             )
           }
@@ -108,7 +108,7 @@ export const ControllerHeader: React.FC<ControllerHeaderProps> = ({
           className="obs-copy-btn"
           onClick={() =>
             copyUrl(
-              `${window.location.origin}/fullscreen?room=${roomId}`,
+              `${window.location.origin}/#/fullscreen?room=${roomId}`,
               "fullscreen",
             )
           }

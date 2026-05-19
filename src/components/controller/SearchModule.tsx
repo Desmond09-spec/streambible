@@ -1,15 +1,20 @@
 import React from 'react';
 
+import { List } from 'lucide-react';
+
 interface SearchModuleProps {
   query: string;
   setQuery: (val: string) => void;
   onFormSubmit: (e: React.FormEvent) => void;
+  isSetlistOpen?: boolean;
+  setIsSetlistOpen?: (val: boolean) => void;
 }
 
 export const SearchModule: React.FC<SearchModuleProps> = ({
   query,
   setQuery,
   onFormSubmit,
+  setIsSetlistOpen,
 }) => {
   return (
     <form id="search-bar" className="search-bar" onSubmit={onFormSubmit}>
@@ -36,6 +41,32 @@ export const SearchModule: React.FC<SearchModuleProps> = ({
         onChange={(e) => setQuery(e.target.value)}
       />
       <kbd className="search-hint">Enter ↵</kbd>
+      
+      {setIsSetlistOpen && (
+        <button
+          onClick={(e) => {
+            e.preventDefault();
+            setIsSetlistOpen(true);
+          }}
+          style={{
+            background: 'transparent',
+            border: 'none',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            color: 'var(--color-text-secondary)',
+            cursor: 'pointer',
+            padding: '4px',
+            marginLeft: '4px',
+            transition: 'color 0.2s',
+          }}
+          onMouseEnter={(e) => e.currentTarget.style.color = 'var(--color-accent-primary)'}
+          onMouseLeave={(e) => e.currentTarget.style.color = 'var(--color-text-secondary)'}
+          title="Open Setlists"
+        >
+          <List size={20} />
+        </button>
+      )}
     </form>
   );
 };
