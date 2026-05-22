@@ -1,6 +1,6 @@
 import { useEffect, useRef, useCallback, useState } from 'react';
 import Peer, { type DataConnection } from 'peerjs';
-import { supabase } from '../lib/supabase';
+
 
 export interface VersePayload {
   ref: string;
@@ -85,6 +85,7 @@ export function useWebRTCNode(
   const peerRef = useRef<Peer | null>(null);
   const connsRef = useRef<Map<string, DataConnection>>(new Map());
   const hostConnRef = useRef<DataConnection | null>(null);
+  const socketRef = useRef<WebSocket | null>(null);
 
   const [devices, setDevices] = useState<DevicePresence[]>([]);
   const [hostStatus, setHostStatus] = useState<HostStatus>('offline');
@@ -104,15 +105,19 @@ export function useWebRTCNode(
     callbacksRef.current = callbacks;
   }, [callbacks]);
 
-  // Handle Broadcasting payload to all peers (or upstream to host)
   const pushVerse = useCallback((payload: VersePayload) => {
     const data = { type: 'broadcast', event: 'PUSH_VERSE', payload };
     if (isHost) {
       connsRef.current.forEach(conn => conn.send(data));
-      // Triger local callback for dual-window sync if host
+      if (socketRef.current?.readyState === WebSocket.OPEN) {
+        socketRef.current.send(JSON.stringify(data));
+      }
       callbacksRef.current?.onVerseUpdate?.(payload);
     } else {
       hostConnRef.current?.send({ type: 'upstream', event: 'PUSH_VERSE', payload });
+      if (socketRef.current?.readyState === WebSocket.OPEN) {
+        socketRef.current.send(JSON.stringify({ type: 'broadcast', event: 'UPSTREAM_PUSH_VERSE', payload }));
+      }
     }
   }, [isHost]);
 
@@ -120,9 +125,15 @@ export function useWebRTCNode(
     const data = { type: 'broadcast', event: 'CLEAR_SCREEN', payload: {} };
     if (isHost) {
       connsRef.current.forEach(conn => conn.send(data));
+      if (socketRef.current?.readyState === WebSocket.OPEN) {
+        socketRef.current.send(JSON.stringify(data));
+      }
       callbacksRef.current?.onClear?.();
     } else {
       hostConnRef.current?.send({ type: 'upstream', event: 'CLEAR_SCREEN', payload: {} });
+      if (socketRef.current?.readyState === WebSocket.OPEN) {
+        socketRef.current.send(JSON.stringify({ type: 'broadcast', event: 'UPSTREAM_CLEAR_SCREEN', payload: {} }));
+      }
     }
   }, [isHost]);
 
@@ -130,6 +141,9 @@ export function useWebRTCNode(
     const data = { type: 'broadcast', event: 'ROOM_RESET', payload: {} };
     if (isHost) {
       connsRef.current.forEach(conn => conn.send(data));
+      if (socketRef.current?.readyState === WebSocket.OPEN) {
+        socketRef.current.send(JSON.stringify(data));
+      }
       callbacksRef.current?.onRoomReset?.();
     }
   }, [isHost]);
@@ -174,6 +188,38 @@ export function useWebRTCNode(
     setHostStatus('offline');
     connsRef.current.clear();
     hostConnRef.current = null;
+
+    // Custom WebSocket Relay Fallback
+    const relayUrl = import.meta.env.VITE_RELAY_SERVER_URL || 'ws://localhost:8080';
+    const ws = new WebSocket(relayUrl);
+    socketRef.current = ws;
+
+    ws.onopen = () => {
+      ws.send(JSON.stringify({ type: 'JOIN_ROOM', roomId }));
+    };
+
+    ws.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        if (data.type === 'broadcast') {
+          if (data.event === 'PUSH_VERSE' && !isHost) {
+            callbacksRef.current?.onVerseUpdate?.(data.payload);
+          } else if (data.event === 'CLEAR_SCREEN' && !isHost) {
+            callbacksRef.current?.onClear?.();
+          } else if (data.event === 'ROOM_RESET' && !isHost) {
+            callbacksRef.current?.onRoomReset?.();
+          } else if (isHost) {
+            if (data.event === 'UPSTREAM_PUSH_VERSE') {
+              pushVerse(data.payload);
+            } else if (data.event === 'UPSTREAM_CLEAR_SCREEN') {
+              clearScreen();
+            }
+          }
+        }
+      } catch (e) {
+        console.error('WebSocket Relay parse error', e);
+      }
+    };
 
     if (isHost) {
       // ---------------- HOST MODE ----------------
@@ -351,6 +397,9 @@ export function useWebRTCNode(
 
     return () => {
       peerRef.current?.destroy();
+      if (socketRef.current) {
+        socketRef.current.close();
+      }
     };
   }, [roomId, isHost, myId, myName, isOverlay, pushVerse, clearScreen]);
 
@@ -371,6 +420,39 @@ export function useWebRTCNode(
  * Discovery Hooks - We keep these on Supabase because they don't use real-time
  * WebSockets for the core syncing, they just poll a database table for LAN discovery.
  */
+
+let cachedPublicIp: string | null = null;
+let isFetchingIp = false;
+let ipFetchPromise: Promise<string> | null = null;
+
+async function getPublicIp(): Promise<string> {
+  if (cachedPublicIp) return cachedPublicIp;
+  if (isFetchingIp && ipFetchPromise) return ipFetchPromise;
+
+  isFetchingIp = true;
+  ipFetchPromise = fetch('https://api.ipify.org?format=json')
+    .then(res => res.json())
+    .then(data => {
+      cachedPublicIp = data.ip;
+      isFetchingIp = false;
+      return data.ip;
+    })
+    .catch(err => {
+      isFetchingIp = false;
+      throw err;
+    });
+
+  return ipFetchPromise;
+}
+
+// Re-fetch IP when coming back online
+if (typeof window !== 'undefined') {
+  window.addEventListener('online', () => {
+    cachedPublicIp = null;
+    getPublicIp().catch(console.error);
+  });
+}
+
 export function useHeartbeat(roomId: string | null, isHost: boolean, isDiscoverable: boolean) {
   const myId = getDeviceId();
   
@@ -379,15 +461,21 @@ export function useHeartbeat(roomId: string | null, isHost: boolean, isDiscovera
     
     const updateHeartbeat = async () => {
       try {
-        const res = await fetch('https://api.ipify.org?format=json');
-        const { ip } = await res.json();
+        const ip = await getPublicIp();
         
-        await supabase.from('active_sessions').upsert({
-          room_id: roomId,
-          host_device_id: myId,
-          public_ip: ip,
-          last_seen: new Date().toISOString(),
-          is_discoverable: true
+        const relayApiUrl = import.meta.env.VITE_RELAY_SERVER_URL 
+          ? import.meta.env.VITE_RELAY_SERVER_URL.replace(/^ws/, 'http') 
+          : 'http://localhost:8080';
+          
+        await fetch(`${relayApiUrl}/api/heartbeat`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            room_id: roomId,
+            host_device_id: myId,
+            public_ip: ip,
+            is_discoverable: true
+          })
         });
       } catch (err) {
         console.error("Heartbeat error", err);
@@ -399,7 +487,6 @@ export function useHeartbeat(roomId: string | null, isHost: boolean, isDiscovera
     
     return () => {
       clearInterval(interval);
-      supabase.from('active_sessions').delete().eq('room_id', roomId).then();
     };
   }, [roomId, isHost, isDiscoverable, myId]);
 }
@@ -416,15 +503,14 @@ export function useDiscovery(enabled: boolean) {
     
     setIsDiscovering(true);
     try {
-      const res = await fetch('https://api.ipify.org?format=json');
-      const { ip } = await res.json();
+      const ip = await getPublicIp();
       
-      const { data } = await supabase
-        .from('active_sessions')
-        .select('*')
-        .eq('public_ip', ip)
-        .eq('is_discoverable', true)
-        .gt('last_seen', new Date(Date.now() - 30000).toISOString()); // seen in last 30s
+      const relayApiUrl = import.meta.env.VITE_RELAY_SERVER_URL 
+        ? import.meta.env.VITE_RELAY_SERVER_URL.replace(/^ws/, 'http') 
+        : 'http://localhost:8080';
+        
+      const res = await fetch(`${relayApiUrl}/api/discovery?ip=${encodeURIComponent(ip)}`);
+      const data = await res.json();
         
       setNearbySessions(data || []);
     } catch (err) {

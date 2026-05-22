@@ -1,8 +1,7 @@
 export interface BibleReference {
   bookCode: string;
   chapter: number;
-  verseStart?: number;
-  verseEnd?: number;
+  verses: number[];
 }
 
 const bibleBookMap: Record<string, string> = {
@@ -178,8 +177,8 @@ function getBookCode(bookName: string): string | null {
 export function parseReference(query: string): BibleReference | null {
   const normalizedQuery = query.trim().replace(/\s+/g, " ");
   
-  // Matches book name (letters, optional leading 1/2/3) and trailing numbers/colons/hyphens
-  const match = normalizedQuery.match(/^([123]?\s*[a-zA-Z\s]+?)\s*(\d[\d\s:-]*?)?$/i);
+  // Matches book name (letters, optional leading 1/2/3) and trailing numbers/colons/hyphens/commas
+  const match = normalizedQuery.match(/^([123]?\s*[a-zA-Z\s]+?)\s*(\d[\d\s:,\-]*?)?$/i);
   if (!match) return null;
 
   const bookName = match[1].trim();
@@ -190,31 +189,56 @@ export function parseReference(query: string): BibleReference | null {
   const numberPart = match[2] ? match[2].trim() : "";
   
   let chapter = 1;
-  let verseStart: number = 1;
-  let verseEnd: number | undefined;
+  let verses: number[] = [];
 
   if (numberPart) {
-    // Clean up spaces around hyphens (e.g. "1 - 5" -> "1-5")
-    const cleanNumbers = numberPart.replace(/\s*-\s*/g, "-");
-    // Split by space or colon to separate chapter and verse (e.g. "1 5" or "1:5")
-    const parts = cleanNumbers.split(/[\s:]+/);
+    let chapterStr = "";
+    let verseStr = "";
     
-    if (parts.length > 0 && parts[0]) {
-      chapter = Number(parts[0]);
+    if (numberPart.includes(":")) {
+      const parts = numberPart.split(":");
+      chapterStr = parts[0];
+      verseStr = parts.slice(1).join(":"); // handles accidental multiple colons
+    } else {
+      // split by first space for format "3 16-18, 20"
+      const parts = numberPart.split(/\s+/);
+      chapterStr = parts[0];
+      if (parts.length > 1) {
+        verseStr = parts.slice(1).join("");
+      }
     }
-    if (parts.length > 1 && parts[1]) {
-      const vParts = parts[1].split("-");
-      verseStart = Number(vParts[0]);
-      if (vParts.length > 1 && vParts[1]) {
-        verseEnd = Number(vParts[1]);
+    
+    chapter = Number(chapterStr.trim());
+    
+    if (verseStr) {
+      // parse ranges and commas: "16-18, 20, 22-23"
+      const groups = verseStr.split(",");
+      for (const group of groups) {
+        const cleanGroup = group.trim();
+        if (!cleanGroup) continue;
+        if (cleanGroup.includes("-")) {
+          const rangeParts = cleanGroup.split("-").map(s => Number(s.trim()));
+          if (rangeParts.length === 2 && !Number.isNaN(rangeParts[0]) && !Number.isNaN(rangeParts[1])) {
+            for (let i = rangeParts[0]; i <= rangeParts[1]; i++) {
+              verses.push(i);
+            }
+          }
+        } else {
+          const v = Number(cleanGroup);
+          if (!Number.isNaN(v)) {
+            verses.push(v);
+          }
+        }
       }
     }
   }
 
-  if (Number.isNaN(chapter) || Number.isNaN(verseStart)) return null;
-  if (verseEnd !== undefined && Number.isNaN(verseEnd)) return null;
+  if (Number.isNaN(chapter)) return null;
 
-  return { bookCode, chapter, verseStart, verseEnd };
+  // Deduplicate and sort
+  verses = Array.from(new Set(verses)).sort((a, b) => a - b);
+
+  return { bookCode, chapter, verses };
 }
 
 export function getCanonicalBookName(bookCode: string): string {
@@ -222,14 +246,10 @@ export function getCanonicalBookName(bookCode: string): string {
 }
 
 export function formatYouVersionReference(reference: BibleReference): string {
-  if (!reference.verseStart) {
+  if (!reference.verses || reference.verses.length === 0) {
     return `${reference.bookCode}.${reference.chapter}`;
   }
-  let refStr = `${reference.bookCode}.${reference.chapter}.${reference.verseStart}`;
-  if (reference.verseEnd && reference.verseEnd !== reference.verseStart) {
-    refStr += `-${reference.bookCode}.${reference.chapter}.${reference.verseEnd}`;
-  }
-  return refStr;
+  return `${reference.bookCode}.${reference.chapter}.${reference.verses.join(',')}`;
 }
 
 // ─── YouVersion-powered fetch functions via Supabase Edge Function ──────────
@@ -275,17 +295,18 @@ async function fetchLocalFallback(versionId: string, reference: BibleReference):
   else if (versionId === 'bsb') translationCode = 'bsb';
   else if (versionId === 'web') translationCode = 'web';
   
-  const verseEnd = reference.verseEnd ?? reference.verseStart;
-
-  const { data, error } = await supabase
+  let query = supabase
     .from('verses')
     .select('verse, text')
     .eq('translation', translationCode)
     .eq('book_code', reference.bookCode)
-    .eq('chapter', reference.chapter)
-    .gte('verse', reference.verseStart)
-    .lte('verse', verseEnd)
-    .order('verse', { ascending: true });
+    .eq('chapter', reference.chapter);
+
+  if (reference.verses && reference.verses.length > 0) {
+    query = query.in('verse', reference.verses);
+  }
+
+  const { data, error } = await query.order('verse', { ascending: true });
 
   if (error) throw new Error("Fallback failed: " + error.message);
   if (!data || data.length === 0) throw new Error("Verse not found in local fallback database.");
@@ -304,10 +325,11 @@ export async function fetchVerse(versionId: string, query: string): Promise<{ te
   const cacheKey = `sb_${versionId}_${formattedRef}`;
   
   const canonicalBook = getCanonicalBookName(reference.bookCode);
-  let nltRef = `${canonicalBook}.${reference.chapter}.${reference.verseStart}`;
-  if (reference.verseEnd && reference.verseEnd !== reference.verseStart) {
-    nltRef += `-${canonicalBook}.${reference.chapter}.${reference.verseEnd}`;
-  }
+  const isWholeChapter = !reference.verses || reference.verses.length === 0;
+  
+  // Create an edge-function friendly chapter reference
+  const chapterRef = `${reference.bookCode}.${reference.chapter}`;
+  const nltChapterRef = `${canonicalBook}.${reference.chapter}`;
 
   // Check client-side cache (IndexedDB)
   try {
@@ -346,7 +368,7 @@ export async function fetchVerse(versionId: string, query: string): Promise<{ te
     console.warn(`[Tier 2] API.Bible: ${formattedRef} (${versionId})`);
     try {
       const invokePromise = supabase.functions.invoke('fetch-verse', {
-        body: { action: 'fetch_verse', reference: formattedRef, versionId: versionId, nltRef: nltRef }
+        body: { action: 'fetch_verse', reference: chapterRef, versionId: versionId, nltRef: nltChapterRef }
       });
       const { data, error } = await fetchWithTimeout(invokePromise, 6000, 'Failed to fetch (timeout)');
 
@@ -356,11 +378,38 @@ export async function fetchVerse(versionId: string, query: string): Promise<{ te
         throw new Error(data?.error || "API.Bible fetch failed");
       }
 
-      verseText = data.text;
-      if (!verseText || verseText === "Text not found") {
+      let fullChapterText = data.text;
+      if (!fullChapterText || fullChapterText === "Text not found") {
         currentTriage = 'user_input';
         throw new Error("Verse not found.");
       }
+      
+      // Slicing logic: extract only requested verses if verses array is provided
+      if (!isWholeChapter) {
+        const verseMatches = fullChapterText.match(/\{\{v:\d+\}\}.*?(?=\{\{v:\d+\}\}|$)/gs);
+        if (verseMatches) {
+          const selectedVerses = verseMatches.filter((match: string) => {
+            const vNumMatch = match.match(/\{\{v:(\d+)\}\}/);
+            if (vNumMatch) {
+              const vNum = parseInt(vNumMatch[1], 10);
+              return reference.verses.includes(vNum);
+            }
+            return false;
+          });
+          if (selectedVerses.length > 0) {
+            verseText = selectedVerses.join(' ').trim();
+          } else {
+            currentTriage = 'user_input';
+            throw new Error("Requested verse(s) not found in chapter.");
+          }
+        } else {
+          // If the regex slice fails but we have text, we just fallback to full text
+          verseText = fullChapterText;
+        }
+      } else {
+        verseText = fullChapterText;
+      }
+      
       currentSource = versionId === 'nlt' ? 'nlt' : 'api.bible';
       currentTriage = null;
     } catch (apiErr: unknown) {

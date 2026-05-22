@@ -45,20 +45,28 @@ StreamBible relies on a few external services to fetch Bible texts and handle ne
 VITE_SUPABASE_URL=your_supabase_project_url
 VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
 
-VITE_API_BIBLE_KEY=your_api_bible_key
-VITE_NLT_API_KEY=your_nlt_key
+VITE_RELAY_SERVER_URL=wss://your_custom_relay_server_url
 ```
 
-#### Setting up API.Bible
-1. Go to [scripture.api.bible](https://scripture.api.bible/) and create a free developer account.
-2. Create a new "App" in their dashboard.
-3. Copy the generated API Key and paste it as your `VITE_API_BIBLE_KEY`.
-4. *Note: API.Bible provides access to hundreds of translations, but requires attribution and has rate limits (which StreamBible handles automatically).*
+#### Setting up API.Bible & NLT.to (Supabase Secrets)
+To protect your API keys from being exposed in the frontend, StreamBible securely proxies all requests through Supabase Edge Functions. You must set your API keys as Supabase Secrets, **not** in your `.env` file!
 
-#### Setting up NLT.to (Tyndale)
-1. Go to [nlt.to/api](https://nlt.to/api) and request a free API key for non-commercial use.
-2. Once approved, copy the key and paste it as your `VITE_NLT_API_KEY`.
-3. *Note: The NLT API uses a different schema than API.Bible. StreamBible includes a dedicated `nltService.ts` to normalize this data.*
+1. Go to [scripture.api.bible](https://scripture.api.bible/) and [nlt.to/api](https://nlt.to/api) to get your free developer keys.
+2. In your terminal (with the Supabase CLI installed), set your secrets:
+```bash
+supabase secrets set API_BIBLE_KEY=your_api_bible_key
+supabase secrets set NLT_API_KEY=your_nlt_key
+```
+3. Deploy the Edge Function to your Supabase project:
+```bash
+supabase functions deploy fetch-verse
+```
+
+#### Setting up the Custom WebSocket Relay
+To bypass cloud limits and guarantee zero-latency syncing:
+1. Push the `streambible-relay-server` directory (included in this repo) to a free cloud host like **Render** or **Railway**.
+2. The server runs automatically using `npm install` and `npm start`.
+3. Once deployed, copy your WebSocket URL (e.g., `wss://streambible-relay.onrender.com`) and paste it as your `VITE_RELAY_SERVER_URL`.
 
 ### 4. Running the Application
 
@@ -101,15 +109,20 @@ StreamBible leverages a modern, distributed architecture designed to minimize cl
 - **How they are currently used:** When a user types a reference (e.g., "John 3:16"), the app parses it and pings the APIs. To respect API quotas and rate limits, StreamBible implements aggressive caching. When a user creates a "Setlist" for Sunday, the app throttles requests (250ms delay) to safely pre-cache all verses into the local IndexedDB.
 - **How you can use it:** You can extend the `bibleService.ts` to query metadata, fetch entire chapters for a reading view, or add support for audio Bibles using the API.Bible audio endpoints.
 
-### 3. Supabase (Discovery & Fallback Layer)
-- **Why it's used:** WebRTC requires a "signaling server" so two peers can exchange IP addresses and connect. Instead of hosting a dedicated Node.js signaling server, we use Supabase. Furthermore, we need a fallback for native, public-domain translations (like the KJV or Yoruba Bibeli Mimo) that we own.
-- **How it's currently used:** 
-  1. **Device Discovery:** A simple database polling mechanism helps devices in the same "Room" find each other. Once connected via WebRTC, they stop polling Supabase to save bandwidth.
-  2. **Native Database:** A Postgres table holds public-domain texts. If API.Bible goes down, the app falls back to our Supabase Postgres instance.
-  3. **Row Level Security (RLS):** Because the app is bundled as an Electron `.exe`, the Supabase Anon Key is technically public. We enforce strict RLS policies so public users can only *Read* verses, completely protecting the database from malicious inserts.
-- **How you can use it:** You can easily add Supabase Authentication to allow users to save their Setlists to the cloud and sync them across different laptops.
+### 3. Custom WebSocket Relay (`streambible-relay-server`)
+- **Why it's used (The mDNS -105 Problem):** WebRTC is incredible when it works, but many enterprise church Wi-Fi networks block mDNS (Multicast DNS) traffic. When mDNS is blocked, WebRTC completely fails to discover local peers, resulting in an `mDNS -105` error. When this happens, we need a "Cloud Fallback". Commercial services like Supabase Realtime strictly cap concurrent connections on their free tier. We built a custom Node.js WebSocket relay to effortlessly handle 10,000+ simultaneous connections for $0 on free cloud hosts.
+- **How it's currently used (The "Race Condition"):** 
+  1. **Device Discovery:** The relay server tracks active sessions in-memory. Controllers poll the relay via HTTP to discover other connected screens on the same Wi-Fi network.
+  2. **The "Race Condition" Sync:** The Relay Server is *not* a passive fallback. When the operator pushes a verse, the Controller blasts the payload across **both** WebRTC (P2P) **and** the Custom WebSocket Relay simultaneously. Whichever signal reaches the overlay screen first wins the race and displays the verse. This guarantees absolute zero-latency on good networks, and instant failover on networks with `mDNS -105` blocks.
 
-### 4. Dexie / IndexedDB (Persistence Layer)
+### 4. Supabase (Database & Edge Functions)
+- **Why it's used:** We need a serverless backend to proxy requests to API.Bible (to hide our API keys) and a Postgres database for our native, public-domain translations (like the KJV or Yoruba Bibeli Mimo).
+- **How it's currently used:** 
+  1. **Edge Functions:** When fetching modern translations, requests go to our Supabase Edge Function to securely attach the API key.
+  2. **Native Database:** If API.Bible goes down, the app falls back to our Supabase Postgres instance.
+  3. **Row Level Security (RLS):** We enforce strict RLS policies so public users can only *Read* verses, completely protecting the database from malicious inserts.
+
+### 5. Dexie / IndexedDB (Persistence Layer)
 - **Why it's used:** `localStorage` is synchronous and limited to 5MB, making it terrible for storing thousands of Bible verses. IndexedDB is asynchronous and can store gigabytes of data.
 - **How it's currently used:** `Dexie` acts as a wrapper around IndexedDB. Every time a verse is fetched from an external API, it is permanently saved here. If the church internet completely drops, StreamBible queries Dexie. Because the app is a PWA (Progressive Web App) cached by Service Workers, it can boot and run 100% offline.
 

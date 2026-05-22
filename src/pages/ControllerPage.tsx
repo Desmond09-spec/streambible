@@ -87,116 +87,7 @@ const ControllerPage: React.FC = () => {
         )}
       </AnimatePresence>
 
-      <AnimatePresence>
-        {showFallbackToast && (
-          <motion.div
-            initial={{ opacity: 0, y: -20, x: "-50%" }}
-            animate={{ opacity: 1, y: 0, x: "-50%" }}
-            exit={{ opacity: 0, y: -20, x: "-50%" }}
-            transition={{ type: "spring", stiffness: 400, damping: 30 }}
-            className="copy-toast visible"
-            role="alert"
-            aria-live="assertive"
-            style={{
-              x: "-50%",
-              background:
-                triageReason === "internal_error"
-                  ? "rgba(255, 69, 58, 0.15)"
-                  : triageReason === "client_network"
-                    ? "rgba(255, 214, 10, 0.15)"
-                    : triageReason === "user_input"
-                      ? "rgba(152, 152, 157, 0.15)"
-                      : "rgba(255, 159, 10, 0.15)",
-              border: `1px solid ${triageReason === "internal_error" ? "rgba(255, 69, 58, 0.3)" : triageReason === "client_network" ? "rgba(255, 214, 10, 0.3)" : triageReason === "user_input" ? "rgba(152, 152, 157, 0.3)" : "rgba(255, 159, 10, 0.3)"}`,
-              color: "var(--text-1)",
-            }}
-          >
-            <div
-              className="copy-toast-icon-wrap"
-              style={{
-                background:
-                  triageReason === "internal_error"
-                    ? "rgba(255, 69, 58, 0.2)"
-                    : triageReason === "client_network"
-                      ? "rgba(255, 214, 10, 0.2)"
-                      : triageReason === "user_input"
-                        ? "rgba(152, 152, 157, 0.2)"
-                        : "rgba(255, 159, 10, 0.2)",
-                color:
-                  triageReason === "internal_error"
-                    ? "#FF453A"
-                    : triageReason === "client_network"
-                      ? "#FFD60A"
-                      : triageReason === "user_input"
-                        ? "#98989D"
-                        : "var(--warning)",
-              }}
-            >
-              <svg
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2.5"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                width="16"
-                height="16"
-              >
-                <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
-                <line x1="12" y1="9" x2="12" y2="13" />
-                <line x1="12" y1="17" x2="12.01" y2="17" />
-              </svg>
-            </div>
-            <div className="copy-toast-body">
-              <span className="copy-toast-title">
-                {triageReason === "client_network"
-                  ? "Network Error"
-                  : triageReason === "internal_error"
-                    ? "Critical System Error"
-                    : triageReason === "user_input"
-                      ? "Verse Not Found"
-                      : triageReason === "third_party_outage" &&
-                          fallbackType === "api.bible"
-                        ? "Primary Unreachable"
-                        : triageReason === "third_party_outage" &&
-                            fallbackType === "local"
-                          ? "Translation Unavailable"
-                          : "System Alert"}
-              </span>
-              <span className="copy-toast-sub">
-                {triageReason === "client_network"
-                  ? "You appear to be offline. Defaulting to local database."
-                  : triageReason === "internal_error"
-                    ? "Local database unavailable. Please refresh."
-                    : triageReason === "user_input"
-                      ? "Please check the reference and try again."
-                      : triageReason === "third_party_outage" &&
-                          fallbackType === "api.bible"
-                        ? "API is unreachable. Reverting to fallback."
-                        : triageReason === "third_party_outage" &&
-                            fallbackType === "local"
-                          ? "Selected version isn't available right now. Showing KJV instead."
-                          : "An unknown error occurred."}
-                {fallbackOriginalVersion &&
-                  fallbackOriginalVersion !== "1" &&
-                  fallbackType === "local" && (
-                    <span
-                      style={{
-                        display: "block",
-                        marginTop: "4px",
-                        fontSize: "11px",
-                        opacity: 0.8,
-                        fontWeight: 500,
-                      }}
-                    >
-                      Translation unavailable offline. Reverted to KJV.
-                    </span>
-                  )}
-              </span>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+
 
       <ControllerHeader 
         wsConnected={wsConnected}
@@ -219,6 +110,80 @@ const ControllerPage: React.FC = () => {
           isSetlistOpen={isSetlistOpen}
           setIsSetlistOpen={setIsSetlistOpen}
         />
+
+        <AnimatePresence>
+          {showFallbackToast && (
+            <motion.div
+              initial={{ opacity: 0, height: 0, marginBottom: 0 }}
+              animate={{ opacity: 1, height: "auto", marginBottom: 16 }}
+              exit={{ opacity: 0, height: 0, marginBottom: 0 }}
+              style={{ overflow: "hidden" }}
+            >
+              <div
+                style={{
+                  background:
+                    triageReason === "internal_error"
+                      ? "rgba(255, 69, 58, 0.15)"
+                      : triageReason === "client_network"
+                        ? "rgba(255, 214, 10, 0.15)"
+                        : triageReason === "user_input"
+                          ? "rgba(152, 152, 157, 0.15)"
+                          : "rgba(255, 159, 10, 0.15)",
+                  border: `1px solid ${triageReason === "internal_error" ? "rgba(255, 69, 58, 0.3)" : triageReason === "client_network" ? "rgba(255, 214, 10, 0.3)" : triageReason === "user_input" ? "rgba(152, 152, 157, 0.3)" : "rgba(255, 159, 10, 0.3)"}`,
+                  color: "var(--text-1)",
+                  padding: "12px 16px",
+                  borderRadius: "12px",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "12px",
+                }}
+                role="alert"
+              >
+                <div
+                  style={{
+                    color:
+                      triageReason === "internal_error"
+                        ? "#FF453A"
+                        : triageReason === "client_network"
+                          ? "#FFD60A"
+                          : triageReason === "user_input"
+                            ? "#98989D"
+                            : "var(--warning)",
+                    display: "flex",
+                    alignItems: "center",
+                  }}
+                >
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" width="20" height="20">
+                    <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+                    <line x1="12" y1="9" x2="12" y2="13" />
+                    <line x1="12" y1="17" x2="12.01" y2="17" />
+                  </svg>
+                </div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontWeight: 600, fontSize: "14px", marginBottom: "2px" }}>
+                    {triageReason === "client_network" ? "Network Error" :
+                     triageReason === "internal_error" ? "Critical System Error" :
+                     triageReason === "user_input" ? "Verse Not Found" :
+                     triageReason === "third_party_outage" && fallbackType === "api.bible" ? "Primary Unreachable" :
+                     triageReason === "third_party_outage" && fallbackType === "local" ? "Translation Unavailable" : "System Alert"}
+                  </div>
+                  <div style={{ fontSize: "13px", opacity: 0.85, lineHeight: 1.4 }}>
+                    {triageReason === "client_network" ? "You appear to be offline. Defaulting to local database." :
+                     triageReason === "internal_error" ? "Local database unavailable. Please refresh." :
+                     triageReason === "user_input" ? "Please check the reference and try again." :
+                     triageReason === "third_party_outage" && fallbackType === "api.bible" ? "API is unreachable. Reverting to fallback." :
+                     triageReason === "third_party_outage" && fallbackType === "local" ? "Selected version isn't available right now. Showing fallback instead." : "An unknown error occurred."}
+                    {fallbackOriginalVersion && fallbackOriginalVersion !== "1" && fallbackType === "local" && (
+                      <span style={{ display: "block", marginTop: "2px", fontWeight: 500 }}>
+                        Translation unavailable offline. Reverted to KJV.
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         <PreviewCards 
           showPrimary={showPrimary} setShowPrimary={setShowPrimary}

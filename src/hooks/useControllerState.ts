@@ -149,16 +149,28 @@ export const useControllerState = () => {
     let canonicalRef = searchQuery;
     if (parsed) {
       const bookName = getCanonicalBookName(parsed.bookCode);
-      const versePart = parsed.verseStart
-        ? `:${parsed.verseStart}${parsed.verseEnd && parsed.verseEnd !== parsed.verseStart ? `-${parsed.verseEnd}` : ""}`
-        : "";
+      let versePart = "";
+      if (parsed.verses && parsed.verses.length > 0) {
+        const v = parsed.verses;
+        const groups = [];
+        let start = v[0], end = v[0];
+        for (let i = 1; i <= v.length; i++) {
+          if (i < v.length && v[i] === end + 1) { 
+            end = v[i]; 
+          } else {
+            groups.push(start === end ? `${start}` : `${start}-${end}`);
+            if (i < v.length) { start = end = v[i]; }
+          }
+        }
+        versePart = `:${groups.join(", ")}`;
+      }
       canonicalRef = `${bookName} ${parsed.chapter}${versePart}`;
     }
 
     try {
       let pText = "Verse not found.";
       let sText = "Verse not found.";
-      const LOCAL_NATIVE_IDS = new Set(["1", "2079", "2533"]);
+      const LOCAL_NATIVE_IDS = new Set(["1", "2079", "2533", "asv", "bsb", "web"]);
       let isLocalSubstitute = false;
       let pSource: "api.bible" | "local" | "nlt" = "local";
       let sSource: "api.bible" | "local" | "nlt" = "local";
@@ -195,7 +207,6 @@ export const useControllerState = () => {
         setTriageReason(overallTriage);
         setFallbackOriginalVersion(primaryVersion);
         setShowFallbackToast(true);
-        setTimeout(() => setShowFallbackToast(false), 5000);
         // pText is already KJV from Tier 1 — no need to re-fetch
         try {
           const sRes = await fetchVerse("2079", searchQuery);
@@ -220,7 +231,6 @@ export const useControllerState = () => {
             setTriageReason(overallTriage);
             setFallbackOriginalVersion(secondaryVersion);
             setShowFallbackToast(true);
-            setTimeout(() => setShowFallbackToast(false), 5000);
             // sText already has KJV from Tier 1, no need to re-fetch
           } else {
             setIsUsingFallback(false);
@@ -231,7 +241,6 @@ export const useControllerState = () => {
             setFallbackOriginalVersion(null);
             if (overallTriage) {
               setShowFallbackToast(true);
-              setTimeout(() => setShowFallbackToast(false), 5000);
             }
           }
         } catch (e: unknown) {
@@ -245,7 +254,6 @@ export const useControllerState = () => {
           setTriageReason(overallTriage);
           if (overallTriage) {
             setShowFallbackToast(true);
-            setTimeout(() => setShowFallbackToast(false), 5000);
           }
         }
       }
@@ -260,7 +268,6 @@ export const useControllerState = () => {
       if (pText === "Verse not found." && sText === "Verse not found.") {
         setTriageReason("user_input");
         setShowFallbackToast(true);
-        setTimeout(() => setShowFallbackToast(false), 5000);
         setStatus("success");
         setStatusMsg("Verse not found");
       } else {
