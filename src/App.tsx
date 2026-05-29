@@ -28,6 +28,16 @@ function App() {
     } catch (e) {
       console.error('Error cleaning up local storage', e);
     }
+
+    // Fade out and remove the HTML splash screen seamlessly
+    const splash = document.getElementById('splash-overlay');
+    if (splash) {
+      // Small delay to ensure React has fully painted the DOM underneath
+      setTimeout(() => {
+        splash.style.opacity = '0';
+        setTimeout(() => splash.remove(), 500); // Wait for CSS transition to finish
+      }, 300);
+    }
   }, []);
 
   return (

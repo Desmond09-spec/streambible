@@ -27,6 +27,32 @@
 </head>
 
 <body>
+  <div id="splash-overlay" style="position: fixed; inset: 0; background: linear-gradient(160deg, #1A6DFF 0%, #003d99 100%); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 999999; transition: opacity 0.5s ease-out; font-family: -apple-system, BlinkMacSystemFont, 'Inter', sans-serif;">
+    <div style="margin-bottom: 18px; opacity: 0.95;">
+      <svg viewBox="0 0 48 48" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="width: 48px; height: 48px;">
+        <rect x="7" y="4" width="34" height="40" rx="4"/>
+        <path d="M14 14h20M14 22h20M14 30h14"/>
+      </svg>
+    </div>
+    <h1 style="color: #ffffff; font-size: 32px; font-weight: 700; letter-spacing: -0.5px; margin: 0;">StreamBible</h1>
+    <p style="color: rgba(255,255,255,0.55); font-size: 13px; margin-top: 8px; letter-spacing: 0.2px; margin-bottom: 0;">Loading your broadcast environment…</p>
+    <div style="margin-top: 20px;">
+      <span class="dot" style="display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: rgba(255,255,255,0.6); margin: 0 3px; animation: pulse 1.2s ease-in-out infinite;"></span>
+      <span class="dot" style="display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: rgba(255,255,255,0.6); margin: 0 3px; animation: pulse 1.2s ease-in-out infinite; animation-delay: 0.2s;"></span>
+      <span class="dot" style="display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: rgba(255,255,255,0.6); margin: 0 3px; animation: pulse 1.2s ease-in-out infinite; animation-delay: 0.4s;"></span>
+    </div>
+    <style>
+      @keyframes pulse {
+        0%, 100% { opacity: 0.3; transform: scale(0.8); }
+        50% { opacity: 1; transform: scale(1); }
+      }
+    </style>
+  </div>
+  <script>
+    if (window.location.hash.includes('/overlay') || window.location.hash.includes('/fullscreen')) {
+      document.getElementById('splash-overlay').style.display = 'none';
+    }
+  </script>
   <div id="root">
     <div
       style="min-height: 100vh; display: flex; flex-direction: column; justify-content: space-between; align-items: center; background-color: #0E0E11; font-family: -apple-system, BlinkMacSystemFont, 'Inter', sans-serif;">
