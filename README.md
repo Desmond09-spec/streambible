@@ -116,14 +116,18 @@ StreamBible leverages a modern, distributed architecture designed to minimize cl
   1. **Device Discovery:** The relay server tracks active sessions in-memory. Controllers poll the relay via HTTP to discover other connected screens on the same Wi-Fi network.
   2. **The "Race Condition" Sync:** The Relay Server is *not* a passive fallback. When the operator pushes a verse, the Controller blasts the payload across **both** WebRTC (P2P) **and** the Custom WebSocket Relay simultaneously. Whichever signal reaches the overlay screen first wins the race and displays the verse. This guarantees absolute zero-latency on good networks, and instant failover on networks with `mDNS -105` blocks.
 
-### 4. Supabase (Database & Edge Functions)
+### 4. Active Connection Prober (Network Health)
+- **Why it's used:** In live broadcasting, the operator cannot guess if they are currently connected to the overlay. A silent network drop could mean clicking a verse and nothing showing up on the livestream.
+- **How it's currently used:** StreamBible implements a continuous network prober (`useNetworkProber`) that actively pings the WebSocket connection and local WebRTC data channels in the background. If latency spikes or the connection drops entirely, the UI immediately alerts the operator via a Toast warning and updates the global connection status indicator, ensuring no "silent failures."
+
+### 5. Supabase (Database & Edge Functions)
 - **Why it's used:** We need a serverless backend to proxy requests to API.Bible (to hide our API keys) and a Postgres database for our native, public-domain translations (like the KJV or Yoruba Bibeli Mimo).
 - **How it's currently used:** 
   1. **Edge Functions:** When fetching modern translations, requests go to our Supabase Edge Function to securely attach the API key.
   2. **Native Database:** If API.Bible goes down, the app falls back to our Supabase Postgres instance.
   3. **Row Level Security (RLS):** We enforce strict RLS policies so public users can only *Read* verses, completely protecting the database from malicious inserts.
 
-### 5. Dexie / IndexedDB (Persistence Layer)
+### 6. Dexie / IndexedDB (Persistence Layer)
 - **Why it's used:** `localStorage` is synchronous and limited to 5MB, making it terrible for storing thousands of Bible verses. IndexedDB is asynchronous and can store gigabytes of data.
 - **How it's currently used:** `Dexie` acts as a wrapper around IndexedDB. Every time a verse is fetched from an external API, it is permanently saved here. If the church internet completely drops, StreamBible queries Dexie. Because the app is a PWA (Progressive Web App) cached by Service Workers, it can boot and run 100% offline.
 
