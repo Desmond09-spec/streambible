@@ -1,4 +1,4 @@
-# StreamBible Dual — App Audit & Project State
+# StreamBible — App Audit & Project State
 *Updated: 2026-05-04*
 
 ---
