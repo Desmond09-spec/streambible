@@ -22,3 +22,14 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Build artifacts
+dist-electron/
+
+# Development scratch files
+scratch/
+
+# Internal developer docs (kept locally, not for public repo)
+docs/project_audit.md
+docs/streambible_audit.md
+docs/streambible-info
