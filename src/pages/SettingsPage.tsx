@@ -4,6 +4,7 @@ import { supabase } from "../lib/supabase";
 import { motion, AnimatePresence } from "framer-motion";
 import { useSettings } from "../context/SettingsContext";
 import { useSession } from "../context/SessionContext";
+import { ConfirmModal } from "../components/ConfirmModal";
 import "./SettingsPage.css";
 
 // ─── localStorage Keys ────────────────────────────────────────────────────────
@@ -260,17 +261,22 @@ const SettingLinkRow: React.FC<SettingLinkRowProps> = ({
 
 interface SettingsSectionProps {
   title: string;
+  badge?: string;
   footer?: string;
   children: React.ReactNode;
 }
 
 const SettingsSection: React.FC<SettingsSectionProps> = ({
   title,
+  badge,
   footer,
   children,
 }) => (
   <div className="settings-section">
-    <div className="settings-section-header">{title}</div>
+    <div className="settings-section-header">
+      {title}
+      {badge && <span className="settings-section-badge">{badge}</span>}
+    </div>
     <div className="settings-section-card">{children}</div>
     {footer && <div className="settings-section-footer">{footer}</div>}
   </div>
@@ -279,7 +285,7 @@ const SettingsSection: React.FC<SettingsSectionProps> = ({
 // ─── Main Page ────────────────────────────────────────────────────────────────
 const SettingsPage: React.FC = () => {
   const navigate = useNavigate();
-  const { roomId, isHost, regenerateRoom, user, claimedRoomId } = useSession();
+  const { roomId, isHost, regenerateRoom, pendingReset, confirmRegenerate, cancelRegenerate, user, claimedRoomId } = useSession();
   const [claimInput, setClaimInput] = useState("");
   const [claimStatus, setClaimStatus] = useState<
     "idle" | "loading" | "success" | "error"
@@ -289,8 +295,8 @@ const SettingsPage: React.FC = () => {
   const [theme] = useState<"light" | "dark">(
     () =>
       (localStorage.getItem(SETTINGS_KEYS.theme) || "light") as
-        | "light"
-        | "dark",
+      | "light"
+      | "dark",
   );
 
   // ── Settings state (saves on every change) ────────────────────────────────
@@ -309,10 +315,16 @@ const SettingsPage: React.FC = () => {
     setSetlistStyle,
   } = useSettings();
   const [savedIndicator, setSavedIndicator] = useState(false);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   const save = () => {
     setSavedIndicator(true);
     setTimeout(() => setSavedIndicator(false), 1800);
+  };
+
+  const showToast = (msg: string) => {
+    setToastMessage(msg);
+    setTimeout(() => setToastMessage(null), 2500);
   };
 
   const setDebounce = (v: boolean) => {
@@ -449,7 +461,7 @@ const SettingsPage: React.FC = () => {
         </div>
 
         <AnimatePresence>
-          {savedIndicator && (
+          {(savedIndicator || toastMessage) && (
             <motion.div
               className="settings-saved-badge"
               initial={{ opacity: 0, scale: 0.8 }}
@@ -457,19 +469,25 @@ const SettingsPage: React.FC = () => {
               exit={{ opacity: 0, scale: 0.8 }}
               transition={{ type: "spring", damping: 20, stiffness: 300 }}
             >
-              <svg
-                viewBox="0 0 16 16"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2.2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                width="12"
-                height="12"
-              >
-                <polyline points="2.5 8.5 6 12 13.5 4" />
-              </svg>
-              Saved
+              {savedIndicator ? (
+                <>
+                  <svg
+                    viewBox="0 0 16 16"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2.2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    width="12"
+                    height="12"
+                  >
+                    <polyline points="2.5 8.5 6 12 13.5 4" />
+                  </svg>
+                  Saved
+                </>
+              ) : (
+                toastMessage
+              )}
             </motion.div>
           )}
         </AnimatePresence>
@@ -574,18 +592,15 @@ const SettingsPage: React.FC = () => {
 
         {/* Account & Persistent Room */}
         <SettingsSection
-          title="Account & Room ID"
-          footer={
-            user
-              ? "Your claimed room ID ensures your overlays never break and you always control the same session URL."
-              : "Create a free account to claim a permanent, custom Room ID (e.g., room=GRACE)."
-          }
+          title="Account & Branding"
+          badge="Coming Soon"
+          footer="Soon you will be able to create an account to claim a permanent Room ID and unlock custom branding (your church's logo, colors, and more) for your overlays."
         >
           {!user ? (
             <SettingLinkRow
               label="Sign in or Create Account"
-              description="Claim your custom Room ID today."
-              onClick={() => navigate("/auth")}
+              description="Accounts and branding are coming soon!"
+              onClick={() => showToast("Accounts are coming soon!")}
               last
             />
           ) : (
@@ -618,9 +633,9 @@ const SettingsPage: React.FC = () => {
                       ? { x: [-5, 5, -5, 5, 0], transition: { duration: 0.4 } }
                       : claimStatus === "success"
                         ? {
-                            boxShadow: "0 0 15px rgba(52,199,89,0.4)",
-                            borderColor: "var(--color-accent-success)",
-                          }
+                          boxShadow: "0 0 15px rgba(52,199,89,0.4)",
+                          borderColor: "var(--color-accent-success)",
+                        }
                         : {}
                   }
                   type="text"
@@ -834,7 +849,7 @@ const SettingsPage: React.FC = () => {
             description="Get the native desktop app (.exe) for Windows/Mac."
             onClick={() =>
               window.open(
-                "https://github.com/Desmond09-spec/streambible/releases/download/v1.0.0/StreamBible.Setup.0.0.0.exe",
+                "https://github.com/Desmond09-spec/streambible/releases/download/v1.0.0/StreamBible.Setup.exe",
                 "_blank",
               )
             }
@@ -866,6 +881,11 @@ const SettingsPage: React.FC = () => {
             onClick={() => navigate("/privacy")}
           />
           <SettingLinkRow
+            label="Third-party Licenses & Agreements"
+            description="View copyright and licensing information for Bible translations."
+            onClick={() => navigate("/copyright")}
+          />
+          <SettingLinkRow
             label="Terms of Service"
             description="Read the terms for using StreamBible."
             onClick={() => navigate("/terms")}
@@ -877,6 +897,17 @@ const SettingsPage: React.FC = () => {
           StreamBible {roomId ? `· Room ${roomId}` : ""} · Host view
         </p>
       </motion.div>
+
+      <ConfirmModal
+        isVisible={pendingReset}
+        title="Reset Session?"
+        message="This will disconnect all linked devices and generate a new Room ID. This cannot be undone."
+        confirmLabel="Reset"
+        cancelLabel="Cancel"
+        destructive
+        onConfirm={confirmRegenerate}
+        onCancel={cancelRegenerate}
+      />
     </div>
   );
 };

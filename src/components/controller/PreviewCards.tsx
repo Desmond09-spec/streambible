@@ -20,6 +20,7 @@ interface PreviewCardsProps {
   setPrimaryVersion: (val: string) => void;
   isUsingFallback: boolean;
   primaryText: string;
+  primarySource?: 'api.bible' | 'local' | 'nlt';
   status: "default" | "fetching" | "success" | "live" | "error";
   primaryRef: string;
   primaryExpanded: boolean;
@@ -30,6 +31,7 @@ interface PreviewCardsProps {
   secondaryVersion: string;
   setSecondaryVersion: (val: string) => void;
   secondaryText: string;
+  secondarySource?: 'api.bible' | 'local' | 'nlt';
   secondaryRef: string;
   secondaryExpanded: boolean;
   setSecondaryExpanded: (val: boolean) => void;
@@ -37,9 +39,9 @@ interface PreviewCardsProps {
 
 export const PreviewCards: React.FC<PreviewCardsProps> = ({
   showPrimary, setShowPrimary, primaryVersion, setPrimaryVersion,
-  isUsingFallback, primaryText, status, primaryRef, primaryExpanded, setPrimaryExpanded,
+  isUsingFallback, primaryText, primarySource, status, primaryRef, primaryExpanded, setPrimaryExpanded,
   showSecondary, setShowSecondary, secondaryVersion, setSecondaryVersion,
-  secondaryText, secondaryRef, secondaryExpanded, setSecondaryExpanded
+  secondaryText, secondarySource, secondaryRef, secondaryExpanded, setSecondaryExpanded
 }) => {
   const { showVerseNumbers } = useSettings();
 
@@ -74,6 +76,7 @@ export const PreviewCards: React.FC<PreviewCardsProps> = ({
           ) : primaryText ? (
             <VerseText
               text={primaryText}
+              source={primarySource}
               showVerseNumbers={showVerseNumbers}
               isMultiVerse={primaryRef.includes("-")}
             />
@@ -125,6 +128,7 @@ export const PreviewCards: React.FC<PreviewCardsProps> = ({
           ) : secondaryText ? (
             <VerseText
               text={secondaryText}
+              source={secondarySource}
               showVerseNumbers={showVerseNumbers}
               isMultiVerse={secondaryRef.includes("-")}
             />

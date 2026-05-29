@@ -5,3 +5,6 @@
 
 ALTER TABLE public.profiles
 ADD COLUMN IF NOT EXISTS has_onboarded BOOLEAN DEFAULT FALSE;
+
+ALTER TABLE public.bible_cache
+ADD COLUMN IF NOT EXISTS fums TEXT;

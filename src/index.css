@@ -122,3 +122,43 @@ button:active:not(:disabled) {
   white-space: nowrap;
   border: 0;
 }
+
+/* API.Bible Content Formatting */
+.verse-text-api h1,
+.verse-text-api h2,
+.verse-text-api h3,
+.verse-text-api .s,
+.verse-text-api .s1,
+.verse-text-api .s2,
+.verse-text-api .p,
+.verse-text-api .m {
+  display: inline;
+  margin: 0;
+  padding: 0;
+}
+
+.verse-text-api .footnote,
+.verse-text-api .f,
+.verse-text-api .x,
+.verse-text-api .vj {
+  display: none;
+}
+
+/* Style verse numbers */
+.verse-text-api .v {
+  opacity: 0.6;
+  font-size: 0.6em;
+  margin-right: 4px;
+  font-weight: bold;
+  vertical-align: super;
+}
+
+/* Hide verse numbers if requested */
+.verse-text-api.hide-v .v {
+  display: none;
+}
+
+/* Hide verse numbers if it's a single verse */
+.verse-text-api.hide-v-if-single .v {
+  display: none;
+}

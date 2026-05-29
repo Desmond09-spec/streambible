@@ -13,6 +13,10 @@ import { PreviewCards } from "../components/controller/PreviewCards";
 import { BroadcastControls } from "../components/controller/BroadcastControls";
 import { MobileMenuSheet } from "../components/controller/MobileMenuSheet";
 import { SetlistManager } from "../components/controller/SetlistManager";
+import { ConnectionStatusModal } from "../components/controller/ConnectionStatusModal";
+import { ConnectionBanner } from '../components/controller/ConnectionBanner';
+import { NetworkWarningToast } from '../components/controller/NetworkWarningToast';
+import { RequestTimeoutToast } from '../components/controller/RequestTimeoutToast';
 
 const ControllerPage: React.FC = () => {
   const {
@@ -34,8 +38,9 @@ const ControllerPage: React.FC = () => {
     setlistStyle
   } = useControllerState();
 
-  const { wsConnected, roomId, claimedRoomId, isHost, hostStatus } = useSession();
+  const { wsConnected, roomId, claimedRoomId, isHost, hostStatus, pendingReset, confirmRegenerate, cancelRegenerate } = useSession();
   const [isSetlistOpen, setIsSetlistOpen] = React.useState(false);
+  const [isConnectionSheetOpen, setIsConnectionSheetOpen] = React.useState(false);
 
   return (
     <div
@@ -43,6 +48,7 @@ const ControllerPage: React.FC = () => {
       className={`theme-${theme} legacy-body${isTransitioning ? " theme-transitioning" : ""}`}
       style={{ width: "100%", minHeight: "100vh", flex: 1 }}
     >
+
       {showTour && (
         <WalkthroughOverlay steps={tourSteps} onComplete={finishTour} />
       )}
@@ -98,6 +104,7 @@ const ControllerPage: React.FC = () => {
         toggleTheme={toggleTheme}
         copyUrl={copyUrl}
         setIsMobileMenuOpen={setIsMobileMenuOpen}
+        setIsConnectionSheetOpen={setIsConnectionSheetOpen}
       />
 
       <main className="main">
@@ -188,11 +195,11 @@ const ControllerPage: React.FC = () => {
         <PreviewCards 
           showPrimary={showPrimary} setShowPrimary={setShowPrimary}
           primaryVersion={primaryVersion} setPrimaryVersion={setPrimaryVersion}
-          isUsingFallback={isUsingFallback} primaryText={primaryText} status={status}
+          isUsingFallback={isUsingFallback} primaryText={primaryText} primarySource={primarySource} status={status}
           primaryRef={primaryRef} primaryExpanded={primaryExpanded} setPrimaryExpanded={setPrimaryExpanded}
           showSecondary={showSecondary} setShowSecondary={setShowSecondary}
           secondaryVersion={secondaryVersion} setSecondaryVersion={setSecondaryVersion}
-          secondaryText={secondaryText} secondaryRef={secondaryRef}
+          secondaryText={secondaryText} secondarySource={secondarySource} secondaryRef={secondaryRef}
           secondaryExpanded={secondaryExpanded} setSecondaryExpanded={setSecondaryExpanded}
         />
 
@@ -217,6 +224,16 @@ const ControllerPage: React.FC = () => {
         theme={theme} toggleTheme={toggleTheme} isHost={isHost}
       />
 
+      <ConnectionStatusModal
+        isOpen={isConnectionSheetOpen}
+        setIsOpen={setIsConnectionSheetOpen}
+      />
+
+      <NetworkWarningToast />
+      <RequestTimeoutToast />
+
+      <ConnectionBanner />
+
       <div
         style={{
           textAlign: "center",
@@ -230,7 +247,10 @@ const ControllerPage: React.FC = () => {
         }}
       >
         {(primarySource === "api.bible" || secondarySource === "api.bible") && (
-          <span
+          <a
+            href="https://api.bible"
+            target="_blank"
+            rel="noopener noreferrer"
             style={{
               fontSize: "12px",
               fontWeight: 600,
@@ -238,10 +258,11 @@ const ControllerPage: React.FC = () => {
               textTransform: "uppercase",
               opacity: 0.45,
               color: "var(--text-1)",
+              textDecoration: "none",
             }}
           >
             Powered by API.Bible
-          </span>
+          </a>
         )}
         {(primarySource === "nlt" || secondarySource === "nlt") && (
           <span
@@ -364,6 +385,18 @@ const ControllerPage: React.FC = () => {
           setShowPushConfirm(false);
           setPendingPush(null);
         }}
+      />
+
+      {/* Reset session confirmation modal */}
+      <ConfirmModal
+        isVisible={pendingReset}
+        title="Reset Session?"
+        message="This will disconnect all linked devices and generate a new Room ID. This cannot be undone."
+        confirmLabel="Reset"
+        cancelLabel="Cancel"
+        destructive
+        onConfirm={confirmRegenerate}
+        onCancel={cancelRegenerate}
       />
     </div>
   );

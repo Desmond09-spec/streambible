@@ -2,12 +2,22 @@ import React from 'react';
 
 interface VerseTextProps {
   text: string;
+  source?: 'api.bible' | 'local' | 'nlt';
   showVerseNumbers: boolean;
   isMultiVerse: boolean;
 }
 
-export const VerseText: React.FC<VerseTextProps> = ({ text, showVerseNumbers, isMultiVerse }) => {
+export const VerseText: React.FC<VerseTextProps> = ({ text, source, showVerseNumbers, isMultiVerse }) => {
   if (!text) return null;
+
+  if (source === 'api.bible' && !text.includes('{{v:')) {
+    return (
+      <span 
+        className={`verse-text-api ${!showVerseNumbers ? 'hide-v' : ''} ${!isMultiVerse ? 'hide-v-if-single' : ''}`}
+        dangerouslySetInnerHTML={{ __html: text }} 
+      />
+    );
+  }
 
   if (!showVerseNumbers || !isMultiVerse) {
     // Strip the markers securely, including any trailing space immediately after the marker

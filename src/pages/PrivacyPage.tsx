@@ -1,6 +1,7 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
+import { GlobalFooter } from '../components/GlobalFooter';
 
 const Section: React.FC<{ title: string; children: React.ReactNode }> = ({ title, children }) => (
   <section style={{ marginBottom: '40px' }}>
@@ -13,12 +14,12 @@ export const PrivacyPage: React.FC = () => {
   const navigate = useNavigate();
 
   return (
-    <div style={{ minHeight: '100vh', background: 'var(--color-bg-secondary)', padding: '40px 20px', fontFamily: "'Inter', sans-serif" }}>
+    <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', background: 'var(--color-bg-secondary)', padding: '40px 20px 20px', fontFamily: "'Inter', sans-serif" }}>
       <motion.div
         initial={{ opacity: 0, y: 16 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.4 }}
-        style={{ maxWidth: '720px', margin: '0 auto' }}
+        style={{ maxWidth: '720px', width: '100%', margin: '0 auto', flex: 1 }}
       >
         <button
           onClick={() => navigate(-1)}
@@ -144,6 +145,10 @@ export const PrivacyPage: React.FC = () => {
           <p>StreamBible is a free tool built for the church community. If you have any questions about this Privacy Policy, please <a href="mailto:streambibleteam@gmail.com" style={{ color: 'var(--color-accent-primary)', textDecoration: 'none' }}>contact the developer directly</a>.</p>
         </div>
       </motion.div>
+
+      <div style={{ width: '100%', maxWidth: '720px', margin: '0 auto' }}>
+        <GlobalFooter />
+      </div>
     </div>
   );
 };

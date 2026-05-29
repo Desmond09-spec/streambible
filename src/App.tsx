@@ -8,6 +8,7 @@ import SettingsPage from './pages/SettingsPage';
 import { AuthPage } from './pages/AuthPage';
 import { PrivacyPage } from './pages/PrivacyPage';
 import { TermsPage } from './pages/TermsPage';
+import { CopyrightPage } from './pages/CopyrightPage';
 import { SettingsProvider } from './context/SettingsContext';
 import { SessionProvider } from './context/SessionContext';
 import './App.css';
@@ -46,6 +47,7 @@ function App() {
         <Route path="/auth" element={<AuthPage />} />
         <Route path="/privacy" element={<PrivacyPage />} />
         <Route path="/terms" element={<TermsPage />} />
+        <Route path="/copyright" element={<CopyrightPage />} />
       </Routes>
     </SettingsProvider>
   );

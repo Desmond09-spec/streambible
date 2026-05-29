@@ -2,6 +2,7 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ExternalLink, MonitorUp, Settings } from 'lucide-react';
+import { useSession } from '../../context/SessionContext';
 
 interface MobileMenuSheetProps {
   isMobileMenuOpen: boolean;
@@ -25,6 +26,22 @@ export const MobileMenuSheet: React.FC<MobileMenuSheetProps> = ({
   isHost,
 }) => {
   const navigate = useNavigate();
+  const { connectionState } = useSession();
+
+  const isConnected = connectionState === 'connected';
+  const isReconnecting = connectionState === 'reconnecting';
+
+  const statusLabel = isConnected
+    ? (wsConnected ? 'Sync Active' : 'Connected')
+    : isReconnecting
+    ? 'Reconnecting…'
+    : 'Offline';
+
+  const statusColor = isConnected
+    ? 'var(--success)'
+    : isReconnecting
+    ? '#f59e0b'
+    : 'var(--danger)';
 
   return (
     <AnimatePresence>
@@ -49,17 +66,17 @@ export const MobileMenuSheet: React.FC<MobileMenuSheetProps> = ({
 
             <div className="bottom-sheet-header">
               <h3>Menu</h3>
-              <div
-                className={`ws-pill ${wsConnected ? "connected" : "error"}`}
-                style={{
-                  border: "none",
-                  background: "transparent",
-                  padding: 0,
-                }}
-              >
-                <span className="ws-dot"></span>
-                <span style={{ fontSize: "13px", fontWeight: 500 }}>
-                  {wsConnected ? "Sync Active" : "Offline"}
+              <div className={`bottom-sheet-pill ${isConnected ? "connected" : isReconnecting ? "reconnecting" : "error"}`}>
+                <span
+                  className="ws-dot"
+                  style={{
+                    background: statusColor,
+                    boxShadow: isConnected ? `0 0 6px ${statusColor}` : "none",
+                    animation: isConnected ? "breathe 2.4s ease-in-out infinite" : "none",
+                  }}
+                ></span>
+                <span>
+                  {statusLabel}
                 </span>
               </div>
             </div>

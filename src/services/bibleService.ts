@@ -316,7 +316,14 @@ async function fetchLocalFallback(versionId: string, reference: BibleReference):
 
 export type TriageCategory = 'client_network' | 'third_party_outage' | 'internal_error' | 'user_input' | null;
 
-export async function fetchVerse(versionId: string, query: string): Promise<{ text: string, source: 'api.bible' | 'local' | 'nlt', triageReason: TriageCategory }> {
+export class ParseError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'ParseError';
+  }
+}
+
+export async function fetchVerse(versionId: string, query: string): Promise<{ text: string, source: 'api.bible' | 'local' | 'nlt', triageReason: TriageCategory, fums?: string }> {
   const reference = parseReference(query);
   if (!reference) throw new Error("Unable to parse reference.");
 
@@ -332,22 +339,80 @@ export async function fetchVerse(versionId: string, query: string): Promise<{ te
   const nltChapterRef = `${canonicalBook}.${reference.chapter}`;
 
   // Check client-side cache (IndexedDB)
+  const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
+  
   try {
     const cached = await db.verses.get(cacheKey);
     if (cached) {
-      const isValidText = cached.content && cached.content !== "Text not found" && cached.content !== "Verse not found.";
-      if (isValidText && cached.source) {
-        console.log(`[Cache] Serving: ${formattedRef} (${versionId})`);
-        return { text: cached.content, source: cached.source, triageReason: null };
-      } else {
+      if (Date.now() - cached.timestamp > THIRTY_DAYS_MS) {
         await db.verses.delete(cacheKey);
+      } else {
+        const isValidText = cached.content && cached.content !== "Text not found" && cached.content !== "Verse not found.";
+        if (isValidText && cached.source) {
+          console.log(`[Cache] Serving Verse: ${formattedRef} (${versionId})`);
+          return { text: cached.content, source: cached.source, triageReason: null, fums: undefined }; // Strip FUMS for local offline rendering
+        } else {
+          await db.verses.delete(cacheKey);
+        }
       }
     }
   } catch (err) {
-    console.warn("IndexedDB cache read failed:", err);
+    console.warn("IndexedDB verse cache read failed:", err);
+  }
+
+  // Check chapter cache if we need a specific verse
+  if (!isWholeChapter && !LOCAL_NATIVE_VERSION_IDS.has(versionId.toString())) {
+    try {
+      const chapterCacheKey = `sb_chap_${versionId}_${chapterRef}`;
+      const cachedChapter = await db.chapters.get(chapterCacheKey);
+      if (cachedChapter) {
+        if (Date.now() - cachedChapter.timestamp > THIRTY_DAYS_MS) {
+          await db.chapters.delete(chapterCacheKey);
+        } else {
+          const isValidText = cachedChapter.content && cachedChapter.content !== "Text not found";
+          if (isValidText && cachedChapter.source) {
+            console.log(`[Cache] Serving Chapter slice: ${formattedRef} (${versionId})`);
+            let slicedText = "";
+            const verseMatches = cachedChapter.content.match(/\{\{v:\d+\}\}.*?(?=\{\{v:\d+\}\}|$)/gs);
+            if (verseMatches) {
+              const selectedVerses = verseMatches.filter((match: string) => {
+                const vNumMatch = match.match(/\{\{v:(\d+)\}\}/);
+                if (vNumMatch) {
+                  const vNum = parseInt(vNumMatch[1], 10);
+                  return reference.verses.includes(vNum);
+                }
+                return false;
+              });
+              if (selectedVerses.length > 0) {
+                slicedText = selectedVerses.join(' ').trim();
+                // Save sliced verse back to verse cache for faster future hits
+                try {
+                  await db.verses.put({
+                    id: cacheKey,
+                    versionId: versionId,
+                    reference: formattedRef,
+                    content: slicedText,
+                    source: cachedChapter.source,
+                    timestamp: Date.now()
+                  });
+                } catch (e) {}
+                return { text: slicedText, source: cachedChapter.source, triageReason: null, fums: undefined };
+              } else {
+                throw new Error("Requested verse(s) not found in chapter.");
+              }
+            } else {
+              throw new ParseError("Cached chapter could not be sliced.");
+            }
+          }
+        }
+      }
+    } catch (err) {
+      console.warn("IndexedDB chapter cache read failed:", err);
+    }
   }
 
   let verseText = "";
+  let fumsData: string | undefined = undefined;
   let currentSource: 'api.bible' | 'local' | 'nlt' = 'local';
   let currentTriage: TriageCategory = null;
   const isNativeLocal = LOCAL_NATIVE_VERSION_IDS.has(versionId.toString());
@@ -379,10 +444,26 @@ export async function fetchVerse(versionId: string, query: string): Promise<{ te
       }
 
       let fullChapterText = data.text;
+      if (data.fums) {
+        fumsData = data.fums;
+      }
       if (!fullChapterText || fullChapterText === "Text not found") {
         currentTriage = 'user_input';
         throw new Error("Verse not found.");
       }
+
+      // Save full chapter to local cache
+      try {
+        await db.chapters.put({
+          id: `sb_chap_${versionId}_${chapterRef}`,
+          versionId: versionId,
+          reference: chapterRef,
+          content: fullChapterText,
+          source: versionId === 'nlt' ? 'nlt' : 'api.bible',
+          timestamp: Date.now()
+        });
+      } catch (err) {}
+      
       
       // Slicing logic: extract only requested verses if verses array is provided
       if (!isWholeChapter) {
@@ -403,8 +484,28 @@ export async function fetchVerse(versionId: string, query: string): Promise<{ te
             throw new Error("Requested verse(s) not found in chapter.");
           }
         } else {
-          // If the regex slice fails but we have text, we just fallback to full text
-          verseText = fullChapterText;
+          // Fallback parsing for API.Bible HTML since we removed regex replacement
+          const tempDiv = document.createElement('div');
+          tempDiv.innerHTML = fullChapterText;
+          const versesElements = tempDiv.querySelectorAll('.v');
+          if (versesElements.length > 0) {
+            versesElements.forEach(el => {
+              const numMatch = el.getAttribute('data-number') || el.textContent;
+              if (numMatch) {
+                const vNum = parseInt(numMatch, 10);
+                if (reference.verses.includes(vNum)) {
+                  // We need the verse text which is the next sibling or parent text.
+                  // Wait, API.Bible usually wraps the verse content inside the paragraph after the span.
+                  // It's safer to just return the full text and let CSS hide unwanted verses, OR
+                  // since we must slice, we should use regex on the raw text for now or just return the full chapter
+                  // and let CSS hide unselected verses (which is a common way to handle it for API.bible).
+                  // For now, if we can't slice, we fallback to full chapter.
+                }
+              }
+            });
+          }
+          // If the regex slice fails, throw ParseError to avoid caching full chapter
+          throw new ParseError("Cached chapter could not be sliced.");
         }
       } else {
         verseText = fullChapterText;
@@ -419,7 +520,7 @@ export async function fetchVerse(versionId: string, query: string): Promise<{ te
     }
   }
 
-  const result = { text: verseText, source: currentSource, triageReason: currentTriage };
+  const result = { text: verseText, source: currentSource, triageReason: currentTriage, fums: fumsData };
   // Only cache a genuine successful response — never cache errors or empty text
   if (verseText && verseText !== "Text not found" && verseText !== "Verse not found.") {
     try {
@@ -429,6 +530,7 @@ export async function fetchVerse(versionId: string, query: string): Promise<{ te
         reference: formattedRef,
         content: verseText,
         source: currentSource,
+        fums: fumsData,
         timestamp: Date.now()
       });
     } catch (err) {

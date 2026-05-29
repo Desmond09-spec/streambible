@@ -23,8 +23,8 @@ export interface SessionContextType {
   setJoinRequest: React.Dispatch<React.SetStateAction<{ roomId: string, deviceId: string, name: string } | null>>;
   incomingRequest: { roomId: string, deviceId: string, name: string } | null;
   setIncomingRequest: React.Dispatch<React.SetStateAction<{ roomId: string, deviceId: string, name: string } | null>>;
-  requestStatus: 'idle' | 'pending' | 'accepted' | 'declined';
-  setRequestStatus: React.Dispatch<React.SetStateAction<'idle' | 'pending' | 'accepted' | 'declined'>>;
+  requestStatus: 'idle' | 'pending' | 'accepted' | 'declined' | 'timeout';
+  setRequestStatus: React.Dispatch<React.SetStateAction<'idle' | 'pending' | 'accepted' | 'declined' | 'timeout'>>;
   nearbySessions: ActiveSession[];
   refreshDiscovery: () => Promise<void>;
   isDiscovering: boolean;
@@ -37,7 +37,12 @@ export interface SessionContextType {
   user: User | null;
   claimedRoomId: string | null;
   hasOnboarded: boolean;
-  setHasOnboarded: React.Dispatch<React.SetStateAction<boolean>>;
+  setHasOnboarded: (val: boolean) => void;
+  connectionState: 'connected' | 'connecting' | 'reconnecting' | 'disconnected';
+  retryCountdown: number | null;
+  forceReconnect: () => void;
+  pingMs: number | null;
+  consecutiveFailures: number;
 }
 
 const SessionContext = createContext<SessionContextType | null>(null);
@@ -125,7 +130,7 @@ export const SessionProvider: React.FC<{ children?: ReactNode }> = ({ children }
 
   const [joinRequest, setJoinRequest] = useState<{ roomId: string, deviceId: string, name: string } | null>(null);
   const [incomingRequest, setIncomingRequest] = useState<{ roomId: string, deviceId: string, name: string } | null>(null);
-  const [requestStatus, setRequestStatus] = useState<'idle' | 'pending' | 'accepted' | 'declined'>('idle');
+  const [requestStatus, setRequestStatus] = useState<'idle' | 'pending' | 'accepted' | 'declined' | 'timeout'>('idle');
 
   // Callbacks for the WebRTC Node
   const onRoomReset = useCallback(() => {
@@ -141,6 +146,16 @@ export const SessionProvider: React.FC<{ children?: ReactNode }> = ({ children }
       deviceId: req.deviceId,
       name: req.name
     });
+
+    // Automatically dismiss the host's approval prompt after 60s
+    setTimeout(() => {
+      setIncomingRequest(prev => {
+        if (prev?.deviceId === req.deviceId) {
+          return null; // Dismiss prompt
+        }
+        return prev;
+      });
+    }, 60000);
   }, []);
 
   const onJoinResponse = useCallback((res: { targetDeviceId: string, accepted: boolean, newRoomId: string }) => {
@@ -167,7 +182,12 @@ export const SessionProvider: React.FC<{ children?: ReactNode }> = ({ children }
     clearScreen: broadcastClear,
     broadcastReset,
     sendJoinRequest,
-    respondToJoinRequest
+    respondToJoinRequest,
+    connectionState,
+    retryCountdown,
+    forceReconnect,
+    pingMs,
+    consecutiveFailures
   } = useWebRTCNode(roomId, isHost, false, remoteAccess, {
     onRoomReset,
     onJoinRequest,
@@ -235,6 +255,19 @@ export const SessionProvider: React.FC<{ children?: ReactNode }> = ({ children }
     setRequestStatus('pending');
     setJoinRequest({ roomId: targetRoomId, deviceId: '', name: 'Target Room' });
     sendJoinRequest(targetRoomId, 'Remote Device');
+
+    // Automatically reset the requester's UI after 60s
+    setTimeout(() => {
+      setRequestStatus(prev => {
+        if (prev === 'pending') {
+          setJoinRequest(null);
+          // Auto-hide the timeout message after 4s
+          setTimeout(() => setRequestStatus('idle'), 4000);
+          return 'timeout';
+        }
+        return prev;
+      });
+    }, 60000);
   };
 
   const handleResponse = async (accepted: boolean) => {
@@ -254,7 +287,8 @@ export const SessionProvider: React.FC<{ children?: ReactNode }> = ({ children }
       requestStatus, setRequestStatus, nearbySessions, refreshDiscovery,
       isDiscovering, regenerateRoom, pendingReset, confirmRegenerate,
       cancelRegenerate, handleJoinRequest, handleResponse,
-      user, claimedRoomId, hasOnboarded, setHasOnboarded
+      user, claimedRoomId, hasOnboarded, setHasOnboarded,
+      connectionState, retryCountdown, forceReconnect, pingMs, consecutiveFailures
     }}>
       {children ? children : <Outlet />}
     </SessionContext.Provider>

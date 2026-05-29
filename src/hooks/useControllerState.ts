@@ -49,6 +49,9 @@ export const useControllerState = () => {
   const [secondaryRef, setSecondaryRef] = useState("");
   const [secondaryExpanded, setSecondaryExpanded] = useState(false);
 
+  const [primaryFums, setPrimaryFums] = useState<string | undefined>(undefined);
+  const [secondaryFums, setSecondaryFums] = useState<string | undefined>(undefined);
+
   const [status, setStatus] = useState<
     "default" | "fetching" | "success" | "live" | "error"
   >("default");
@@ -118,15 +121,16 @@ export const useControllerState = () => {
     Promise.resolve().then(() => setTheme(saved as "light" | "dark"));
 
     const hasSeenTour = localStorage.getItem("streambible-tour-seen");
-    const urlParams = new URLSearchParams(window.location.search);
+    // App uses HashRouter: params live in window.location.hash, not .search
+    const hash = window.location.hash; // e.g. "#/controller?tour=true"
+    const hashSearch = hash.includes('?') ? hash.substring(hash.indexOf('?')) : '';
+    const urlParams = new URLSearchParams(hashSearch);
     if (!hasSeenTour || urlParams.get("tour") === "true") {
-      setTimeout(() => setShowTour(true), 1000); // Small delay to let UI load
+      setTimeout(() => setShowTour(true), 1000);
       if (urlParams.get("tour") === "true") {
-        urlParams.delete("tour");
-        const newUrl = urlParams.toString()
-          ? `${window.location.pathname}?${urlParams.toString()}`
-          : window.location.pathname;
-        window.history.replaceState({}, "", newUrl);
+        // Strip ?tour=true from the hash cleanly
+        const cleanHash = hash.replace(/[?&]tour=true/, '');
+        window.history.replaceState({}, "", window.location.pathname + cleanHash);
       }
     }
   }, []);
@@ -174,12 +178,15 @@ export const useControllerState = () => {
       let isLocalSubstitute = false;
       let pSource: "api.bible" | "local" | "nlt" = "local";
       let sSource: "api.bible" | "local" | "nlt" = "local";
+      let pFums: string | undefined = undefined;
+      let sFums: string | undefined = undefined;
       let overallTriage: TriageCategory = null;
 
       try {
         const pRes = await fetchVerse(primaryVersion, searchQuery);
         pText = pRes.text;
         pSource = pRes.source;
+        pFums = pRes.fums;
         if (pRes.triageReason) overallTriage = pRes.triageReason;
         // Only flag as substitute if local served a different translation than requested
         if (pSource === "local" && !LOCAL_NATIVE_IDS.has(primaryVersion))
@@ -212,6 +219,7 @@ export const useControllerState = () => {
           const sRes = await fetchVerse("2079", searchQuery);
           sText = sRes.text;
           sSource = sRes.source;
+          sFums = sRes.fums;
         } catch {
           /* ignore */
         }
@@ -220,6 +228,7 @@ export const useControllerState = () => {
           const sRes = await fetchVerse(secondaryVersion, searchQuery);
           sText = sRes.text;
           sSource = sRes.source;
+          sFums = sRes.fums;
           if (sRes.triageReason && !overallTriage)
             overallTriage = sRes.triageReason;
 
@@ -260,9 +269,11 @@ export const useControllerState = () => {
 
       setPrimaryText(pText);
       setPrimaryRef(canonicalRef);
+      setPrimaryFums(pFums);
 
       setSecondaryText(sText);
       setSecondaryRef(canonicalRef);
+      setSecondaryFums(sFums);
 
       // Catch-all: if nothing was retrieved, ensure the user sees a toast
       if (pText === "Verse not found." && sText === "Verse not found.") {
@@ -271,6 +282,10 @@ export const useControllerState = () => {
         setStatus("success");
         setStatusMsg("Verse not found");
       } else {
+        if (!overallTriage) {
+          setShowFallbackToast(false);
+          setTriageReason(null);
+        }
         setStatus("success");
         setStatusMsg("Ready to push");
       }
@@ -310,6 +325,7 @@ export const useControllerState = () => {
         primarySource: primarySource,
         secondarySource: secondarySource,
         showVerseNumbers: showVerseNumbers,
+        fums: primaryFums || secondaryFums || undefined // Provide FUMS token if either translation is API.Bible
       });
     };
     if (pushConfirmEnabled) {

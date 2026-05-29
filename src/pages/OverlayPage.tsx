@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { AutoFitFont } from '../components/AutoFitFont';
 import { VerseText } from '../components/VerseText';
+import { FumsExecutor } from '../components/FumsExecutor';
 
 import { useWebRTCNode } from '../hooks/useSync';
 import type { VersePayload } from '../hooks/useSync';
@@ -100,6 +101,7 @@ const OverlayPage: React.FC = () => {
               maxWidth: '65vw' // Restrict width so it doesn't span the whole screen
             }}
           >
+            <FumsExecutor fumsToken={verse.fums} />
             <div 
               style={{
                 background: 'rgba(12, 12, 14, 0.85)',
@@ -143,8 +145,8 @@ const OverlayPage: React.FC = () => {
                         textAlign: 'left'
                       }}
                     >
-                      <VerseText text={verse.primaryText} showVerseNumbers={verse.showVerseNumbers ?? false} isMultiVerse={verse.ref.includes('-')} />&nbsp;&nbsp;&nbsp;
-                      <span style={{ display: 'inline-block', whiteSpace: 'nowrap', fontSize: '0.6em', opacity: 0.6, fontWeight: '500', letterSpacing: '0.05em', transform: 'translateY(-2px)' }}>[{verse.primaryVersion}]</span>
+                      <VerseText text={verse.primaryText} source={verse.primarySource} showVerseNumbers={verse.showVerseNumbers ?? false} isMultiVerse={verse.ref.includes('-')} />&nbsp;&nbsp;&nbsp;
+                      <a href="/#/copyright" target="_blank" rel="noopener noreferrer" style={{ display: 'inline-block', whiteSpace: 'nowrap', fontSize: '0.6em', opacity: 0.6, fontWeight: '500', letterSpacing: '0.05em', transform: 'translateY(-2px)', color: 'inherit', textDecoration: 'none' }}>[{verse.primaryVersion}]</a>
                     </p>
                   )}
 
@@ -159,8 +161,8 @@ const OverlayPage: React.FC = () => {
                         textAlign: 'left'
                       }}
                     >
-                      <VerseText text={verse.secondaryText} showVerseNumbers={verse.showVerseNumbers ?? false} isMultiVerse={verse.ref.includes('-')} />&nbsp;&nbsp;&nbsp;
-                      <span style={{ display: 'inline-block', whiteSpace: 'nowrap', fontSize: '0.6em', opacity: 0.6, fontStyle: 'normal', letterSpacing: '0.05em', transform: 'translateY(-2px)' }}>[{verse.secondaryVersion}]</span>
+                      <VerseText text={verse.secondaryText} source={verse.secondarySource} showVerseNumbers={verse.showVerseNumbers ?? false} isMultiVerse={verse.ref.includes('-')} />&nbsp;&nbsp;&nbsp;
+                      <a href="/#/copyright" target="_blank" rel="noopener noreferrer" style={{ display: 'inline-block', whiteSpace: 'nowrap', fontSize: '0.6em', opacity: 0.6, fontStyle: 'normal', letterSpacing: '0.05em', transform: 'translateY(-2px)', color: 'inherit', textDecoration: 'none' }}>[{verse.secondaryVersion}]</a>
                     </p>
                   )}
                 </div>

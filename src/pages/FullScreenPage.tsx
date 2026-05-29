@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { AutoFitFont } from '../components/AutoFitFont';
 import { VerseText } from '../components/VerseText';
+import { FumsExecutor } from '../components/FumsExecutor';
 
 import { useWebRTCNode } from '../hooks/useSync';
 import type { VersePayload } from '../hooks/useSync';
@@ -50,23 +51,23 @@ const FullScreenPage: React.FC = () => {
 
   if (roomId === null) {
     if (window.location.search && !new URLSearchParams(window.location.search).get('room')) {
-       return (
-         <div style={{ width: '100vw', height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#000', color: '#fff', fontFamily: 'Inter, sans-serif' }}>
-           <div style={{ textAlign: 'center', padding: '2rem', background: 'rgba(255,0,0,0.1)', border: '1px solid rgba(255,0,0,0.3)', borderRadius: '12px' }}>
-             <h2 style={{ marginBottom: '1rem', color: '#ff4444' }}>Missing Room ID</h2>
-             <p>Please provide a room code in the URL.<br/>Example: <code>/full-screen?room=XYZ12</code></p>
-           </div>
-         </div>
-       );
+      return (
+        <div style={{ width: '100vw', height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#000', color: '#fff', fontFamily: 'Inter, sans-serif' }}>
+          <div style={{ textAlign: 'center', padding: '2rem', background: 'rgba(255,0,0,0.1)', border: '1px solid rgba(255,0,0,0.3)', borderRadius: '12px' }}>
+            <h2 style={{ marginBottom: '1rem', color: '#ff4444' }}>Missing Room ID</h2>
+            <p>Please provide a room code in the URL.<br />Example: <code>/full-screen?room=XYZ12</code></p>
+          </div>
+        </div>
+      );
     }
     return null;
   }
 
   return (
-    <div 
-      style={{ 
-        width: '100vw', 
-        height: '100vh', 
+    <div
+      style={{
+        width: '100vw',
+        height: '100vh',
         backgroundColor: '#000000', // Solid black for full screen church display
         position: 'relative',
         display: 'flex',
@@ -76,9 +77,8 @@ const FullScreenPage: React.FC = () => {
       }}
     >
 
-
       {/* Abstract background glow */}
-      <div 
+      <div
         style={{
           position: 'absolute',
           top: '50%',
@@ -111,15 +111,16 @@ const FullScreenPage: React.FC = () => {
               gap: 'var(--space-6)'
             }}
           >
+            <FumsExecutor fumsToken={verse.fums} />
             <AutoFitFont dependencies={[verse]}>
               <div style={{ padding: '3vh 2vw' }}>
-                <motion.h1 
+                <motion.h1
                   initial={{ opacity: 0, y: -20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.3, duration: 0.8 }}
-                  style={{ 
-                    color: 'var(--color-accent-primary)', 
-                    fontSize: 'calc(var(--font-size-3xl) * var(--font-scale))', 
+                  style={{
+                    color: 'var(--color-accent-primary)',
+                    fontSize: 'calc(var(--font-size-3xl) * var(--font-scale))',
                     fontWeight: 'var(--font-weight-bold)',
                     letterSpacing: '0.15em',
                     textTransform: 'uppercase',
@@ -128,31 +129,31 @@ const FullScreenPage: React.FC = () => {
                 >
                   {verse.ref}
                 </motion.h1>
-                
+
                 {verse.showPrimary && verse.primaryText && (
-                  <p 
-                    style={{ 
-                      color: '#ffffff', 
-                      fontSize: 'calc(var(--font-size-5xl) * var(--font-scale))', 
+                  <p
+                    style={{
+                      color: '#ffffff',
+                      fontSize: 'calc(var(--font-size-5xl) * var(--font-scale))',
                       fontWeight: 'var(--font-weight-semibold)',
                       lineHeight: 1.4,
                       textShadow: '0 4px 20px rgba(0,0,0,0.8)',
                       textAlign: 'center'
                     }}
                   >
-                    <VerseText text={verse.primaryText} showVerseNumbers={verse.showVerseNumbers ?? false} isMultiVerse={verse.ref.includes('-')} />&nbsp;&nbsp;&nbsp;
-                    <span style={{ display: 'inline-block', whiteSpace: 'nowrap', fontSize: '0.65em', opacity: 0.5, fontWeight: 'var(--font-weight-medium)', letterSpacing: '0.05em' }}>[{verse.primaryVersion}]</span>
+                    <VerseText text={verse.primaryText} source={verse.primarySource} showVerseNumbers={verse.showVerseNumbers ?? false} isMultiVerse={verse.ref.includes('-')} />&nbsp;&nbsp;&nbsp;
+                    <a href="/#/copyright" target="_blank" rel="noopener noreferrer" style={{ display: 'inline-block', whiteSpace: 'nowrap', fontSize: '0.65em', opacity: 0.5, fontWeight: 'var(--font-weight-medium)', letterSpacing: '0.05em', color: 'inherit', textDecoration: 'none' }}>[{verse.primaryVersion}]</a>
                   </p>
                 )}
 
                 {verse.showSecondary && verse.secondaryText && (
-                  <motion.p 
+                  <motion.p
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     transition={{ delay: 0.5, duration: 0.8 }}
-                    style={{ 
-                      color: 'rgba(255, 255, 255, 0.7)', 
-                      fontSize: 'calc(var(--font-size-4xl) * var(--font-scale))', 
+                    style={{
+                      color: 'rgba(255, 255, 255, 0.7)',
+                      fontSize: 'calc(var(--font-size-4xl) * var(--font-scale))',
                       fontWeight: 'var(--font-weight-medium)',
                       lineHeight: 1.4,
                       fontStyle: 'italic',
@@ -162,8 +163,8 @@ const FullScreenPage: React.FC = () => {
                       textAlign: 'center'
                     }}
                   >
-                    <VerseText text={verse.secondaryText} showVerseNumbers={verse.showVerseNumbers ?? false} isMultiVerse={verse.ref.includes('-')} />&nbsp;&nbsp;&nbsp;
-                    <span style={{ display: 'inline-block', whiteSpace: 'nowrap', fontSize: '0.65em', opacity: 0.5, fontStyle: 'normal', letterSpacing: '0.05em' }}>[{verse.secondaryVersion}]</span>
+                    <VerseText text={verse.secondaryText} source={verse.secondarySource} showVerseNumbers={verse.showVerseNumbers ?? false} isMultiVerse={verse.ref.includes('-')} />&nbsp;&nbsp;&nbsp;
+                    <a href="/#/copyright" target="_blank" rel="noopener noreferrer" style={{ display: 'inline-block', whiteSpace: 'nowrap', fontSize: '0.65em', opacity: 0.5, fontStyle: 'normal', letterSpacing: '0.05em', color: 'inherit', textDecoration: 'none' }}>[{verse.secondaryVersion}]</a>
                   </motion.p>
                 )}
               </div>

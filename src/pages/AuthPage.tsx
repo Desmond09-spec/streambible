@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { supabase } from '../lib/supabase';
 import { useNavigate, Link } from 'react-router-dom';
+import { GlobalFooter } from '../components/GlobalFooter';
 
 export const AuthPage: React.FC = () => {
   const [email, setEmail] = useState('');
@@ -59,6 +60,7 @@ export const AuthPage: React.FC = () => {
     <div style={{
       minHeight: '100vh',
       display: 'flex',
+      flexDirection: 'column',
       alignItems: 'center',
       justifyContent: 'center',
       padding: '20px',
@@ -243,6 +245,10 @@ export const AuthPage: React.FC = () => {
           </Link>.
         </div>
       </motion.div>
+
+      <div style={{ width: '100%', maxWidth: '680px', marginTop: 'auto' }}>
+        <GlobalFooter />
+      </div>
     </div>
   );
 };

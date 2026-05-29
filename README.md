@@ -18,7 +18,8 @@ StreamBible is built specifically for speed, reliability, and broadcast integrat
 - **Instant Dual-Language Display:** Search a reference like "John 3:16", instantly fetch it in multiple curated translations, preview it, and push it live.
 - **OBS Integration:** Generates unique overlay links (transparent backgrounds) that drop directly into OBS Browser Sources. 
 - **Zero-Latency Synchronization:** Instead of routing clicks through a cloud server, the Controller and the OBS Overlay communicate directly peer-to-peer over your local network. When you push a verse, it appears in milliseconds.
-- **"Doomsday" Offline Resilience:** StreamBible operates as an offline-first Progressive Web App (PWA) with native Electron and Capacitor wrappers. Operators can pre-cache their Sunday setlists in advance. If the internet fails entirely, the application fetches verses from the local database and syncs to the screen via the local router.
+- **"Doomsday" Offline Resilience:** StreamBible operates as an offline-first Progressive Web App (PWA) with native Windows/Mac (Electron) and Android (Capacitor) wrapper apps available. Operators can pre-cache their Sunday setlists in advance. If the internet fails entirely, the application fetches verses from the local database and syncs to the screen via the local router.
+- **Smart Caching Engine:** Features full-chapter local caching (fetching adjacent verses makes zero network calls), global Supabase caching to prevent rate-limiting across devices, and an automated 30-day TTL for fresh translation updates.
 
 ---
 
@@ -106,7 +107,7 @@ StreamBible leverages a modern, distributed architecture designed to minimize cl
 
 ### 2. API.Bible & NLT.to (Content Layer)
 - **Why they are used:** Storing hundreds of Bible translations locally would require gigabytes of data and violate copyright laws. We rely on official APIs to fetch modern, copyrighted translations (like NIV, ESV, NLT) legally and on-demand.
-- **How they are currently used:** When a user types a reference (e.g., "John 3:16"), the app parses it and pings the APIs. To respect API quotas and rate limits, StreamBible implements aggressive caching. When a user creates a "Setlist" for Sunday, the app throttles requests (250ms delay) to safely pre-cache all verses into the local IndexedDB.
+- **How they are currently used:** When a user types a reference (e.g., "John 3:16"), the app parses it and pings the APIs. To respect API quotas and rate limits, StreamBible implements aggressive tiered caching. The app stores **full chapters** locally in IndexedDB when a single verse is queried, ensuring adjacent verses load with zero network requests. Local caches automatically expire after a 30-day TTL.
 - **How you can use it:** You can extend the `bibleService.ts` to query metadata, fetch entire chapters for a reading view, or add support for audio Bibles using the API.Bible audio endpoints.
 
 ### 3. Custom WebSocket Relay (`streambible-relay-server`)

@@ -1,0 +1,60 @@
+/* ── Global Footer ──────────────────────────────────────────────────────────── */
+.global-footer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 16px 24px;
+  padding: 40px 0 20px;
+  color: var(--color-text-secondary);
+  border-top: 1px solid var(--color-border);
+  margin-top: 24px;
+  width: 100%;
+}
+
+.global-footer .footer-logo {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  color: var(--color-text-secondary);
+  transition: opacity 150ms ease;
+}
+
+.global-footer .footer-logo:hover {
+  opacity: 0.7;
+}
+
+.global-footer .footer-logo svg {
+  margin-top: -2px;
+}
+
+.global-footer .footer-copyright {
+  font-size: 12px;
+}
+
+.global-footer .footer-links {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.global-footer .footer-links a {
+  color: var(--color-text-secondary);
+  text-decoration: none;
+  font-size: 12px;
+  transition: color 150ms ease;
+}
+
+.global-footer .footer-links a:hover {
+  color: var(--color-text-primary);
+}
+
+@media (max-width: 640px) {
+  .global-footer {
+    flex-direction: column-reverse;
+    gap: 20px;
+  }
+}

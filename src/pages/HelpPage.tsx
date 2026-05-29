@@ -1,14 +1,23 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
+import {
+  MonitorPlay,
+  Search,
+  MessageSquare,
+  CheckCircle2,
+  ChevronDown,
+  ChevronLeft
+} from 'lucide-react';
+import { GlobalFooter } from '../components/GlobalFooter';
 import './HelpPage.css';
 
 const HelpPage: React.FC = () => {
   const navigate = useNavigate();
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
-  
+
   // Form State
-  const [feedbackType, setFeedbackType] = useState<'review' | 'feature'>('feature');
+  const [feedbackType, setFeedbackType] = useState<'feature' | 'review'>('feature');
   const [feedbackText, setFeedbackText] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
@@ -24,269 +33,107 @@ const HelpPage: React.FC = () => {
   const handleFeedbackSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!feedbackText.trim()) return;
-    
+
     setIsSubmitting(true);
     // Simulate network request
     setTimeout(() => {
       setIsSubmitting(false);
       setSubmitted(true);
-    }, 1500);
+    }, 1200);
   };
 
   const faqs = [
     {
-      question: "How do I add this to OBS?",
-      answer: "In OBS, add a new 'Browser Source'. Paste the Overlay or Fullscreen URL into the URL field. Set the width to 1920 and height to 1080 (or your stream's resolution). Check the box that says 'Refresh browser when scene becomes active'."
+      question: "How does this connect to OBS?",
+      answer: "We use a Browser Source. Every session generates a unique URL. When you paste that URL into OBS, it creates an invisible webpage that listens for your commands and displays the verses you push."
     },
     {
       question: "Can anyone on my Wi-Fi control my session?",
-      answer: "No. While people on your Wi-Fi can see your session if they click 'Discover', they cannot join or control it unless they send a Request and you explicitly click 'Accept' on your controller."
+      answer: "No. Other users on your network can ask to join your session, but they cannot control the screen unless you explicitly tap 'Accept' on your screen."
     },
     {
-      question: "Is this really free?",
-      answer: "Yes! StreamBible is built to serve churches and ministries. There are no hidden fees or subscriptions for the core overlay service."
-    },
-    {
-      question: "What translation does it use?",
-      answer: "StreamBible gives you instant access to our curated library of reliable translations, including KJV, ESV, and regional translations like Yoruba."
+      question: "Is StreamBible free?",
+      answer: "Yes. StreamBible is completely free. There are no hidden fees or subscriptions to use the core overlay service."
     }
   ];
 
   return (
     <div className={`help-page-wrapper theme-${theme}`}>
       <header className="help-header">
-        <button className="help-back-btn" onClick={() => navigate(-1)}>
-          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-            <polyline points="15 18 9 12 15 6"></polyline>
-          </svg>
-          Back
+        <button className="help-nav-back" onClick={() => navigate(-1)}>
+          <ChevronLeft size={20} strokeWidth={2.5} />
+          <span>Back</span>
         </button>
-        <div className="wordmark">
-          <div className="wordmark-icon">
-            <svg viewBox="0 0 16 16" fill="none" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">
-              <rect x="2.5" y="1.5" width="11" height="13" rx="1.5"/>
-              <path d="M5 5h6M5 7.5h6M5 10h4"/>
-            </svg>
-          </div>
-          <span className="wordmark-name">StreamBible</span>
-        </div>
-        <div style={{ width: '60px' }}></div> {/* spacer */}
+        <div /> {/* center spacer */}
+        <div /> {/* right spacer */}
       </header>
 
       <main className="help-main">
-        
-        {/* HERO */}
-        <section className="help-hero">
-          <span className="help-hero-subtitle">Our Mission</span>
-          <h1 className="help-hero-title">Built for churches and<br/>Christian creators.</h1>
-          <p className="help-hero-desc">
-            A free Bible verse overlay system for OBS that lets you display scripture live during streams in seconds.
-            <br/><br/>
-            Made because too many ministries still struggle with clunky workflows, screenshots, or manually typing verses mid-service.
-          </p>
-          <div className="help-hero-hashtags">
-            #ChurchTech #OBS #Streaming #OpenSource #ChristianTech
-          </div>
-        </section>
 
-        {/* FEATURES GRID */}
-        <section>
-          <div className="help-features-grid">
-            <div className="feature-card">
-              <span className="feature-icon">⚡</span>
-              <h3 className="feature-title">Real-time Sync</h3>
-              <p className="walkthrough-text" style={{margin:0}}>Type a verse, preview it, and push it live instantly across all connected screens.</p>
-            </div>
-            <div className="feature-card">
-              <span className="feature-icon">✝️</span>
-              <h3 className="feature-title">Clean Overlays</h3>
-              <p className="walkthrough-text" style={{margin:0}}>Modern, glassmorphic designs that look great on any church livestream.</p>
-            </div>
-            <div className="feature-card">
-              <span className="feature-icon">🌍</span>
-              <h3 className="feature-title">Multi-language</h3>
-              <p className="walkthrough-text" style={{margin:0}}>Display English and Yoruba translations simultaneously or toggle them on the fly.</p>
-            </div>
-            <div className="feature-card">
-              <span className="feature-icon">🎥</span>
-              <h3 className="feature-title">OBS Ready</h3>
-              <p className="walkthrough-text" style={{margin:0}}>Works natively with OBS Browser Sources. Just copy the link and you're set.</p>
-            </div>
-          </div>
-        </section>
+        {/* Page Title */}
+        <div className="help-page-title-wrap">
+          <h1 className="help-page-title">Help & Support</h1>
+          <p className="help-page-subtitle">Learn how to set up your stream, manage devices, or get in touch.</p>
+        </div>
 
-        {/* GUIDED TOUR */}
-        <section className="help-tour-section">
-          <h2 className="help-section-title">How to Use StreamBible</h2>
-          <div className="tour-steps-container">
-            
-            {/* Step 1 */}
-            <div className="tour-row">
-              <div className="tour-graphic-col">
-                <div className="tour-mockup search-mockup">
-                  <div className="mockup-search-bar">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="14" height="14" style={{opacity: 0.5}}>
-                      <circle cx="11" cy="11" r="8"></circle>
-                      <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-                    </svg>
-                    <span style={{fontFamily: 'monospace', opacity: 0.9}}>John 3:16</span>
-                    <div className="mockup-cursor"></div>
-                  </div>
-                </div>
+        {/* Quick Setup Guide */}
+        <section className="support-group">
+          <div className="support-group-header">Quick Setup Guide</div>
+          <div className="support-card">
+
+            <div className="support-row">
+              <div className="support-icon-wrap bg-blue">
+                <MonitorPlay size={18} strokeWidth={2.5} />
               </div>
-              <div className="tour-text-col">
-                <div className="tour-step-badge">Step 1</div>
-                <h3 className="tour-step-title">Search in Milliseconds</h3>
-                <p className="walkthrough-text">Type any reference—like "Romans 8:28" or "Gen 1:1"—into the search bar and press Enter. StreamBible immediately fetches the text from our curated library of reliable translations.</p>
+              <div className="support-row-content">
+                <span className="support-row-title">Step 1: Get the Overlay Link</span>
+                <span className="support-row-desc">Tap the "Copy Overlay URL" button at the top of this screen. That link is what shows verses on your stream.</span>
               </div>
             </div>
 
-            {/* Step 2 */}
-            <div className="tour-row reverse">
-              <div className="tour-graphic-col">
-                <div className="tour-mockup dual-mockup">
-                  <div className="mockup-card left">
-                    <div className="mockup-card-header">
-                      <div className="mockup-dot"></div> <div className="mockup-rule"></div> <span className="mockup-badge">KJV</span>
-                    </div>
-                    <div className="mockup-skeleton-line" style={{width: '90%'}}></div>
-                    <div className="mockup-skeleton-line" style={{width: '75%'}}></div>
-                    <div className="mockup-skeleton-line" style={{width: '85%'}}></div>
-                  </div>
-                  <div className="mockup-card right">
-                    <div className="mockup-card-header">
-                      <div className="mockup-dot"></div> <div className="mockup-rule"></div> <span className="mockup-badge">YCB</span>
-                    </div>
-                    <div className="mockup-skeleton-line" style={{width: '85%'}}></div>
-                    <div className="mockup-skeleton-line" style={{width: '80%'}}></div>
-                    <div className="mockup-skeleton-line" style={{width: '60%'}}></div>
-                  </div>
-                </div>
+            <div className="support-row">
+              <div className="support-icon-wrap bg-orange">
+                <MonitorPlay size={18} strokeWidth={2.5} />
               </div>
-              <div className="tour-text-col">
-                <div className="tour-step-badge">Step 2</div>
-                <h3 className="tour-step-title">Dual Translation Preview</h3>
-                <p className="walkthrough-text">Preview your verse safely off-stream. You can set up two windows side-by-side (perfect for bilingual services) and instantly switch translations using the dropdowns.</p>
+              <div className="support-row-content">
+                <span className="support-row-title">Step 2: Add to OBS</span>
+                <span className="support-row-desc">In OBS, add a new "Browser Source". Paste the link into the URL box, set Width to 1920, and Height to 1080.</span>
               </div>
             </div>
 
-            {/* Step 3 */}
-            <div className="tour-row">
-              <div className="tour-graphic-col">
-                <div className="tour-mockup obs-mockup">
-                  <div className="mockup-obs-button">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" width="16" height="16">
-                      <polygon points="5 3 19 12 5 21 5 3"></polygon>
-                    </svg>
-                    <span>Push Live</span>
-                  </div>
-                </div>
+            <div className="support-row">
+              <div className="support-icon-wrap bg-green">
+                <Search size={18} strokeWidth={2.5} />
               </div>
-              <div className="tour-text-col">
-                <div className="tour-step-badge">Step 3</div>
-                <h3 className="tour-step-title">Broadcast to OBS</h3>
-                <p className="walkthrough-text">When you're ready, click "Push Live". Copy the overlay URL from the top of the page, add it as a Browser Source in OBS (1920x1080), and your verses will appear beautifully formatted on screen.</p>
+              <div className="support-row-content">
+                <span className="support-row-title">Step 3: Search & Go Live</span>
+                <span className="support-row-desc">Type any Bible verse in the search bar. Tap "Push Live" to instantly display it on your OBS stream.</span>
               </div>
             </div>
 
           </div>
         </section>
 
-        {/* FEEDBACK FORM */}
-        <section>
-          <h2 className="help-section-title">Help Us Improve</h2>
-          <div className="feedback-card">
-            <AnimatePresence mode="wait">
-              {!submitted ? (
-                <motion.form 
-                  key="form"
-                  className="feedback-form"
-                  onSubmit={handleFeedbackSubmit}
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -10 }}
-                >
-                  <div className="feedback-radio-group">
-                    <label className="feedback-radio-label">
-                      <input 
-                        type="radio" 
-                        name="type" 
-                        checked={feedbackType === 'feature'} 
-                        onChange={() => setFeedbackType('feature')} 
-                      />
-                      <span>Feature Request</span>
-                    </label>
-                    <label className="feedback-radio-label">
-                      <input 
-                        type="radio" 
-                        name="type" 
-                        checked={feedbackType === 'review'} 
-                        onChange={() => setFeedbackType('review')} 
-                      />
-                      <span>Submit Review</span>
-                    </label>
-                  </div>
-                  
-                  <textarea 
-                    className="feedback-textarea" 
-                    placeholder={feedbackType === 'feature' ? "What feature would make StreamBible better for your church? (e.g., 'Add NIV translation')" : "How has StreamBible helped your ministry?"}
-                    value={feedbackText}
-                    onChange={(e) => setFeedbackText(e.target.value)}
-                    required
-                  ></textarea>
-                  
-                  <button type="submit" className="feedback-submit" disabled={isSubmitting || !feedbackText.trim()}>
-                    {isSubmitting ? 'Sending...' : 'Submit Feedback'}
-                  </button>
-                </motion.form>
-              ) : (
-                <motion.div 
-                  key="success"
-                  className="feedback-success"
-                  initial={{ opacity: 0, scale: 0.9 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                >
-                  <div className="feedback-success-icon">
-                    <svg viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
-                      <polyline points="22 4 12 14.01 9 11.01"></polyline>
-                    </svg>
-                  </div>
-                  <h3 className="feature-title" style={{ marginBottom: '8px' }}>Thank You!</h3>
-                  <p className="walkthrough-text">Your {feedbackType} has been received. We appreciate your support in making StreamBible better for everyone.</p>
-                  <button 
-                    onClick={() => { setSubmitted(false); setFeedbackText(''); }}
-                    style={{ background: 'transparent', border: 'none', color: 'var(--accent)', marginTop: '16px', cursor: 'pointer', fontWeight: '600' }}
-                  >
-                    Submit another
-                  </button>
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </div>
-        </section>
-
-        {/* FAQS */}
-        <section>
-          <h2 className="help-section-title">Frequently Asked Questions</h2>
-          <div className="faqs-list">
+        {/* FAQs */}
+        <section className="support-group">
+          <div className="support-group-header">Frequently Asked Questions</div>
+          <div className="support-card">
             {faqs.map((faq, index) => (
-              <div key={index} className={`faq-item ${openFaq === index ? 'is-open' : ''}`}>
-                <button className="faq-question" onClick={() => setOpenFaq(openFaq === index ? null : index)}>
-                  {faq.question}
-                  <svg className="faq-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <polyline points="6 9 12 15 18 9"></polyline>
-                  </svg>
+              <div key={index} className={`faq-row ${openFaq === index ? 'is-open' : ''}`}>
+                <button className="faq-header" onClick={() => setOpenFaq(openFaq === index ? null : index)}>
+                  <span className="faq-title">{faq.question}</span>
+                  <ChevronDown className="faq-icon" size={18} strokeWidth={2.5} />
                 </button>
                 <AnimatePresence>
                   {openFaq === index && (
-                    <motion.div 
+                    <motion.div
                       initial={{ height: 0, opacity: 0 }}
                       animate={{ height: 'auto', opacity: 1 }}
                       exit={{ height: 0, opacity: 0 }}
+                      transition={{ duration: 0.2, ease: "easeInOut" }}
                       style={{ overflow: 'hidden' }}
                     >
-                      <div className="faq-answer">{faq.answer}</div>
+                      <div className="faq-body">{faq.answer}</div>
                     </motion.div>
                   )}
                 </AnimatePresence>
@@ -294,10 +141,87 @@ const HelpPage: React.FC = () => {
             ))}
           </div>
         </section>
-        
-        <footer className="help-footer">
-          StreamBible &copy; {new Date().getFullYear()}
-        </footer>
+
+        {/* Feedback Form */}
+        <section className="support-group">
+          <div className="support-group-header">Send Feedback</div>
+          <div className="support-card feedback-container">
+            <AnimatePresence mode="wait">
+              {!submitted ? (
+                <motion.form
+                  key="form"
+                  onSubmit={handleFeedbackSubmit}
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}
+                >
+
+                  {/* Apple-style Segmented Control */}
+                  <div className="segmented-control">
+                    <motion.div
+                      className="segmented-pill"
+                      initial={false}
+                      animate={{
+                        x: feedbackType === 'feature' ? '0%' : '100%',
+                        width: '50%'
+                      }}
+                      transition={{ type: "spring", stiffness: 400, damping: 30 }}
+                    />
+                    <button
+                      type="button"
+                      className={`segmented-btn ${feedbackType === 'feature' ? 'active' : ''}`}
+                      onClick={() => setFeedbackType('feature')}
+                    >
+                      Feature Request
+                    </button>
+                    <button
+                      type="button"
+                      className={`segmented-btn ${feedbackType === 'review' ? 'active' : ''}`}
+                      onClick={() => setFeedbackType('review')}
+                    >
+                      Submit Review
+                    </button>
+                  </div>
+
+                  <textarea
+                    className="feedback-textarea"
+                    placeholder={feedbackType === 'feature' ? "What feature would make StreamBible better?" : "How has StreamBible helped your stream?"}
+                    value={feedbackText}
+                    onChange={(e) => setFeedbackText(e.target.value)}
+                    required
+                  ></textarea>
+
+                  <button type="submit" className="feedback-submit-btn" disabled={isSubmitting || !feedbackText.trim()}>
+                    <MessageSquare size={18} strokeWidth={2.5} />
+                    {isSubmitting ? 'Sending...' : 'Send Feedback'}
+                  </button>
+                </motion.form>
+              ) : (
+                <motion.div
+                  key="success"
+                  className="feedback-success"
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                >
+                  <CheckCircle2 className="feedback-success-icon" size={48} strokeWidth={2} />
+                  <div className="feedback-success-title">Thank You</div>
+                  <div className="feedback-success-desc">Your {feedbackType} has been received.</div>
+                  <button
+                    onClick={() => { setSubmitted(false); setFeedbackText(''); }}
+                    style={{ background: 'transparent', border: 'none', color: 'var(--accent)', marginTop: '20px', cursor: 'pointer', fontSize: '15px', fontWeight: '500' }}
+                  >
+                    Send another
+                  </button>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+          <div className="support-group-footer">
+            Your feedback helps us prioritize new features and improve StreamBible.
+          </div>
+        </section>
+        <GlobalFooter />
       </main>
     </div>
   );

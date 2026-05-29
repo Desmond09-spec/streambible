@@ -56,7 +56,7 @@ serve(async (req) => {
         if (!isExpired) {
           console.log(`[Cache Hit] ${reference} (${versionId})`);
 
-          return new Response(JSON.stringify({ text: cached.text, source: 'cache' }), {
+          return new Response(JSON.stringify({ text: cached.text, source: 'cache', fums: cached.fums || '' }), {
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
           });
         } else {
@@ -96,7 +96,7 @@ serve(async (req) => {
         verseText = verseText.replace(/<sup[^>]*>[\s\S]*?<\/sup>/gi, '');
       } else {
         console.log(`[Cache Miss] Fetching ${reference} (${versionId}) from API.Bible...`);
-        const apiRes = await fetch(`https://rest.api.bible/v1/bibles/${versionId}/passages/${reference}?content-type=text&include-verse-numbers=true`, {
+        const apiRes = await fetch(`https://rest.api.bible/v1/bibles/${versionId}/passages/${reference}?content-type=html&include-verse-numbers=true`, {
           headers: { "api-key": API_BIBLE_KEY, "Accept": "application/json" }
         });
 
@@ -106,23 +106,30 @@ serve(async (req) => {
           throw new Error(`API.Bible returned ${apiRes.status}: ${errText}`);
         }
 
-        const apiData = await apiRes.json();
-        
-        if (apiData.data && apiData.data.content) {
-           verseText = apiData.data.content;
-        } else {
-           verseText = JSON.stringify(apiData);
-        }
+        verseText = await apiRes.text();
       }
 
-      // Clean brackets or stray HTML tags just in case
-      let cleanText = verseText.replace(/<[^>]*>?/gm, '').trim();
-      
-      // API.Bible returns verse numbers in brackets like [1]. Convert to secure format
-      cleanText = cleanText.replace(/\[(\d+)\]\s?/g, '{{v:$1}} ');
-      
-      // Remove multiple spaces left behind
-      cleanText = cleanText.replace(/\s{2,}/g, ' ');
+      let fums = "";
+      if (versionId === 'nlt') {
+        // NLT specific text cleaning
+        let cleanText = verseText.replace(/<[^>]*>?/gm, '').trim();
+        cleanText = cleanText.replace(/\[(\d+)\]\s?/g, '{{v:$1}} ');
+        verseText = cleanText.replace(/\s{2,}/g, ' ');
+      } else {
+        // API.Bible handling: no stripping, FUMS parsing
+        try {
+          const parsedData = JSON.parse(verseText);
+          if (parsedData && parsedData.meta && parsedData.meta.fums) {
+            fums = parsedData.meta.fums;
+          }
+          if (parsedData.data && parsedData.data.content) {
+            verseText = parsedData.data.content;
+          }
+        } catch(e) {
+          // If it was already parsed to a string of text, handle it.
+          // Wait, verseText is already either content or JSON string.
+        }
+      }
 
       // 3. Save to Global Cache (30 Days)
       const { error: upsertError } = await supabase
@@ -131,7 +138,8 @@ serve(async (req) => {
           { 
             reference, 
             version_id: versionId.toString(), 
-            text: cleanText,
+            text: verseText,
+            fums: fums,
             created_at: new Date().toISOString(),
             expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString() // 30 days from now
           },
@@ -142,7 +150,7 @@ serve(async (req) => {
         console.error("Supabase Upsert Error:", upsertError);
       }
 
-      return new Response(JSON.stringify({ text: cleanText, source: 'api' }), {
+      return new Response(JSON.stringify({ text: verseText, source: 'api', fums }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }

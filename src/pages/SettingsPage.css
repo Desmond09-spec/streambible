@@ -132,12 +132,29 @@
 }
 
 .settings-section-header {
-  font-size: var(--fs-xs, 11px);
-  font-weight: var(--fw-semibold, 600);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-2);
+  margin-bottom: 8px;
+  margin-left: 16px;
   text-transform: uppercase;
-  letter-spacing: 0.07em;
-  color: var(--text-3);
-  padding: 0 4px 8px 4px;
+  letter-spacing: 0.5px;
+  display: flex;
+  align-items: center;
+}
+
+.settings-section-badge {
+  display: inline-flex;
+  align-items: center;
+  margin-left: 8px;
+  padding: 2px 6px;
+  background: var(--accent);
+  color: white;
+  border-radius: 4px;
+  font-size: 9px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 
 .settings-section-card {
@@ -181,7 +198,11 @@
 
 .settings-row--btn {
   cursor: pointer;
-  transition: background 100ms ease;
+  will-change: transform;
+  /* Release: slow spring back */
+  transition:
+    background 180ms ease,
+    transform  300ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .settings-row--btn:hover {
@@ -190,7 +211,11 @@
 
 .settings-row--btn:active {
   background: var(--border-dim);
-  transition-duration: 60ms;
+  transform: scale(0.97);
+  /* Press-in: fast ease-out */
+  transition:
+    background  80ms ease-out,
+    transform   80ms ease-out;
 }
 
 .settings-row--danger .settings-row-label {

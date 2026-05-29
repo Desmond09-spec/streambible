@@ -1,9 +1,25 @@
 import React, { useState, useEffect } from "react";
 import { db, type Setlist } from "../../lib/db";
 import { fetchVerse } from "../../services/bibleService";
-import { RefreshCw, Play, Trash2, Plus, Check } from "lucide-react";
+import { RefreshCw, Play, Trash2, Plus, Check, ListMusic, Search } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import "./SetlistManager.css";
+
+const formatDateLabel = (dateStr: string) => {
+  const date = new Date(dateStr);
+  const now = new Date();
+  
+  const isToday = date.getDate() === now.getDate() && date.getMonth() === now.getMonth() && date.getFullYear() === now.getFullYear();
+  
+  const yesterday = new Date(now);
+  yesterday.setDate(now.getDate() - 1);
+  const isYesterday = date.getDate() === yesterday.getDate() && date.getMonth() === yesterday.getMonth() && date.getFullYear() === yesterday.getFullYear();
+
+  if (isToday) return "Today";
+  if (isYesterday) return "Yesterday";
+  
+  return date.toLocaleDateString(undefined, { weekday: "short", day: "numeric" });
+};
 
 interface SetlistManagerProps {
   onSelectVerse: (reference: string) => void;
@@ -21,6 +37,8 @@ export const SetlistManager: React.FC<SetlistManagerProps> = ({
   const [setlists, setSetlists] = useState<Setlist[]>([]);
   const [activeListId, setActiveListId] = useState<string | null>(null);
   const [newInput, setNewInput] = useState("");
+  const [isAdding, setIsAdding] = useState(false);
+  const [addError, setAddError] = useState(false);
   const [isPreCaching, setIsPreCaching] = useState(false);
   const [preCacheProgress, setPreCacheProgress] = useState(0);
 
@@ -68,19 +86,32 @@ export const SetlistManager: React.FC<SetlistManagerProps> = ({
     e.preventDefault();
     if (!newInput.trim() || !activeListId) return;
 
-    const list = setlists.find((l) => l.id === activeListId);
-    if (list) {
-      const updatedVerses = [
-        ...list.verses,
-        {
-          versionId: primaryVersion,
-          reference: newInput.trim(),
-          source: "api.bible" as const,
-        },
-      ];
-      await db.setlists.update(activeListId, { verses: updatedVerses });
-      setNewInput("");
-      refreshSetlists();
+    setIsAdding(true);
+    setAddError(false);
+
+    try {
+      // Validate verse by fetching it
+      await fetchVerse(primaryVersion, newInput.trim());
+      
+      const list = setlists.find((l) => l.id === activeListId);
+      if (list) {
+        const updatedVerses = [
+          ...list.verses,
+          {
+            versionId: primaryVersion,
+            reference: newInput.trim(),
+            source: "api.bible" as const,
+          },
+        ];
+        await db.setlists.update(activeListId, { verses: updatedVerses });
+        setNewInput("");
+        refreshSetlists();
+      }
+    } catch (error) {
+      setAddError(true);
+      setTimeout(() => setAddError(false), 2000);
+    } finally {
+      setIsAdding(false);
     }
   };
 
@@ -91,6 +122,21 @@ export const SetlistManager: React.FC<SetlistManagerProps> = ({
       const updatedVerses = list.verses.filter((_, i) => i !== index);
       await db.setlists.update(activeListId, { verses: updatedVerses });
       refreshSetlists();
+    }
+  };
+
+  const deleteActiveSetlist = async () => {
+    if (!activeListId) return;
+    if (!window.confirm("Are you sure you want to delete this setlist?")) return;
+    
+    await db.setlists.delete(activeListId);
+    
+    const lists = await fetchSetlists();
+    setSetlists(lists);
+    if (lists.length > 0) {
+      setActiveListId(lists[0].id);
+    } else {
+      setActiveListId(null);
     }
   };
 
@@ -149,24 +195,22 @@ export const SetlistManager: React.FC<SetlistManagerProps> = ({
           </div>
         )}
         <div className="setlist-header">
+          <button className="btn-icon" onClick={createNewSetlist} title="New Setlist">
+            <Plus size={22} />
+          </button>
           <h3>Setlists</h3>
-          <div className="setlist-header-actions">
-            <button
-              className="btn-icon"
-              onClick={createNewSetlist}
-              title="New Setlist"
-            >
-              <Plus size={18} />
-            </button>
-            <button className="btn-done" onClick={onClose}>
-              Done
-            </button>
-          </div>
+          <button className="btn-done" onClick={onClose}>
+            Done
+          </button>
         </div>
 
         {setlists.length === 0 ? (
           <div className="setlist-empty">
-            <p>No setlists created yet.</p>
+            <div className="setlist-empty-icon">
+              <ListMusic size={48} strokeWidth={1.5} />
+            </div>
+            <h4>No Setlists</h4>
+            <p>Create a setlist to save and manage verses for your upcoming services.</p>
             <button onClick={createNewSetlist} className="btn-apple-primary">
               Create Setlist
             </button>
@@ -181,9 +225,7 @@ export const SetlistManager: React.FC<SetlistManagerProps> = ({
                   className={`segment-btn ${activeListId === list.id ? "active" : ""}`}
                   onClick={() => setActiveListId(list.id)}
                 >
-                  {new Date(list.date).toLocaleDateString(undefined, {
-                    weekday: "short",
-                  })}
+                  {formatDateLabel(list.date)}
                 </button>
               ))}
             </div>
@@ -191,20 +233,34 @@ export const SetlistManager: React.FC<SetlistManagerProps> = ({
             {activeList && (
               <div className="setlist-active-view">
                 <form onSubmit={addVerse} className="setlist-add-form">
-                  <div className="search-pill">
+                  <div className={`search-pill ${addError ? "error-shake" : ""}`}>
+                    <Search size={16} className="search-pill-icon" />
                     <input
                       type="text"
-                      placeholder="Add verse (e.g., John 3:16)"
+                      placeholder={addError ? "Verse not found" : "Add verse (e.g., John 3:16)"}
                       value={newInput}
-                      onChange={(e) => setNewInput(e.target.value)}
+                      onChange={(e) => {
+                        setNewInput(e.target.value);
+                        setAddError(false);
+                      }}
                       autoComplete="off"
                       spellCheck="false"
+                      style={{ color: addError ? "#FF3B30" : undefined }}
                     />
-                    {newInput && (
-                      <button type="submit" className="btn-add-pill">
-                        Add
-                      </button>
-                    )}
+                    <AnimatePresence>
+                      {newInput && (
+                        <motion.button
+                          initial={{ opacity: 0, scale: 0.8 }}
+                          animate={{ opacity: 1, scale: 1 }}
+                          exit={{ opacity: 0, scale: 0.8 }}
+                          type="submit"
+                          className="btn-add-pill"
+                          disabled={isAdding}
+                        >
+                          {isAdding ? <RefreshCw size={14} className="spin" /> : "Add"}
+                        </motion.button>
+                      )}
+                    </AnimatePresence>
                   </div>
                 </form>
 
@@ -267,6 +323,10 @@ export const SetlistManager: React.FC<SetlistManagerProps> = ({
                     )}
                   </button>
                 )}
+                
+                <button className="btn-apple-destructive" style={{ marginTop: "12px" }} onClick={deleteActiveSetlist}>
+                  <Trash2 size={16} /> Delete Setlist
+                </button>
               </div>
             )}
           </div>
