@@ -85,8 +85,11 @@ export const MobileMenuSheet: React.FC<MobileMenuSheetProps> = ({
               <button
                 className="bottom-sheet-btn"
                 onClick={() => {
+                  const baseUrl = (window.location.protocol === 'file:' || window.location.hostname === 'localhost') 
+                    ? 'https://streambible.vercel.app' 
+                    : window.location.origin;
                   copyUrl(
-                    `${window.location.origin}/#/overlay?room=${roomId}`,
+                    `${baseUrl}/#/overlay?room=${roomId}`,
                     "overlay",
                   );
                   setIsMobileMenuOpen(false);

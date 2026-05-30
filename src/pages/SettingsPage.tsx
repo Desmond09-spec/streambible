@@ -748,8 +748,11 @@ const SettingsPage: React.FC = () => {
                     </span>
                     <button
                       onClick={(e) => {
+                        const baseUrl = (window.location.protocol === 'file:' || window.location.hostname === 'localhost') 
+                          ? 'https://streambible.vercel.app' 
+                          : window.location.origin;
                         navigator.clipboard.writeText(
-                          `${window.location.origin}/#/overlay?room=${claimedRoomId}`,
+                          `${baseUrl}/#/overlay?room=${claimedRoomId}`,
                         );
                         const btn = e.currentTarget;
                         btn.innerText = "Copied!";
