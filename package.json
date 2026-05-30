@@ -75,7 +75,8 @@
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
       "installerIcon": "public/build.ico",
-      "installerHeaderIcon": "public/build.ico"
+      "installerHeaderIcon": "public/build.ico",
+      "include": "installer.nsh"
     }
   }
 }
