@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ExternalLink, MonitorUp, Settings } from 'lucide-react';
 import { useSession } from '../../context/SessionContext';
+import { getPublicBaseUrl } from '../../utils/urlHelpers';
 
 interface MobileMenuSheetProps {
   isMobileMenuOpen: boolean;
@@ -85,11 +86,8 @@ export const MobileMenuSheet: React.FC<MobileMenuSheetProps> = ({
               <button
                 className="bottom-sheet-btn"
                 onClick={() => {
-                  const baseUrl = (window.location.protocol === 'file:' || window.location.hostname === 'localhost') 
-                    ? 'https://streambible.vercel.app' 
-                    : window.location.origin;
                   copyUrl(
-                    `${baseUrl}/#/overlay?room=${roomId}`,
+                    `${getPublicBaseUrl()}/#/overlay?room=${roomId}`,
                     "overlay",
                   );
                   setIsMobileMenuOpen(false);
@@ -108,7 +106,7 @@ export const MobileMenuSheet: React.FC<MobileMenuSheetProps> = ({
                 className="bottom-sheet-btn"
                 onClick={() => {
                   copyUrl(
-                    `${window.location.origin}/#/fullscreen?room=${roomId}`,
+                    `${getPublicBaseUrl()}/#/fullscreen?room=${roomId}`,
                     "fullscreen",
                   );
                   setIsMobileMenuOpen(false);

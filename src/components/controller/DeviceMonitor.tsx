@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useSession } from '../../context/SessionContext';
+import { getPublicBaseUrl } from '../../utils/urlHelpers';
 
 interface DeviceMonitorProps {
   copyUrl: (url: string, type: "overlay" | "fullscreen" | "controller") => void;
@@ -142,7 +143,7 @@ export const DeviceMonitor: React.FC<DeviceMonitorProps> = ({ copyUrl }) => {
                       )}
                     </AnimatePresence>
                     <img
-                      src={`https://api.qrserver.com/v1/create-qr-code/?size=140x140&data=${encodeURIComponent(`${window.location.origin}/#/controller?room=${roomId}`)}`}
+                      src={`https://api.qrserver.com/v1/create-qr-code/?size=140x140&data=${encodeURIComponent(`${getPublicBaseUrl()}/#/controller?room=${roomId}`)}`}
                       alt="Scan to control session"
                       width={140}
                       height={140}
@@ -180,13 +181,14 @@ export const DeviceMonitor: React.FC<DeviceMonitorProps> = ({ copyUrl }) => {
                     overflow: "hidden",
                     textOverflow: "ellipsis",
                   }}
+                  className="join-url-text"
                 >
-                  {window.location.origin}/#/controller?room={roomId}
+                  {getPublicBaseUrl()}/#/controller?room={roomId}
                 </span>
                 <button
                   onClick={() =>
                     copyUrl(
-                      `${window.location.origin}/#/controller?room=${roomId}`,
+                      `${getPublicBaseUrl()}/#/controller?room=${roomId}`,
                       "controller",
                     )
                   }

@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { MoreHorizontal, Monitor, LayoutTemplate, Settings, HelpCircle } from 'lucide-react';
+import { getPublicBaseUrl } from "../../utils/urlHelpers";
 
 interface HeaderActionMenuProps {
   roomId: string;
@@ -37,7 +38,7 @@ export const HeaderActionMenu: React.FC<HeaderActionMenuProps> = ({
   }, []);
 
   const handleCopy = (type: "overlay" | "fullscreen") => {
-    copyUrl(`${window.location.origin}/#/${type}?room=${roomId}`, type);
+    copyUrl(`${getPublicBaseUrl()}/#/${type}?room=${roomId}`, type);
     setIsOpen(false);
   };
 

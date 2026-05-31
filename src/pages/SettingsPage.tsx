@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useSettings } from "../context/SettingsContext";
 import { useSession } from "../context/SessionContext";
 import { ConfirmModal } from "../components/ConfirmModal";
+import { getPublicBaseUrl } from "../utils/urlHelpers";
 import "./SettingsPage.css";
 
 // ─── localStorage Keys ────────────────────────────────────────────────────────
@@ -748,11 +749,8 @@ const SettingsPage: React.FC = () => {
                     </span>
                     <button
                       onClick={(e) => {
-                        const baseUrl = (window.location.protocol === 'file:' || window.location.hostname === 'localhost') 
-                          ? 'https://streambible.vercel.app' 
-                          : window.location.origin;
                         navigator.clipboard.writeText(
-                          `${baseUrl}/#/overlay?room=${claimedRoomId}`,
+                          `${getPublicBaseUrl()}/#/overlay?room=${claimedRoomId}`,
                         );
                         const btn = e.currentTarget;
                         btn.innerText = "Copied!";
@@ -794,7 +792,7 @@ const SettingsPage: React.FC = () => {
                     <button
                       onClick={(e) => {
                         navigator.clipboard.writeText(
-                          `${window.location.origin}/#/fullscreen?room=${claimedRoomId}`,
+                          `${getPublicBaseUrl()}/#/fullscreen?room=${claimedRoomId}`,
                         );
                         const btn = e.currentTarget;
                         btn.innerText = "Copied!";
