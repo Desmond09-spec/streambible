@@ -8,4 +8,4 @@ Disallow: /#/fullscreen
 # Block internal auth flow
 Disallow: /#/auth
 
-Sitemap: https://streambible.vercel.app/sitemap.xml
+Sitemap: https://streambible.vercel.app/sitemap_fresh.xml
