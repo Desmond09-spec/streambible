@@ -1,0 +1,11 @@
+User-agent: *
+Allow: /
+
+# Block OBS broadcast source pages — not intended for public indexing
+Disallow: /#/overlay
+Disallow: /#/fullscreen
+
+# Block internal auth flow
+Disallow: /#/auth
+
+Sitemap: https://streambible.vercel.app/sitemap.xml
