@@ -1,6 +1,6 @@
-# StreamBible Dual: Security Audit & Architectural Overview
+# StreamBible: Security Audit & Architectural Overview
 
-This document provides a comprehensive security overview of the StreamBible Dual platform, detailing how it safely handles network traversal, protects API keys, prevents injection attacks, and enforces database isolation.
+This document provides a comprehensive security overview of the StreamBible platform, detailing how it safely handles network traversal, protects API keys, prevents injection attacks, and enforces database isolation.
 
 ---
 
@@ -54,4 +54,4 @@ StreamBible is designed as a "No-Login" priority platform.
 ---
 
 ## Conclusion
-StreamBible Dual mitigates common attack vectors by keeping core secrets firmly behind Deno Edge Functions, enforcing strict Postgres RLS, maintaining End-to-End encryption across its WebRTC layer, and utilizing non-persistent relay memory logic. The application is secure for deployment in both open guest networks and locked-down corporate IT environments.
+StreamBible mitigates common attack vectors by keeping core secrets firmly behind Deno Edge Functions, enforcing strict Postgres RLS, maintaining End-to-End encryption across its WebRTC layer, and utilizing non-persistent relay memory logic. The application is secure for deployment in both open guest networks and locked-down corporate IT environments.

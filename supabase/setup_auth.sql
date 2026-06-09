@@ -1,5 +1,5 @@
 -- ==============================================================================
--- STREAMBIBLE DUAL: Secure Authentication & Profiles Setup
+-- STREAMBIBLE: Secure Authentication & Profiles Setup
 -- Adheres to OWASP Top 10 (A01: Broken Access Control, A03: Injection)
 -- ==============================================================================
 

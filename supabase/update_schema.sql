@@ -1,5 +1,5 @@
 -- ==============================================================================
--- STREAMBIBLE DUAL: Onboarding Modal Update
+-- STREAMBIBLE: Onboarding Modal Update
 -- Adds 'has_onboarded' to track if a user has seen the New User welcome tour
 -- ==============================================================================
 
