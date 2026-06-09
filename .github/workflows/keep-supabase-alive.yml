@@ -4,8 +4,8 @@ name: Keep Supabase Alive
 # (Supabase pauses free projects after 7 days of inactivity)
 on:
   schedule:
-    - cron: '0 8 */5 * *'   # 08:00 UTC every 5 days
-  workflow_dispatch:         # Also allow manual trigger from GitHub Actions UI
+    - cron: "0 8 */5 * *" # 08:00 UTC every 5 days
+  workflow_dispatch: # Also allow manual trigger from GitHub Actions UI
 
 jobs:
   ping:
@@ -17,7 +17,7 @@ jobs:
         run: |
           RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" \
             -X GET \
-            "${{ secrets.SUPABASE_URL }}/rest/v1/testimonies?select=id&limit=1" \
+            "${{ secrets.SUPABASE_URL }}/rest/v1/profiles?select=id&limit=1" \
             -H "apikey: ${{ secrets.SUPABASE_ANON_KEY }}" \
             -H "Authorization: Bearer ${{ secrets.SUPABASE_ANON_KEY }}")
 
