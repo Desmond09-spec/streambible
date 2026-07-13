@@ -1,17 +1,25 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import {
   parseReference,
   getCanonicalBookName,
   fetchVerse,
   curatedVersions,
   type TriageCategory,
+  type ParsedReference,
 } from "../services/bibleService";
+import {
+  loadBibleStore,
+  getVerse,
+} from "../services/bibleStore";
 import { useSettings } from "../context/SettingsContext";
 import { useSession } from "../context/SessionContext";
 
 export const useControllerState = () => {
   const [theme, setTheme] = useState<"light" | "dark">("light");
-  const [query, setQuery] = useState("");
+
+  // externalQuery: set from Setlist or other external sources to populate the
+  // search input. The SearchModule watches this prop and adopts its value.
+  const [externalQuery, setExternalQuery] = useState("");
 
   const { pushVerse, broadcastClear } = useSession();
 
@@ -19,7 +27,6 @@ export const useControllerState = () => {
   const [pendingPush, setPendingPush] = useState<(() => void) | null>(null);
 
   const {
-    debounceEnabled,
     pushConfirmEnabled,
     autoClearSeconds,
     showVerseNumbers,
@@ -135,6 +142,18 @@ export const useControllerState = () => {
     }
   }, []);
 
+  // ── Load BibleStore once on mount ─────────────────────────────────────────
+  // Loads all 66 books for KJV and Yoruba into memory. After this, every
+  // keystroke lookup is synchronous — zero I/O.
+  const [storeLoaded, setStoreLoaded] = useState(false);
+  const [latestRef, setLatestRef] = useState<ParsedReference | null>(null);
+
+  useEffect(() => {
+    loadBibleStore(["1", "2533"]).then(() => {
+      setStoreLoaded(true);
+    });
+  }, []);
+
   const toggleTheme = () => {
     const next = theme === "dark" ? "light" : "dark";
     setIsTransitioning(true);
@@ -143,7 +162,58 @@ export const useControllerState = () => {
     setTimeout(() => setIsTransitioning(false), 280);
   };
 
-  const handleSearch = async (searchQuery: string = query) => {
+  // ── Real-time preview path (synchronous) ─────────────────────────────────
+  //
+  // Called by SearchModule every time the incremental parser resolves a
+  // reference. 
+  const handleReferenceResolved = useCallback((ref: ParsedReference) => {
+    setLatestRef(ref);
+    // Clear any lingering error toast from a previous failed manual search
+    setShowFallbackToast(false);
+    setTriageReason(null);
+  }, []);
+
+  // Reactively lookup verses whenever the reference, versions, or store load state changes.
+  // This ensures the preview populates instantly once background JSON fetching finishes,
+  // and updates instantly if the user changes their primary/secondary version dropdowns.
+  useEffect(() => {
+    if (!latestRef) return;
+
+    const pText = getVerse(primaryVersion, latestRef.bookCode, latestRef.chapter, latestRef.verse);
+    const sText = getVerse(secondaryVersion, latestRef.bookCode, latestRef.chapter, latestRef.verse);
+
+    setPrimaryText(pText ?? "");
+    setPrimaryRef(latestRef.canonical);
+    setPrimarySource("local");
+
+    setSecondaryText(sText ?? "");
+    setSecondaryRef(latestRef.canonical);
+    setSecondarySource("local");
+
+    if (pText || sText) {
+      setStatus("success");
+      setStatusMsg("Ready to push");
+    } else {
+      setStatus("default");
+      setStatusMsg("Ready");
+    }
+  }, [latestRef, primaryVersion, secondaryVersion, storeLoaded]);
+
+  // ── handleClear: clears preview when the search input is emptied ──────────
+  const handleClear = useCallback(() => {
+    setLatestRef(null);
+    setPrimaryText("");
+    setPrimaryRef("");
+    setSecondaryText("");
+    setSecondaryRef("");
+    setStatus("default");
+    setStatusMsg("Ready");
+    setShowFallbackToast(false);
+    setTriageReason(null);
+  }, []);
+
+  // ── handleSearch: retained for Push Live path and manual lookups ──────────
+  const handleSearch = async (searchQuery: string) => {
     if (!searchQuery.trim()) return;
 
     setStatus("fetching");
@@ -295,18 +365,10 @@ export const useControllerState = () => {
     }
   };
 
-  useEffect(() => {
-    if (!query.trim()) return;
-    const delay = debounceEnabled ? 900 : 0;
-    const timerId = setTimeout(() => handleSearch(query), delay);
-    return () => clearTimeout(timerId);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [query, primaryVersion, secondaryVersion]);
+  // The query-watching useEffect that called handleSearch on every keystroke
+  // has been removed. Real-time preview is now handled synchronously via
+  // handleReferenceResolved, which is called directly by SearchModule.
 
-  const onFormSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    handleSearch(query);
-  };
 
   const pushLive = () => {
     const doPush = () => {
@@ -383,7 +445,8 @@ export const useControllerState = () => {
 
   return {
     theme, toggleTheme, isTransitioning,
-    query, setQuery, onFormSubmit,
+    externalQuery, setExternalQuery,
+    handleReferenceResolved, handleClear,
     showPushConfirm, setShowPushConfirm, pendingPush, setPendingPush,
     primaryVersion, setPrimaryVersion,
     secondaryVersion, setSecondaryVersion,

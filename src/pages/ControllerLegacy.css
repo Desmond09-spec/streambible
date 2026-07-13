@@ -675,6 +675,7 @@
         color: var(--text-1);
         padding: var(--s-4) var(--s-2);
         caret-color: var(--accent);
+        letter-spacing: 0.1em;
       }
 
       @media (max-width: 640px) {

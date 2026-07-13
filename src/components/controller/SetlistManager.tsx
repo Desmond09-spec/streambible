@@ -69,7 +69,7 @@ export const SetlistManager: React.FC<SetlistManagerProps> = ({
       if (lists.length > 0) setActiveListId((prev) => prev ?? lists[0].id);
     });
     return () => { cancelled = true; };
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, []);
 
   const createNewSetlist = async () => {
     const newList: Setlist = {
@@ -107,7 +107,7 @@ export const SetlistManager: React.FC<SetlistManagerProps> = ({
         setNewInput("");
         refreshSetlists();
       }
-    } catch (error) {
+    } catch {
       setAddError(true);
       setTimeout(() => setAddError(false), 2000);
     } finally {

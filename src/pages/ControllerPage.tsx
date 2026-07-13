@@ -21,7 +21,7 @@ import { RequestTimeoutToast } from '../components/controller/RequestTimeoutToas
 const ControllerPage: React.FC = () => {
   const {
     theme, toggleTheme, isTransitioning,
-    query, setQuery, onFormSubmit,
+    externalQuery, setExternalQuery, handleReferenceResolved, handleClear,
     showPushConfirm, setShowPushConfirm, pendingPush, setPendingPush,
     primaryVersion, setPrimaryVersion,
     secondaryVersion, setSecondaryVersion,
@@ -111,9 +111,10 @@ const ControllerPage: React.FC = () => {
         <DeviceMonitor copyUrl={copyUrl} />
 
         <SearchModule 
-          query={query}
-          setQuery={setQuery}
-          onFormSubmit={onFormSubmit}
+          externalQuery={externalQuery}
+          onReferenceResolved={handleReferenceResolved}
+          onPushLive={pushLive}
+          onClear={handleClear}
           isSetlistOpen={isSetlistOpen}
           setIsSetlistOpen={setIsSetlistOpen}
         />
@@ -208,7 +209,7 @@ const ControllerPage: React.FC = () => {
             <SetlistManager 
               primaryVersion={primaryVersion}
               onSelectVerse={(ref) => {
-                setQuery(ref);
+                setExternalQuery(ref);
                 setIsSetlistOpen(false);
               }}
               onClose={() => setIsSetlistOpen(false)}

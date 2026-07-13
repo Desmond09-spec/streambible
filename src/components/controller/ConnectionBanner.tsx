@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { WifiOff, RefreshCw, CheckCircle2 } from 'lucide-react';
 import { useSession } from '../../context/SessionContext';
@@ -6,16 +6,20 @@ import { useSession } from '../../context/SessionContext';
 export const ConnectionBanner: React.FC = () => {
   const { connectionState, retryCountdown, forceReconnect } = useSession();
   const [showRestored, setShowRestored] = useState(false);
-  const [prevConnectionState, setPrevConnectionState] = useState(connectionState);
+  const prevConnectionStateRef = useRef(connectionState);
 
   useEffect(() => {
-    if (prevConnectionState !== 'connected' && connectionState === 'connected') {
-      setShowRestored(true);
-      const timer = setTimeout(() => setShowRestored(false), 3000);
-      return () => clearTimeout(timer);
+    const prev = prevConnectionStateRef.current;
+    prevConnectionStateRef.current = connectionState;
+    if (prev !== 'connected' && connectionState === 'connected') {
+      const timerIn = setTimeout(() => setShowRestored(true), 0);
+      const timerOut = setTimeout(() => setShowRestored(false), 3000);
+      return () => {
+        clearTimeout(timerIn);
+        clearTimeout(timerOut);
+      };
     }
-    setPrevConnectionState(connectionState);
-  }, [connectionState, prevConnectionState]);
+  }, [connectionState]);
 
   const isDisconnected = connectionState === 'disconnected';
   const isReconnecting = connectionState === 'reconnecting';
