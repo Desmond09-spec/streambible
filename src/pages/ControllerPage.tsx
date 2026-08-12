@@ -41,6 +41,14 @@ const ControllerPage: React.FC = () => {
   const { wsConnected, roomId, claimedRoomId, isHost, hostStatus, pendingReset, confirmRegenerate, cancelRegenerate } = useSession();
   const [isSetlistOpen, setIsSetlistOpen] = React.useState(false);
   const [isConnectionSheetOpen, setIsConnectionSheetOpen] = React.useState(false);
+  const [kbToast, setKbToast] = React.useState<{ label: string; sub: string; icon: 'push' | 'clear' } | null>(null);
+  const kbToastTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const showKbToast = (label: string, sub: string, icon: 'push' | 'clear') => {
+    if (kbToastTimerRef.current) clearTimeout(kbToastTimerRef.current);
+    setKbToast({ label, sub, icon });
+    kbToastTimerRef.current = setTimeout(() => setKbToast(null), 2200);
+  };
 
   // Global keyboard shortcuts
   useEffect(() => {
@@ -53,9 +61,11 @@ const ControllerPage: React.FC = () => {
       if (e.ctrlKey && e.key.toLowerCase() === 'p') {
         e.preventDefault();
         pushLive();
+        showKbToast('Pushed Live', 'Ctrl + P', 'push');
       } else if (e.ctrlKey && e.key.toLowerCase() === 'l') {
         e.preventDefault();
         clearScreen();
+        showKbToast('Overlay Cleared', 'Ctrl + L', 'clear');
       }
     };
     window.addEventListener('keydown', handleKeyDown);
@@ -72,6 +82,41 @@ const ControllerPage: React.FC = () => {
       {showTour && (
         <WalkthroughOverlay steps={tourSteps} onComplete={finishTour} />
       )}
+
+      {/* Keyboard shortcut toast */}
+      <AnimatePresence>
+        {kbToast && (
+          <motion.div
+            key={kbToast.label}
+            initial={{ opacity: 0, y: -20, x: "-50%", scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, x: "-50%", scale: 1 }}
+            exit={{ opacity: 0, y: -10, x: "-50%", scale: 0.95 }}
+            transition={{ type: "spring", damping: 20, stiffness: 300 }}
+            className="copy-toast visible"
+            role="status"
+            aria-live="polite"
+            style={{ x: "-50%", top: '16px' }}
+          >
+            <div className="copy-toast-icon-wrap" style={{
+              background: kbToast.icon === 'push' ? 'var(--success)' : 'var(--color-accent-primary)'
+            }}>
+              {kbToast.icon === 'push' ? (
+                <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="2.5 8.5 6 12 13.5 4" />
+                </svg>
+              ) : (
+                <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="4" y1="4" x2="12" y2="12" /><line x1="12" y1="4" x2="4" y2="12" />
+                </svg>
+              )}
+            </div>
+            <div className="copy-toast-body">
+              <span className="copy-toast-title">{kbToast.label}</span>
+              <span className="copy-toast-sub">{kbToast.sub}</span>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <AnimatePresence>
         {copiedType && (
