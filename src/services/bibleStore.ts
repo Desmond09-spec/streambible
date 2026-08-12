@@ -56,7 +56,9 @@ export async function loadBibleStore(versionIds: string[]): Promise<void> {
 
       for (const [bookCode, bookName] of Object.entries(canonicalBookNames)) {
         const filename = bookNameToFilename(bookName);
-        const url = `/${directory}/${filename}.json`;
+        // Force relative path. In Electron, absolute paths (like /Bible-kjv...) resolve to the root of the C: drive.
+        // Relative paths (./Bible-kjv...) correctly resolve relative to the dist/index.html file!
+        const url = `./${directory}/${filename}.json`;
 
         try {
           const response = await fetch(url);

@@ -2,10 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { AutoFitFont } from '../components/AutoFitFont';
 import { VerseText } from '../components/VerseText';
-import { FumsExecutor } from '../components/FumsExecutor';
 
-import { useWebRTCNode } from '../hooks/useSync';
-import type { VersePayload } from '../hooks/useSync';
+import { FumsExecutor } from '../components/FumsExecutor';
+import type { VersePayload } from '../context/SessionContext';
 
 // Extension of VersePayload for local UI state
 interface ActiveVerse extends VersePayload {
@@ -13,16 +12,6 @@ interface ActiveVerse extends VersePayload {
 }
 
 const OverlayPage: React.FC = () => {
-  const [roomId, setRoomId] = useState<string | null>(null);
-
-  useEffect(() => {
-    // With HashRouter, query params live in the hash: /#/overlay?room=XYZ
-    // window.location.search is empty; we must parse from window.location.hash
-    const hash = window.location.hash; // e.g. "#/overlay?room=XYZ"
-    const queryStart = hash.indexOf('?');
-    const params = new URLSearchParams(queryStart >= 0 ? hash.slice(queryStart) : '');
-    Promise.resolve().then(() => setRoomId(params.get('room')));
-  }, []);
   const [verse, setVerse] = useState<ActiveVerse>({
     ref: "",
     primaryText: "",
@@ -31,40 +20,54 @@ const OverlayPage: React.FC = () => {
     secondaryVersion: "",
     showPrimary: true,
     showSecondary: true,
-    primarySource: 'api.bible',
-    secondarySource: 'api.bible',
+    primarySource: 'local',
+    secondarySource: 'local',
     isVisible: false
   });
 
-  const { hostStatus } = useWebRTCNode(roomId, false, true, false, {
-    onVerseUpdate: (payload) => setVerse({ ...payload, isVisible: true }),
-    onClear: () => setVerse((prev) => ({ ...prev, isVisible: false })),
-    onRoomReset: () => window.location.reload()
-  });
-
-  // Auto-clear the screen gracefully if the host disconnects
   useEffect(() => {
-    if (hostStatus !== 'online') {
-      const id = setTimeout(() => setVerse(prev => ({ ...prev, isVisible: false })), 0);
-      return () => clearTimeout(id);
-    }
-  }, [hostStatus]);
+    let ws: WebSocket | null = null;
+    let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+    let destroyed = false;
 
-  if (roomId === null) {
-    // Only show the error if we've checked the URL and it's definitely missing
-    if (window.location.search && !new URLSearchParams(window.location.search).get('room')) {
-       return (
-         <div style={{ width: '100vw', height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#111', color: '#fff', fontFamily: 'Inter, sans-serif' }}>
-           <div style={{ textAlign: 'center', padding: '2rem', background: 'rgba(255,0,0,0.1)', border: '1px solid rgba(255,0,0,0.3)', borderRadius: '12px' }}>
-             <h2 style={{ marginBottom: '1rem', color: '#ff4444' }}>Missing Room ID</h2>
-             <p>Please provide a room code in the URL.<br/>Example: <code>/overlay?room=XYZ12</code></p>
-           </div>
-         </div>
-       );
-    }
-    // Still loading or checking
-    return null;
-  }
+    const connect = () => {
+      if (destroyed) return;
+      // Works both when loaded via http://localhost:3456 (OBS) and http://localhost:5173 (dev)
+      const wsUrl = `ws://${window.location.hostname}:${window.location.port || 3456}/ws-relay`;
+      ws = new WebSocket(wsUrl);
+
+      ws.onopen = () => {
+        ws!.send(JSON.stringify({ type: 'register', role: 'overlay' }));
+      };
+
+      ws.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          if (data.type === 'push_verse') {
+            setVerse({ ...data.payload, isVisible: true });
+          } else if (data.type === 'clear_screen') {
+            setVerse((prev) => ({ ...prev, isVisible: false }));
+          }
+        } catch (_) { /* ignore */ }
+      };
+
+      ws.onclose = () => {
+        if (!destroyed) {
+          reconnectTimer = setTimeout(connect, 2000);
+        }
+      };
+
+      ws.onerror = () => ws?.close();
+    };
+
+    connect();
+
+    return () => {
+      destroyed = true;
+      if (reconnectTimer) clearTimeout(reconnectTimer);
+      ws?.close();
+    };
+  }, []);
 
   return (
     <div 

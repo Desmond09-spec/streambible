@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { MoreHorizontal, Monitor, LayoutTemplate, Settings, HelpCircle } from 'lucide-react';
+import { MoreHorizontal, Monitor, LayoutTemplate, Settings, HelpCircle, ExternalLink } from 'lucide-react';
 import { getPublicBaseUrl } from "../../utils/urlHelpers";
 
 interface HeaderActionMenuProps {
@@ -37,10 +37,20 @@ export const HeaderActionMenu: React.FC<HeaderActionMenuProps> = ({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  // In offline mode, overlays connect via WebSocket — no room param needed
+  const overlayUrl = (type: "overlay" | "fullscreen") =>
+    `${getPublicBaseUrl()}/#/${type}`;
+
   const handleCopy = (type: "overlay" | "fullscreen") => {
-    copyUrl(`${getPublicBaseUrl()}/#/${type}?room=${roomId}`, type);
+    copyUrl(overlayUrl(type), type);
     setIsOpen(false);
   };
+
+  const handleOpen = (type: "overlay" | "fullscreen") => {
+    window.open(overlayUrl(type), '_blank');
+    setIsOpen(false);
+  };
+
 
   return (
     <div style={{ position: 'relative' }}>
@@ -83,21 +93,33 @@ export const HeaderActionMenu: React.FC<HeaderActionMenuProps> = ({
               Outputs
             </div>
 
-            <button
-              onClick={() => handleCopy("overlay")}
-              className="dropdown-action-btn"
-            >
-              <LayoutTemplate size={16} />
-              <span>Copy Overlay Link</span>
-            </button>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+              <button
+                onClick={() => handleCopy("overlay")}
+                className="dropdown-action-btn"
+                style={{ flex: 1 }}
+              >
+                <LayoutTemplate size={16} />
+                <span>Copy Lower-Third URL</span>
+              </button>
+              <button onClick={() => handleOpen("overlay")} className="dropdown-action-btn" style={{ flex: '0 0 auto', padding: '10px' }} title="Open in browser">
+                <ExternalLink size={14} />
+              </button>
+            </div>
 
-            <button
-              onClick={() => handleCopy("fullscreen")}
-              className="dropdown-action-btn"
-            >
-              <Monitor size={16} />
-              <span>Copy Fullscreen Link</span>
-            </button>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+              <button
+                onClick={() => handleCopy("fullscreen")}
+                className="dropdown-action-btn"
+                style={{ flex: 1 }}
+              >
+                <Monitor size={16} />
+                <span>Copy Fullscreen URL</span>
+              </button>
+              <button onClick={() => handleOpen("fullscreen")} className="dropdown-action-btn" style={{ flex: '0 0 auto', padding: '10px' }} title="Open in browser">
+                <ExternalLink size={14} />
+              </button>
+            </div>
 
             <div style={{ height: '1px', background: 'var(--border-color)', margin: '4px 0' }} />
 

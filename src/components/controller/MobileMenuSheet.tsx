@@ -87,7 +87,7 @@ export const MobileMenuSheet: React.FC<MobileMenuSheetProps> = ({
                 className="bottom-sheet-btn"
                 onClick={() => {
                   copyUrl(
-                    `${getPublicBaseUrl()}/#/overlay?room=${roomId}`,
+                    `${getPublicBaseUrl()}/#/overlay`,
                     "overlay",
                   );
                   setIsMobileMenuOpen(false);
@@ -106,7 +106,7 @@ export const MobileMenuSheet: React.FC<MobileMenuSheetProps> = ({
                 className="bottom-sheet-btn"
                 onClick={() => {
                   copyUrl(
-                    `${getPublicBaseUrl()}/#/fullscreen?room=${roomId}`,
+                    `${getPublicBaseUrl()}/#/fullscreen`,
                     "fullscreen",
                   );
                   setIsMobileMenuOpen(false);

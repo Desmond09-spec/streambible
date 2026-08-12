@@ -1,7 +1,9 @@
 import { app, BrowserWindow, ipcMain, dialog } from 'electron'
 import { join, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
-
+import express from 'express'
+import { createServer } from 'node:http'
+import { WebSocketServer, WebSocket } from 'ws'
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = dirname(__filename)
 
@@ -159,7 +161,77 @@ app.on('window-all-closed', () => {
   }
 })
 
+// ── LOCAL OFFLINE SERVER ──
+const LOCAL_PORT = 3456
+
+function startLocalServer() {
+  const expressApp = express()
+  const server = createServer(expressApp)
+  const wss = new WebSocketServer({ noServer: true })
+
+  // Serve the static frontend build so OBS can load it via HTTP
+  expressApp.use(express.static(process.env.DIST || ''))
+
+  server.on('upgrade', (request, socket, head) => {
+    if (request.url === '/ws-relay') {
+      wss.handleUpgrade(request, socket, head, (ws) => {
+        wss.emit('connection', ws, request)
+      })
+    } else {
+      socket.destroy()
+    }
+  })
+
+  // Track which clients are controllers vs overlays
+  const clientRoles = new Map<any, 'controller' | 'overlay'>()
+
+  const broadcastOverlayCount = () => {
+    let count = 0
+    clientRoles.forEach((role) => { if (role === 'overlay') count++ })
+    const msg = JSON.stringify({ type: 'client_count', count })
+    wss.clients.forEach((client) => {
+      if (client.readyState === WebSocket.OPEN && clientRoles.get(client) === 'controller') {
+        client.send(msg)
+      }
+    })
+  }
+
+  wss.on('connection', (ws) => {
+    // Default role is overlay until a register message says otherwise
+    clientRoles.set(ws, 'overlay')
+    broadcastOverlayCount()
+
+    ws.on('message', (message) => {
+      try {
+        const data = JSON.parse(message.toString())
+        if (data.type === 'register') {
+          clientRoles.set(ws, data.role === 'controller' ? 'controller' : 'overlay')
+          broadcastOverlayCount()
+          return // Don't relay register messages
+        }
+      } catch (_) { /* not JSON, treat as binary relay */ }
+
+      // Relay to all other connected clients
+      wss.clients.forEach((client) => {
+        if (client !== ws && client.readyState === WebSocket.OPEN) {
+          client.send(message.toString())
+        }
+      })
+    })
+
+    ws.on('close', () => {
+      clientRoles.delete(ws)
+      broadcastOverlayCount()
+    })
+  })
+
+  server.listen(LOCAL_PORT, '0.0.0.0', () => {
+    console.log(`[StreamBible] Local offline server running on port ${LOCAL_PORT}`)
+  })
+}
+
 app.whenReady().then(() => {
   createSplash()
+  startLocalServer()
   createWindow()
 })
