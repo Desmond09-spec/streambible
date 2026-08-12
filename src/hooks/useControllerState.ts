@@ -410,11 +410,8 @@ export const useControllerState = () => {
     if (autoClearTimerRef.current) clearTimeout(autoClearTimerRef.current);
     autoClearTimerRef.current = setTimeout(() => {
       broadcastClear();
-      setPrimaryText("");
-      setPrimaryRef("");
-      setSecondaryText("");
-      setSecondaryRef("");
-      setExternalQuery("");
+      // Preview cards are intentionally kept so the operator can still
+      // see what verse was last on screen.
       setStatus("default");
       setStatusMsg("Ready");
     }, autoClearSeconds * 1000);
@@ -423,11 +420,8 @@ export const useControllerState = () => {
   const clearScreen = () => {
     if (autoClearTimerRef.current) clearTimeout(autoClearTimerRef.current);
     broadcastClear();
-    setPrimaryText("");
-    setPrimaryRef("");
-    setSecondaryText("");
-    setSecondaryRef("");
-    setExternalQuery("");
+    // Intentionally does NOT clear the preview cards — the operator
+    // may need to see the reference to re-push or navigate from it.
     setStatus("default");
     setStatusMsg("Ready");
   };

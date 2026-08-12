@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import "./ControllerLegacy.css";
 import WalkthroughOverlay from "../components/WalkthroughOverlay";
@@ -41,6 +41,26 @@ const ControllerPage: React.FC = () => {
   const { wsConnected, roomId, claimedRoomId, isHost, hostStatus, pendingReset, confirmRegenerate, cancelRegenerate } = useSession();
   const [isSetlistOpen, setIsSetlistOpen] = React.useState(false);
   const [isConnectionSheetOpen, setIsConnectionSheetOpen] = React.useState(false);
+
+  // Global keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Ignore when typing in an input (except the search bar which handles Enter itself)
+      const tag = (e.target as HTMLElement).tagName;
+      if (tag === 'TEXTAREA' || tag === 'SELECT') return;
+      if (tag === 'INPUT' && (e.target as HTMLInputElement).id !== 'searchInput') return;
+
+      if (e.ctrlKey && e.key.toLowerCase() === 'p') {
+        e.preventDefault();
+        pushLive();
+      } else if (e.ctrlKey && e.key.toLowerCase() === 'l') {
+        e.preventDefault();
+        clearScreen();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [pushLive, clearScreen]);
 
   return (
     <div
