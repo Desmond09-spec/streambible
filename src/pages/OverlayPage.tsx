@@ -114,7 +114,7 @@ const OverlayPage: React.FC = () => {
                 backdropFilter: 'blur(24px)',
                 WebkitBackdropFilter: 'blur(24px)',
                 border: '1px solid rgba(255, 255, 255, 0.08)',
-                borderLeft: '4px solid var(--color-accent-primary)',
+                borderLeft: '4px solid rgba(255, 255, 255, 0.9)',
                 borderRadius: '16px',
                 padding: '1.5rem 2.5rem',
                 boxShadow: '0 20px 40px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.1)',
@@ -127,7 +127,7 @@ const OverlayPage: React.FC = () => {
                 <div style={{ position: 'relative', zIndex: 1 }}>
                   <h2 
                     style={{ 
-                      color: 'var(--color-accent-primary)', 
+                      color: 'rgba(255, 255, 255, 0.6)', 
                       fontSize: 'calc(1rem * var(--font-scale))', 
                       fontWeight: '800',
                       letterSpacing: '0.15em',
