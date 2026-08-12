@@ -10,6 +10,7 @@ import {
 import {
   loadBibleStore,
   getVerse,
+  getVerseRange,
 } from "../services/bibleStore";
 import { useSettings } from "../context/SettingsContext";
 import { useSession } from "../context/SessionContext";
@@ -179,8 +180,11 @@ export const useControllerState = () => {
   useEffect(() => {
     if (!latestRef) return;
 
-    const pText = getVerse(primaryVersion, latestRef.bookCode, latestRef.chapter, latestRef.verse);
-    const sText = getVerse(secondaryVersion, latestRef.bookCode, latestRef.chapter, latestRef.verse);
+    const verses = latestRef.verses && latestRef.verses.length > 0
+      ? latestRef.verses
+      : [latestRef.verse];
+    const pText = getVerseRange(primaryVersion, latestRef.bookCode, latestRef.chapter, verses);
+    const sText = getVerseRange(secondaryVersion, latestRef.bookCode, latestRef.chapter, verses);
 
     setPrimaryText(pText ?? "");
     setPrimaryRef(latestRef.canonical);

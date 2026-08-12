@@ -512,10 +512,38 @@ export const bookChapterCounts: Record<string, number> = {
 export interface ParsedReference {
   bookCode: string;
   chapter: number;
-  verse: number;
+  verse: number;        // first verse (backward-compat)
+  verseExpr: string;   // raw expression: "1", "1-3", "1,3,5"
+  verses: number[];    // resolved array of all verse numbers
   canonical: string;
   selectionStart: number;
   selectionEnd: number;
+}
+
+/**
+ * Parse a verse expression like "1", "1-3", "1,3,5", or "1-3,5" into a
+ * sorted, deduplicated array of verse numbers.
+ */
+export function parseVerseExpr(expr: string): number[] {
+  const result: number[] = [];
+  for (const group of expr.split(',')) {
+    const trimmed = group.trim();
+    if (!trimmed) continue;
+    if (trimmed.includes('-')) {
+      const [startStr, endStr] = trimmed.split('-');
+      const start = parseInt(startStr, 10);
+      const end = parseInt(endStr, 10);
+      if (!isNaN(start) && !isNaN(end) && end >= start) {
+        for (let v = start; v <= end; v++) result.push(v);
+      } else if (!isNaN(start)) {
+        result.push(start);
+      }
+    } else {
+      const v = parseInt(trimmed, 10);
+      if (!isNaN(v)) result.push(v);
+    }
+  }
+  return [...new Set(result)].sort((a, b) => a - b);
 }
 
 /**
@@ -585,7 +613,10 @@ export function parseReferenceIncremental(
     selectionEnd = selectionStart;
   }
 
-  return { bookCode, chapter, verse, canonical, selectionStart, selectionEnd };
+  const verseExpr = String(verse);
+  const verses = [verse];
+
+  return { bookCode, chapter, verse, verseExpr, verses, canonical, selectionStart, selectionEnd };
 }
 
 /**

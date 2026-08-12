@@ -2,6 +2,7 @@ import React, { useRef, useState, useEffect, useLayoutEffect, useMemo } from "re
 import { List } from "lucide-react";
 import {
   parseReferenceIncremental,
+  parseVerseExpr,
   type ParsedReference,
   getBookCode,
   canonicalBookNames,
@@ -76,14 +77,22 @@ export const SearchModule: React.FC<SearchModuleProps> = ({
     const maxChapters = bookChapterCounts[bookCode] ?? 1;
     let ch = parseInt(typedChapter.current) || 1;
     ch = Math.max(1, Math.min(ch, maxChapters));
-    
-    const v = Math.max(1, parseInt(typedVerse.current) || 1);
 
-    const canonical = `${bookName} ${ch}:${v}`;
+    // Parse the verse expression: may be "1", "1-3", "1,3,5"
+    const rawExpr = typedVerse.current || '1';
+    const verses = parseVerseExpr(rawExpr);
+    const firstVerse = verses[0] ?? 1;
+
+    // Canonical always shows the first valid verse number; for multi-verse,
+    // it shows the full expression (e.g. "Genesis 1:1-3")
+    const verseDisplay = rawExpr.replace(/\s/g, '');
+    const canonical = `${bookName} ${ch}:${verseDisplay}`;
     setDisplayValue(canonical);
 
     let start = 0;
     let end = 0;
+    const chapterStart = bookName.length + 1;
+    const verseStart = chapterStart + String(ch).length + 1;
 
     if (activeBlock.current === "book") {
       if (blockSelected.current) {
@@ -94,7 +103,7 @@ export const SearchModule: React.FC<SearchModuleProps> = ({
         end = bookName.length;
       }
     } else if (activeBlock.current === "chapter") {
-      start = bookName.length + 1;
+      start = chapterStart;
       if (blockSelected.current) {
         end = start + String(ch).length;
       } else {
@@ -102,12 +111,12 @@ export const SearchModule: React.FC<SearchModuleProps> = ({
         end = start;
       }
     } else if (activeBlock.current === "verse") {
-      start = bookName.length + 1 + String(ch).length + 1;
       if (blockSelected.current) {
-        end = start + String(v).length;
+        start = verseStart;
+        end = canonical.length;
       } else {
-        start = start + typedVerse.current.length;
-        end = start;
+        start = canonical.length;
+        end = canonical.length;
       }
     }
 
@@ -117,7 +126,9 @@ export const SearchModule: React.FC<SearchModuleProps> = ({
     onReferenceResolved({
       bookCode,
       chapter: ch,
-      verse: v,
+      verse: firstVerse,
+      verseExpr: verseDisplay,
+      verses,
       canonical,
       selectionStart: start,
       selectionEnd: end
@@ -254,22 +265,20 @@ export const SearchModule: React.FC<SearchModuleProps> = ({
       }
 
       if (activeBlock.current === "verse") {
-        if (!bookCode) return;
-        const maxChapters = bookChapterCounts[bookCode] ?? 1;
-        let ch = parseInt(typedChapter.current) || 1;
-        ch = Math.max(1, Math.min(ch, maxChapters));
-        
-        const maxVerse = getAnyMaxVerse(bookCode, ch);
-        let v = parseInt(typedVerse.current) || 1;
-        
-        if (isUp) {
-          v = v > 1 ? v - 1 : maxVerse;
-        } else {
-          v = v < maxVerse ? v + 1 : 1;
+        // For simple single-verse, allow up/down to increment/decrement.
+        // For multi-verse expressions (ranges/lists), don't modify.
+        if (!typedVerse.current.includes('-') && !typedVerse.current.includes(',')) {
+          const maxVerse = getAnyMaxVerse(bookCode, ch);
+          let v = parseInt(typedVerse.current) || 1;
+          if (isUp) {
+            v = v > 1 ? v - 1 : maxVerse;
+          } else {
+            v = v < maxVerse ? v + 1 : 1;
+          }
+          typedVerse.current = String(v);
+          blockSelected.current = true;
+          updateDisplay();
         }
-        typedVerse.current = String(v);
-        blockSelected.current = true; // highlight new verse entirely
-        updateDisplay();
         return;
       }
     }
@@ -357,7 +366,10 @@ export const SearchModule: React.FC<SearchModuleProps> = ({
         updateDisplay();
       }
     } else if (activeBlock.current === "verse") {
-      if (/\d/.test(char)) {
+      // Allow digits, hyphen (for ranges), and comma (for lists)
+      if (/[\d\-,]/.test(char)) {
+        // Hyphen/comma only valid after at least one digit
+        if ((char === '-' || char === ',') && typedVerse.current === '') return;
         typedVerse.current = blockSelected.current ? char : typedVerse.current + char;
         blockSelected.current = false;
         updateDisplay();
@@ -369,7 +381,7 @@ export const SearchModule: React.FC<SearchModuleProps> = ({
     e.preventDefault();
     const pasted = e.clipboardData
       .getData("text")
-      .replace(/[^\w\s:]/g, "")
+      .replace(/[^\w\s:,\-]/g, "")
       .trim();
     if (!pasted) return;
 
@@ -377,7 +389,9 @@ export const SearchModule: React.FC<SearchModuleProps> = ({
     if (ref) {
       typedBook.current = canonicalBookNames[ref.bookCode] || ref.bookCode;
       typedChapter.current = String(ref.chapter);
-      typedVerse.current = String(ref.verse);
+      // Preserve the verse expression from the paste if it contains range/list chars
+      const verseMatch = pasted.match(/:([0-9,\-]+)\s*$/);
+      typedVerse.current = verseMatch ? verseMatch[1] : String(ref.verse);
       activeBlock.current = "verse";
       blockSelected.current = false;
       updateDisplay();

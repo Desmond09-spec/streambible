@@ -73,8 +73,10 @@ export const useSession = () => {
 export const SessionProvider: React.FC<{ children?: ReactNode }> = ({ children }) => {
   const [serverConnected, setServerConnected] = useState(false);
   const [connectedClients, setConnectedClients] = useState(0);
+  const [pingMs, setPingMs] = useState<number | null>(null);
   const [connectionState, setConnectionState] = useState<'connected' | 'connecting' | 'reconnecting' | 'disconnected'>('disconnected');
   const wsRef = useRef<WebSocket | null>(null);
+  const pingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const connectWebSocket = useCallback(() => {
     if (wsRef.current?.readyState === WebSocket.OPEN || wsRef.current?.readyState === WebSocket.CONNECTING) {
@@ -102,6 +104,7 @@ export const SessionProvider: React.FC<{ children?: ReactNode }> = ({ children }
     ws.onclose = () => {
       setServerConnected(false);
       setConnectedClients(0);
+      setPingMs(null);
       setConnectionState('disconnected');
       wsRef.current = null;
     };
@@ -119,8 +122,14 @@ export const SessionProvider: React.FC<{ children?: ReactNode }> = ({ children }
         } else if (data.type === 'clear_screen') {
           window.dispatchEvent(new CustomEvent('streambible-clear'));
         } else if (data.type === 'client_count') {
-          // Server tells us how many non-controller clients are connected (i.e. overlays)
           setConnectedClients(data.count ?? 0);
+          // No overlays → no meaningful ping
+          if ((data.count ?? 0) === 0) setPingMs(null);
+        } else if (data.type === 'pong') {
+          // Round-trip time from controller → relay → overlay → relay → controller
+          if (typeof data.ts === 'number') {
+            setPingMs(Date.now() - data.ts);
+          }
         }
       } catch (e) {
         // ignore malformed messages
@@ -137,6 +146,25 @@ export const SessionProvider: React.FC<{ children?: ReactNode }> = ({ children }
     }, 2000);
     return () => clearInterval(interval);
   }, [connectWebSocket]);
+
+  // Send a ping to overlays every 3s to measure real RTT.
+  // The overlays bounce back a pong with the same timestamp.
+  useEffect(() => {
+    const startPing = () => {
+      if (pingIntervalRef.current) clearInterval(pingIntervalRef.current);
+      pingIntervalRef.current = setInterval(() => {
+        if (wsRef.current?.readyState === WebSocket.OPEN && connectedClients > 0) {
+          wsRef.current.send(JSON.stringify({ type: 'ping', ts: Date.now() }));
+        } else if (connectedClients === 0) {
+          setPingMs(null);
+        }
+      }, 3000);
+    };
+    startPing();
+    return () => {
+      if (pingIntervalRef.current) clearInterval(pingIntervalRef.current);
+    };
+  }, [connectedClients]);
 
   const pushVerse = useCallback((payload: VersePayload) => {
     if (wsRef.current?.readyState === WebSocket.OPEN) {
@@ -180,7 +208,7 @@ export const SessionProvider: React.FC<{ children?: ReactNode }> = ({ children }
     confirmRegenerate: () => {}, cancelRegenerate: () => {},
     handleJoinRequest: async () => {}, handleResponse: async () => {},
     user: null, claimedRoomId: null, hasOnboarded: true, setHasOnboarded: () => {},
-    retryCountdown: null, pingMs: null, consecutiveFailures: 0
+    retryCountdown: null, pingMs, consecutiveFailures: 0
   };
 
   return (

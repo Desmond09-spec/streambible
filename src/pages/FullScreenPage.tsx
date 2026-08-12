@@ -46,6 +46,8 @@ const FullScreenPage: React.FC = () => {
             setVerse({ ...data.payload, isVisible: true });
           } else if (data.type === 'clear_screen') {
             setVerse((prev) => ({ ...prev, isVisible: false }));
+          } else if (data.type === 'ping') {
+            ws!.send(JSON.stringify({ type: 'pong', ts: data.ts }));
           }
         } catch (_) { /* ignore */ }
       };

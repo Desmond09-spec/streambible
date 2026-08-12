@@ -47,6 +47,9 @@ const OverlayPage: React.FC = () => {
             setVerse({ ...data.payload, isVisible: true });
           } else if (data.type === 'clear_screen') {
             setVerse((prev) => ({ ...prev, isVisible: false }));
+          } else if (data.type === 'ping') {
+            // Bounce back so the controller can measure round-trip latency
+            ws!.send(JSON.stringify({ type: 'pong', ts: data.ts }));
           }
         } catch (_) { /* ignore */ }
       };

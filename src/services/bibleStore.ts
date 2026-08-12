@@ -184,3 +184,24 @@ export function getAnyMaxVerse(bookCode: string, chapter: number): number {
   }
   return max;
 }
+
+/**
+ * Fetches and concatenates multiple verses for range/list references.
+ * e.g. verses=[1,2,3] returns "{{v:1}} In the beginning... {{v:2}} And the earth..."
+ *
+ * Falls back to a single-verse lookup when verses is empty.
+ */
+export function getVerseRange(
+  versionId: string,
+  bookCode: string,
+  chapter: number,
+  verses: number[],
+): string | null {
+  if (verses.length === 0) return null;
+  const parts: string[] = [];
+  for (const v of verses) {
+    const text = getVerse(versionId, bookCode, chapter, v);
+    if (text) parts.push(text);
+  }
+  return parts.length > 0 ? parts.join(' ') : null;
+}
