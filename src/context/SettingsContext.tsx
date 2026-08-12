@@ -26,7 +26,7 @@ const defaultSettings: SettingsContextType = {
   setPushConfirmEnabled: () => {},
   autoClearSeconds: 0,
   setAutoClearSeconds: () => {},
-  showVerseNumbers: false,
+  showVerseNumbers: true,
   setShowVerseNumbers: () => {},
   setlistStyle: 'modal',
   setSetlistStyle: () => {},
@@ -51,7 +51,7 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
     parseInt(localStorage.getItem(SETTINGS_KEYS.autoClear) || '0', 10)
   );
   const [showVerseNumbers, setShowVerseNumbersState] = useState(() =>
-    localStorage.getItem(SETTINGS_KEYS.verseNumbers) === 'true'
+    localStorage.getItem(SETTINGS_KEYS.verseNumbers) !== 'false'
   );
   const [setlistStyle, setSetlistStyleState] = useState<'modal' | 'drawer'>(() =>
     (localStorage.getItem(SETTINGS_KEYS.setlistStyle) || 'modal') as 'modal' | 'drawer'
