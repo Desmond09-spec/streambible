@@ -9,7 +9,6 @@ import {
 } from "../services/bibleService";
 import {
   loadBibleStore,
-  getVerse,
   getVerseRange,
 } from "../services/bibleStore";
 import { useSettings } from "../context/SettingsContext";
@@ -415,7 +414,7 @@ export const useControllerState = () => {
       setPrimaryRef("");
       setSecondaryText("");
       setSecondaryRef("");
-      setQuery("");
+      setExternalQuery("");
       setStatus("default");
       setStatusMsg("Ready");
     }, autoClearSeconds * 1000);
@@ -428,7 +427,7 @@ export const useControllerState = () => {
     setPrimaryRef("");
     setSecondaryText("");
     setSecondaryRef("");
-    setQuery("");
+    setExternalQuery("");
     setStatus("default");
     setStatusMsg("Ready");
   };

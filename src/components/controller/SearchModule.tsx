@@ -268,6 +268,9 @@ export const SearchModule: React.FC<SearchModuleProps> = ({
         // For simple single-verse, allow up/down to increment/decrement.
         // For multi-verse expressions (ranges/lists), don't modify.
         if (!typedVerse.current.includes('-') && !typedVerse.current.includes(',')) {
+          if (!bookCode) return;
+          const maxChapters = bookChapterCounts[bookCode] ?? 1;
+          const ch = Math.max(1, Math.min(parseInt(typedChapter.current) || 1, maxChapters));
           const maxVerse = getAnyMaxVerse(bookCode, ch);
           let v = parseInt(typedVerse.current) || 1;
           if (isUp) {
