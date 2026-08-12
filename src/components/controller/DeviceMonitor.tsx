@@ -1,5 +1,4 @@
 import React from 'react';
-import { LayoutTemplate, Monitor, Copy, ExternalLink } from 'lucide-react';
 import { getPublicBaseUrl } from '../../utils/urlHelpers';
 
 interface DeviceMonitorProps {
@@ -28,111 +27,36 @@ export const DeviceMonitor: React.FC<DeviceMonitorProps> = ({ copyUrl }) => {
             OBS Overlays
           </div>
           <div className="network-status">
-            Add these as Browser Sources in OBS (1920×1080, transparent background).
+            Add these as Browser Sources in OBS at 1920×1080.
           </div>
         </div>
       </div>
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', padding: '12px 0 4px' }}>
+      {/* Lower-Third */}
+      <div className="network-url-box">
+        <svg className="network-url-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+          <rect x="3" y="3" width="18" height="14" rx="2" />
+          <line x1="9" y1="21" x2="15" y2="21" />
+          <line x1="12" y1="17" x2="12" y2="21" />
+        </svg>
+        <span title={lowerThirdUrl}>Lower-Third — {lowerThirdUrl}</span>
+        <button onClick={() => handleOpen(lowerThirdUrl)} title="Open in browser">↗</button>
+        <button onClick={() => copyUrl(lowerThirdUrl, 'overlay')} title="Copy URL">Copy</button>
+      </div>
 
-        {/* Lower-Third Overlay */}
-        <div style={{
-          background: 'var(--bg-elevated)',
-          border: '1px solid var(--border-base)',
-          borderLeft: '3px solid var(--color-accent-primary)',
-          borderRadius: '10px',
-          padding: '12px 14px',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '12px',
-        }}>
-          <LayoutTemplate size={18} style={{ color: 'var(--color-accent-primary)', flexShrink: 0 }} />
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-1)', marginBottom: '2px' }}>
-              Lower-Third Overlay
-            </div>
-            <div style={{
-              fontSize: '11px',
-              color: 'var(--text-3)',
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-              whiteSpace: 'nowrap',
-              fontFamily: 'monospace',
-            }}>
-              {lowerThirdUrl}
-            </div>
-          </div>
-          <button
-            onClick={() => copyUrl(lowerThirdUrl, 'overlay')}
-            className="header-icon-btn"
-            title="Copy URL"
-            style={{ flexShrink: 0 }}
-          >
-            <Copy size={15} />
-          </button>
-          <button
-            onClick={() => handleOpen(lowerThirdUrl)}
-            className="header-icon-btn"
-            title="Open in browser to preview"
-            style={{ flexShrink: 0 }}
-          >
-            <ExternalLink size={15} />
-          </button>
-        </div>
+      {/* Fullscreen */}
+      <div className="network-url-box">
+        <svg className="network-url-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+          <rect x="2" y="3" width="20" height="14" rx="2" />
+          <polyline points="8 21 12 17 16 21" />
+        </svg>
+        <span title={fullscreenUrl}>Fullscreen — {fullscreenUrl}</span>
+        <button onClick={() => handleOpen(fullscreenUrl)} title="Open in browser">↗</button>
+        <button onClick={() => copyUrl(fullscreenUrl, 'fullscreen')} title="Copy URL">Copy</button>
+      </div>
 
-        {/* Fullscreen Overlay */}
-        <div style={{
-          background: 'var(--bg-elevated)',
-          border: '1px solid var(--border-base)',
-          borderLeft: '3px solid #a78bfa',
-          borderRadius: '10px',
-          padding: '12px 14px',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '12px',
-        }}>
-          <Monitor size={18} style={{ color: '#a78bfa', flexShrink: 0 }} />
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-1)', marginBottom: '2px' }}>
-              Fullscreen Display
-            </div>
-            <div style={{
-              fontSize: '11px',
-              color: 'var(--text-3)',
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-              whiteSpace: 'nowrap',
-              fontFamily: 'monospace',
-            }}>
-              {fullscreenUrl}
-            </div>
-          </div>
-          <button
-            onClick={() => copyUrl(fullscreenUrl, 'fullscreen')}
-            className="header-icon-btn"
-            title="Copy URL"
-            style={{ flexShrink: 0 }}
-          >
-            <Copy size={15} />
-          </button>
-          <button
-            onClick={() => handleOpen(fullscreenUrl)}
-            className="header-icon-btn"
-            title="Open in browser to preview"
-            style={{ flexShrink: 0 }}
-          >
-            <ExternalLink size={15} />
-          </button>
-        </div>
-
-        <div style={{
-          fontSize: '11px',
-          color: 'var(--text-3)',
-          lineHeight: 1.5,
-          padding: '4px 2px',
-        }}>
-          💡 StreamBible must be running for overlays to receive updates. OBS will auto-reconnect if the app restarts.
-        </div>
+      <div className="network-status" style={{ marginTop: '-8px' }}>
+        💡 StreamBible must be running for overlays to receive updates.
       </div>
     </div>
   );
